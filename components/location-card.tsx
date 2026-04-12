@@ -3,7 +3,6 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import type { Location } from '@/types';
-import { StockBadge } from './ui/stock-badge';
 
 interface LocationCardProps {
   location: Location;
@@ -52,7 +51,6 @@ export function LocationCard({ location, onPress }: LocationCardProps) {
             {formatLastRestock(location.lastRestockedAt)}
           </Text>
         </View>
-        <StockBadge level={location.stockLevel} />
       </View>
 
       {location.machines.length > 0 && (
@@ -60,12 +58,11 @@ export function LocationCard({ location, onPress }: LocationCardProps) {
           {location.machines.map((m) => {
             const filled = m.slots.filter(Boolean).length;
             return (
-              <View key={m.id} style={styles.machineChip}>
+              <View key={m.id} style={[styles.machineChip, { backgroundColor: colors.background, borderColor: colors.border }]}>
                 <Text style={styles.machineIcon}>{MACHINE_ICONS[m.type]}</Text>
                 <Text style={[styles.machineLabel, { color: colors.subtext }]}>
                   {m.type === 'sweet' ? 'Sweet' : 'Toy'} · {filled}/9
                 </Text>
-                <StockBadge level={m.stockLevel} size="sm" />
               </View>
             );
           })}
@@ -93,17 +90,9 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 2,
   },
-  name: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  address: {
-    fontSize: 13,
-  },
-  restock: {
-    fontSize: 12,
-    marginTop: 2,
-  },
+  name: { fontSize: 16, fontWeight: '600' },
+  address: { fontSize: 13 },
+  restock: { fontSize: 12, marginTop: 2 },
   machines: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -116,12 +105,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
-  machineIcon: {
-    fontSize: 14,
-  },
-  machineLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
+  machineIcon: { fontSize: 13 },
+  machineLabel: { fontSize: 12, fontWeight: '500' },
 });

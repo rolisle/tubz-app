@@ -19,6 +19,7 @@ interface MachineGridProps {
   machine: Machine;
   products: Product[];
   onUpdate: (updated: Machine) => void;
+  onStockChange: (productId: string, delta: number) => void;
   readonly?: boolean;
 }
 
@@ -38,9 +39,7 @@ function SlotPicker({ slotIndex, products, onSelect, onClose, colorScheme }: Slo
       <Pressable style={styles.overlay} onPress={onClose} />
       <View style={[styles.sheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <View style={styles.sheetHeader}>
-          <Text style={[styles.sheetTitle, { color: colors.text }]}>
-            Slot {slotIndex + 1}
-          </Text>
+          <Text style={[styles.sheetTitle, { color: colors.text }]}>Slot {slotIndex + 1}</Text>
           <TouchableOpacity onPress={onClose} hitSlop={8}>
             <Text style={[styles.sheetClose, { color: colors.subtext }]}>Done</Text>
           </TouchableOpacity>
@@ -80,8 +79,7 @@ function SlotPicker({ slotIndex, products, onSelect, onClose, colorScheme }: Slo
 interface MergedItem {
   productId: string | null;
   product: Product | null;
-  count: number;
-  /** Indices of all slots holding this product (used to open picker on tap) */
+  slotCount: number;
   slotIndices: number[];
 }
 
@@ -92,19 +90,18 @@ function buildMergedList(slots: (string | null)[], products: Product[]): MergedI
     const key = id ?? '__empty__';
     if (map.has(key)) {
       const item = map.get(key)!;
-      item.count += 1;
+      item.slotCount += 1;
       item.slotIndices.push(i);
     } else {
       map.set(key, {
         productId: id,
         product: id ? (products.find((p) => p.id === id) ?? null) : null,
-        count: 1,
+        slotCount: 1,
         slotIndices: [i],
       });
     }
   });
 
-  // Sort: filled slots first, empty last
   return [...map.values()].sort((a, b) => {
     if (a.productId === null) return 1;
     if (b.productId === null) return -1;
@@ -116,11 +113,12 @@ interface ListViewProps {
   machine: Machine;
   products: Product[];
   onSlotPress: (index: number) => void;
+  onStockChange: (productId: string, delta: number) => void;
   readonly?: boolean;
   colors: (typeof Colors)['light'];
 }
 
-function ListView({ machine, products, onSlotPress, readonly, colors }: ListViewProps) {
+function ListView({ machine, products, onSlotPress, onStockChange, readonly, colors }: ListViewProps) {
   const merged = useMemo(
     () => buildMergedList(machine.slots, products),
     [machine.slots, products]
@@ -133,10 +131,11 @@ function ListView({ machine, products, onSlotPress, readonly, colors }: ListView
       {filledCount === 0 && (
         <Text style={[styles.listEmpty, { color: colors.subtext }]}>No items loaded</Text>
       )}
+
       {merged.map((item) => {
-        const isEmpty = item.productId === null;
-        if (isEmpty && item.count === machine.slots.length) {
-          // All slots empty — show single empty row
+        if (item.productId === null) {
+          // Show empty row only if ALL slots are empty
+          if (filledCount > 0) return null;
           return (
             <TouchableOpacity
               key="__empty__"
@@ -146,13 +145,12 @@ function ListView({ machine, products, onSlotPress, readonly, colors }: ListView
               activeOpacity={readonly ? 1 : 0.6}>
               <Text style={[styles.listEmoji, { opacity: 0.35 }]}>＋</Text>
               <Text style={[styles.listName, { color: colors.subtext }]}>Empty</Text>
-              <Text style={[styles.listCount, { color: colors.subtext }]}>
-                ×{item.count}
-              </Text>
+              <Text style={[styles.listCount, { color: colors.subtext }]}>×{item.slotCount}</Text>
             </TouchableOpacity>
           );
         }
-        if (isEmpty) return null; // skip empty when some slots are filled
+
+        const stockCount = machine.stockCounts[item.productId] ?? 0;
 
         return (
           <TouchableOpacity
@@ -165,27 +163,49 @@ function ListView({ machine, products, onSlotPress, readonly, colors }: ListView
             ]}
             activeOpacity={readonly ? 1 : 0.6}>
             <Text style={styles.listEmoji}>{item.product?.emoji ?? '📦'}</Text>
-            <Text style={[styles.listName, { color: colors.text }]} numberOfLines={1}>
-              {item.product?.name ?? 'Unknown'}
-            </Text>
-            {item.count > 1 && (
-              <View style={[styles.countBadge, { backgroundColor: colors.tint + '22' }]}>
-                <Text style={[styles.countText, { color: colors.tint }]}>×{item.count}</Text>
-              </View>
-            )}
+
+            <View style={styles.listInfo}>
+              <Text style={[styles.listName, { color: colors.text }]} numberOfLines={1}>
+                {item.product?.name ?? 'Unknown'}
+              </Text>
+              {item.slotCount > 1 && (
+                <Text style={[styles.listSlotCount, { color: colors.subtext }]}>
+                  ×{item.slotCount} in machine
+                </Text>
+              )}
+            </View>
+
+            {/* Stock +/- controls */}
+            <View style={styles.stockControls}>
+              <TouchableOpacity
+                onPress={(e) => { e.stopPropagation(); onStockChange(item.productId!, -1); }}
+                hitSlop={6}
+                style={[styles.stockBtn, { borderColor: colors.border, backgroundColor: colors.card }]}>
+                <Text style={[styles.stockBtnText, { color: colors.text }]}>−</Text>
+              </TouchableOpacity>
+              <Text style={[styles.stockValue, { color: stockCount > 0 ? colors.text : colors.subtext }]}>
+                {stockCount}
+              </Text>
+              <TouchableOpacity
+                onPress={(e) => { e.stopPropagation(); onStockChange(item.productId!, +1); }}
+                hitSlop={6}
+                style={[styles.stockBtn, { borderColor: colors.border, backgroundColor: colors.card }]}>
+                <Text style={[styles.stockBtnText, { color: colors.text }]}>＋</Text>
+              </TouchableOpacity>
+            </View>
           </TouchableOpacity>
         );
       })}
 
-      {/* Show empty slots count at bottom when mixed */}
-      {(() => {
+      {/* Empty slot footer when mixed */}
+      {filledCount > 0 && (() => {
         const emptyItem = merged.find((m) => m.productId === null);
-        if (!emptyItem || filledCount === 0) return null;
+        if (!emptyItem) return null;
         return (
           <View style={[styles.listRow, styles.listRowEmpty, { borderColor: colors.border }]}>
             <Text style={[styles.listEmoji, { opacity: 0.3 }]}>–</Text>
             <Text style={[styles.listName, { color: colors.subtext }]}>Empty slots</Text>
-            <Text style={[styles.listCount, { color: colors.subtext }]}>×{emptyItem.count}</Text>
+            <Text style={[styles.listCount, { color: colors.subtext }]}>×{emptyItem.slotCount}</Text>
           </View>
         );
       })()}
@@ -195,16 +215,14 @@ function ListView({ machine, products, onSlotPress, readonly, colors }: ListView
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function MachineGrid({ machine, products, onUpdate, readonly }: MachineGridProps) {
+export function MachineGrid({ machine, products, onUpdate, onStockChange, readonly }: MachineGridProps) {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
   const [activeSlot, setActiveSlot] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
 
   const handleSlotPress = useCallback(
-    (index: number) => {
-      if (!readonly) setActiveSlot(index);
-    },
+    (index: number) => { if (!readonly) setActiveSlot(index); },
     [readonly]
   );
 
@@ -228,29 +246,15 @@ export function MachineGrid({ machine, products, onUpdate, readonly }: MachineGr
       <View style={[styles.toggleBar, { borderColor: colors.border, backgroundColor: colors.card }]}>
         <TouchableOpacity
           onPress={() => setViewMode('grid')}
-          style={[
-            styles.toggleBtn,
-            viewMode === 'grid' && { backgroundColor: colors.tint },
-          ]}>
-          <Text style={[styles.toggleIcon, { color: viewMode === 'grid' ? '#fff' : colors.subtext }]}>
-            ⊞
-          </Text>
-          <Text style={[styles.toggleLabel, { color: viewMode === 'grid' ? '#fff' : colors.subtext }]}>
-            Grid
-          </Text>
+          style={[styles.toggleBtn, viewMode === 'grid' && { backgroundColor: colors.tint }]}>
+          <Text style={[styles.toggleIcon, { color: viewMode === 'grid' ? '#fff' : colors.subtext }]}>⊞</Text>
+          <Text style={[styles.toggleLabel, { color: viewMode === 'grid' ? '#fff' : colors.subtext }]}>Grid</Text>
         </TouchableOpacity>
         <TouchableOpacity
           onPress={() => setViewMode('list')}
-          style={[
-            styles.toggleBtn,
-            viewMode === 'list' && { backgroundColor: colors.tint },
-          ]}>
-          <Text style={[styles.toggleIcon, { color: viewMode === 'list' ? '#fff' : colors.subtext }]}>
-            ≡
-          </Text>
-          <Text style={[styles.toggleLabel, { color: viewMode === 'list' ? '#fff' : colors.subtext }]}>
-            List
-          </Text>
+          style={[styles.toggleBtn, viewMode === 'list' && { backgroundColor: colors.tint }]}>
+          <Text style={[styles.toggleIcon, { color: viewMode === 'list' ? '#fff' : colors.subtext }]}>≡</Text>
+          <Text style={[styles.toggleLabel, { color: viewMode === 'list' ? '#fff' : colors.subtext }]}>List</Text>
         </TouchableOpacity>
       </View>
 
@@ -260,7 +264,6 @@ export function MachineGrid({ machine, products, onUpdate, readonly }: MachineGr
           {Array.from({ length: 9 }).map((_, i) => {
             const product = getProduct(machine.slots[i] ?? null);
             const isEmpty = !product;
-
             return (
               <TouchableOpacity
                 key={i}
@@ -288,6 +291,7 @@ export function MachineGrid({ machine, products, onUpdate, readonly }: MachineGr
           machine={machine}
           products={products}
           onSlotPress={handleSlotPress}
+          onStockChange={onStockChange}
           readonly={readonly}
           colors={colors}
         />
@@ -307,10 +311,8 @@ export function MachineGrid({ machine, products, onUpdate, readonly }: MachineGr
 }
 
 const styles = StyleSheet.create({
-  container: {
-    gap: 8,
-  },
-  // ─── Toggle ──────────────────────────────────────────────────────────────
+  container: { gap: 8 },
+  // Toggle
   toggleBar: {
     flexDirection: 'row',
     borderRadius: 9,
@@ -325,20 +327,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
-  toggleIcon: {
-    fontSize: 15,
-    lineHeight: 18,
-  },
-  toggleLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  // ─── Grid ────────────────────────────────────────────────────────────────
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
+  toggleIcon: { fontSize: 15, lineHeight: 18 },
+  toggleLabel: { fontSize: 12, fontWeight: '600' },
+  // Grid
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   slot: {
     width: '30%',
     aspectRatio: 1,
@@ -349,65 +341,50 @@ const styles = StyleSheet.create({
     gap: 4,
     padding: 4,
   },
-  slotEmoji: {
-    fontSize: 22,
-  },
-  slotLabel: {
-    fontSize: 10,
-    fontWeight: '500',
-    textAlign: 'center',
-  },
-  // ─── List ────────────────────────────────────────────────────────────────
-  listContainer: {
-    gap: 2,
-  },
-  listEmpty: {
-    fontSize: 13,
-    textAlign: 'center',
-    paddingVertical: 12,
-  },
+  slotEmoji: { fontSize: 22 },
+  slotLabel: { fontSize: 10, fontWeight: '500', textAlign: 'center' },
+  // List
+  listContainer: { gap: 2 },
+  listEmpty: { fontSize: 13, textAlign: 'center', paddingVertical: 12 },
   listRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    paddingVertical: 9,
+    paddingVertical: 8,
     paddingHorizontal: 10,
     borderRadius: 8,
     borderWidth: StyleSheet.hairlineWidth,
     marginBottom: 2,
   },
-  listRowEmpty: {
-    opacity: 0.6,
+  listRowEmpty: { opacity: 0.6 },
+  listEmoji: { fontSize: 20, width: 28, textAlign: 'center' },
+  listInfo: { flex: 1, gap: 1 },
+  listName: { fontSize: 14, fontWeight: '500' },
+  listSlotCount: { fontSize: 11 },
+  listCount: { fontSize: 13, fontWeight: '600', opacity: 0.7 },
+  // Stock controls
+  stockControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
-  listEmoji: {
-    fontSize: 20,
+  stockBtn: {
     width: 28,
+    height: 28,
+    borderRadius: 7,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stockBtnText: { fontSize: 16, lineHeight: 20, fontWeight: '500' },
+  stockValue: {
+    fontSize: 15,
+    fontWeight: '700',
+    minWidth: 22,
     textAlign: 'center',
   },
-  listName: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  listCount: {
-    fontSize: 13,
-    fontWeight: '600',
-    opacity: 0.7,
-  },
-  countBadge: {
-    borderRadius: 6,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-  },
-  countText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  // ─── Slot Picker modal ────────────────────────────────────────────────────
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-  },
+  // Slot Picker
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
   sheet: {
     position: 'absolute',
     bottom: 0,
@@ -426,14 +403,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
   },
-  sheetTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-  },
-  sheetClose: {
-    fontSize: 15,
-    fontWeight: '500',
-  },
+  sheetTitle: { fontSize: 17, fontWeight: '600' },
+  sheetClose: { fontSize: 15, fontWeight: '500' },
   productRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -442,14 +413,8 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  productEmoji: {
-    fontSize: 22,
-    width: 30,
-    textAlign: 'center',
-  },
-  productName: {
-    fontSize: 16,
-  },
+  productEmoji: { fontSize: 22, width: 30, textAlign: 'center' },
+  productName: { fontSize: 16 },
   emptyNote: {
     textAlign: 'center',
     paddingVertical: 24,

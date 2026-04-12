@@ -1,4 +1,3 @@
-export type StockLevel = 'full' | 'half' | 'none';
 export type MachineType = 'sweet' | 'toy';
 
 export type ProductCategory = 'sweet' | 'toy' | 'other';
@@ -14,9 +13,10 @@ export interface Product {
 export interface Machine {
   id: string;
   type: MachineType;
-  stockLevel: StockLevel;
   /** Up to 9 slots; each entry is a product ID or null (empty slot) */
   slots: (string | null)[];
+  /** Supply stock count per product ID — how many of each item are available to reload */
+  stockCounts: Record<string, number>;
 }
 
 export interface Location {
@@ -24,8 +24,6 @@ export interface Location {
   name: string;
   address?: string;
   notes?: string;
-  /** Overall supply stock at the location */
-  stockLevel: StockLevel;
   lastRestockedAt: string | null;
   machines: Machine[];
   createdAt: string;

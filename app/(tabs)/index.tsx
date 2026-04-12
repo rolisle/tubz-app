@@ -4,10 +4,9 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { LocationCard } from '@/components/location-card';
-import { Colors, StockColors } from '@/constants/theme';
+import { Colors } from '@/constants/theme';
 import { useApp } from '@/context/app-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import type { StockLevel } from '@/types';
 
 function todayLabel() {
   return new Date().toLocaleDateString('en-AU', {
@@ -19,7 +18,7 @@ function todayLabel() {
 
 interface StatCardProps {
   label: string;
-  value: number;
+  value: number | string;
   accent?: string;
   colors: (typeof Colors)['light'];
 }
@@ -45,20 +44,11 @@ export default function DashboardScreen() {
   const router = useRouter();
 
   const stats = useMemo(() => {
-    const total = state.locations.length;
-    const byLevel = (l: StockLevel) => state.locations.filter((loc) => loc.stockLevel === l).length;
-    return {
-      total,
-      full: byLevel('full'),
-      half: byLevel('half'),
-      none: byLevel('none'),
-    };
-  }, [state.locations]);
-
-  const attentionLocations = useMemo(
-    () => state.locations.filter((l) => l.stockLevel === 'none' || l.stockLevel === 'half'),
-    [state.locations]
-  );
+    const totalLocations = state.locations.length;
+    const totalMachines = state.locations.reduce((sum, l) => sum + l.machines.length, 0);
+    const totalProducts = state.products.length;
+    return { totalLocations, totalMachines, totalProducts };
+  }, [state.locations, state.products]);
 
   const recentRestocks = useMemo(
     () =>
@@ -80,42 +70,16 @@ export default function DashboardScreen() {
         showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
-          <View>
-            <Text style={[styles.wordmark, { color: colors.text }]}>Tubz</Text>
-            <Text style={[styles.date, { color: colors.subtext }]}>{todayLabel()}</Text>
-          </View>
+          <Text style={[styles.wordmark, { color: colors.text }]}>Tubz</Text>
+          <Text style={[styles.date, { color: colors.subtext }]}>{todayLabel()}</Text>
         </View>
 
         {/* Stats row */}
         <View style={styles.statsRow}>
-          <StatCard label="Locations" value={stats.total} colors={colors} />
-          <StatCard
-            label="Low Stock"
-            value={stats.half}
-            accent={StockColors.half.dot}
-            colors={colors}
-          />
-          <StatCard
-            label="Out of Stock"
-            value={stats.none}
-            accent={StockColors.none.dot}
-            colors={colors}
-          />
+          <StatCard label="Locations" value={stats.totalLocations} colors={colors} />
+          <StatCard label="Machines" value={stats.totalMachines} colors={colors} />
+          <StatCard label="Products" value={stats.totalProducts} colors={colors} />
         </View>
-
-        {/* Attention section */}
-        {attentionLocations.length > 0 && (
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Needs Attention</Text>
-            {attentionLocations.map((loc) => (
-              <LocationCard
-                key={loc.id}
-                location={loc}
-                onPress={() => router.push({ pathname: '/location/[id]', params: { id: loc.id } })}
-              />
-            ))}
-          </View>
-        )}
 
         {/* Recent restocks */}
         {recentRestocks.length > 0 && (
@@ -163,30 +127,12 @@ export default function DashboardScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-  },
-  content: {
-    padding: 20,
-    paddingBottom: 40,
-  },
-  header: {
-    marginBottom: 20,
-  },
-  wordmark: {
-    fontSize: 32,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-  },
-  date: {
-    fontSize: 14,
-    marginTop: 2,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 28,
-  },
+  safe: { flex: 1 },
+  content: { padding: 20, paddingBottom: 40 },
+  header: { marginBottom: 20 },
+  wordmark: { fontSize: 32, fontWeight: '800', letterSpacing: -0.5 },
+  date: { fontSize: 14, marginTop: 2 },
+  statsRow: { flexDirection: 'row', gap: 10, marginBottom: 28 },
   statCard: {
     flex: 1,
     borderRadius: 12,
@@ -194,22 +140,10 @@ const styles = StyleSheet.create({
     padding: 12,
     gap: 2,
   },
-  statValue: {
-    fontSize: 26,
-    fontWeight: '700',
-  },
-  statLabel: {
-    fontSize: 11,
-    fontWeight: '500',
-  },
-  section: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 10,
-  },
+  statValue: { fontSize: 26, fontWeight: '700' },
+  statLabel: { fontSize: 11, fontWeight: '500' },
+  section: { marginBottom: 24 },
+  sectionTitle: { fontSize: 18, fontWeight: '700', marginBottom: 10 },
   empty: {
     marginTop: 40,
     alignItems: 'center',
@@ -219,28 +153,9 @@ const styles = StyleSheet.create({
     padding: 32,
     gap: 8,
   },
-  emptyEmoji: {
-    fontSize: 40,
-    marginBottom: 4,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  emptyNote: {
-    fontSize: 14,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  emptyBtn: {
-    marginTop: 8,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 10,
-  },
-  emptyBtnText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 15,
-  },
+  emptyEmoji: { fontSize: 40, marginBottom: 4 },
+  emptyTitle: { fontSize: 18, fontWeight: '700' },
+  emptyNote: { fontSize: 14, textAlign: 'center', lineHeight: 20 },
+  emptyBtn: { marginTop: 8, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 10 },
+  emptyBtnText: { color: '#fff', fontWeight: '600', fontSize: 15 },
 });

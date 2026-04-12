@@ -5,7 +5,6 @@ import {
   FlatList,
   Modal,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -18,17 +17,6 @@ import { LocationCard } from '@/components/location-card';
 import { Colors } from '@/constants/theme';
 import { useApp } from '@/context/app-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import type { StockLevel } from '@/types';
-
-type Filter = 'all' | StockLevel;
-
-const FILTERS: { label: string; value: Filter }[] = [
-  { label: 'All', value: 'all' },
-  { label: '1 Box', value: 'full' },
-  { label: '½ Box', value: 'half' },
-  { label: 'None', value: 'none' },
-];
-
 interface AddLocationModalProps {
   visible: boolean;
   onClose: () => void;
@@ -49,7 +37,6 @@ function AddLocationModal({ visible, onClose, colors }: AddLocationModalProps) {
     addLocation({
       name: trimmed,
       address: address.trim() || undefined,
-      stockLevel: 'full',
       lastRestockedAt: null,
       machines: [],
       notes: undefined,
@@ -103,18 +90,14 @@ export default function LocationsScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
   const router = useRouter();
-  const [filter, setFilter] = useState<Filter>('all');
   const [search, setSearch] = useState('');
   const [showAdd, setShowAdd] = useState(false);
 
-  const filtered = state.locations.filter((loc) => {
-    const matchesFilter = filter === 'all' || loc.stockLevel === filter;
-    const matchesSearch =
-      !search ||
-      loc.name.toLowerCase().includes(search.toLowerCase()) ||
-      (loc.address?.toLowerCase().includes(search.toLowerCase()) ?? false);
-    return matchesFilter && matchesSearch;
-  });
+  const filtered = state.locations.filter((loc) =>
+    !search ||
+    loc.name.toLowerCase().includes(search.toLowerCase()) ||
+    (loc.address?.toLowerCase().includes(search.toLowerCase()) ?? false)
+  );
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
@@ -143,33 +126,6 @@ export default function LocationsScreen() {
           </TouchableOpacity>
         )}
       </View>
-
-      {/* Filter pills */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.filters}>
-        {FILTERS.map((f) => (
-          <TouchableOpacity
-            key={f.value}
-            onPress={() => setFilter(f.value)}
-            style={[
-              styles.filterPill,
-              {
-                backgroundColor: filter === f.value ? colors.tint : colors.card,
-                borderColor: filter === f.value ? colors.tint : colors.border,
-              },
-            ]}>
-            <Text
-              style={[
-                styles.filterLabel,
-                { color: filter === f.value ? '#fff' : colors.subtext },
-              ]}>
-              {f.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
 
       <FlatList
         data={filtered}

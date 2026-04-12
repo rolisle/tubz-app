@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useContext, useEffect, useReducer } from 'react';
 
 import { DEFAULT_PRODUCTS } from '@/constants/default-products';
-import type { AppState, Location, Machine, MachineType, Product, ProductCategory, StockLevel } from '@/types';
+import type { AppState, Location, Machine, MachineType, Product, ProductCategory } from '@/types';
 
 const STORAGE_KEY = '@tubz:appState';
 
@@ -21,10 +21,10 @@ type Action =
   | { type: 'UPDATE_LOCATION'; payload: Location }
   | { type: 'DELETE_LOCATION'; payload: { id: string } }
   | { type: 'RESTOCK_LOCATION'; payload: { id: string; timestamp: string } }
-  | { type: 'SET_LOCATION_STOCK'; payload: { id: string; stockLevel: StockLevel } }
   | { type: 'ADD_MACHINE'; payload: { locationId: string; machine: Machine } }
   | { type: 'UPDATE_MACHINE'; payload: { locationId: string; machine: Machine } }
   | { type: 'DELETE_MACHINE'; payload: { locationId: string; machineId: string } }
+  | { type: 'UPDATE_STOCK_COUNT'; payload: { locationId: string; machineId: string; productId: string; delta: number } }
   | { type: 'ADD_PRODUCT'; payload: Product }
   | { type: 'UPDATE_PRODUCT'; payload: Product }
   | { type: 'DELETE_PRODUCT'; payload: { id: string } };
@@ -60,16 +60,8 @@ function reducer(state: AppState, action: Action): AppState {
         ...state,
         locations: state.locations.map((l) =>
           l.id === action.payload.id
-            ? { ...l, lastRestockedAt: action.payload.timestamp, stockLevel: 'full' }
+            ? { ...l, lastRestockedAt: action.payload.timestamp }
             : l
-        ),
-      };
-
-    case 'SET_LOCATION_STOCK':
-      return {
-        ...state,
-        locations: state.locations.map((l) =>
-          l.id === action.payload.id ? { ...l, stockLevel: action.payload.stockLevel } : l
         ),
       };
 
@@ -111,6 +103,28 @@ function reducer(state: AppState, action: Action): AppState {
         ),
       };
 
+    case 'UPDATE_STOCK_COUNT': {
+      const { locationId, machineId, productId, delta } = action.payload;
+      return {
+        ...state,
+        locations: state.locations.map((l) => {
+          if (l.id !== locationId) return l;
+          return {
+            ...l,
+            machines: l.machines.map((m) => {
+              if (m.id !== machineId) return m;
+              const current = m.stockCounts[productId] ?? 0;
+              const next = Math.max(0, current + delta);
+              return {
+                ...m,
+                stockCounts: { ...m.stockCounts, [productId]: next },
+              };
+            }),
+          };
+        }),
+      };
+    }
+
     case 'ADD_PRODUCT':
       return { ...state, products: [...state.products, action.payload] };
 
@@ -140,15 +154,14 @@ function reducer(state: AppState, action: Action): AppState {
 interface AppContextValue {
   state: AppState;
   dispatch: React.Dispatch<Action>;
-  // Convenience helpers
   addLocation: (location: Omit<Location, 'id' | 'createdAt'>) => void;
   updateLocation: (location: Location) => void;
   deleteLocation: (id: string) => void;
   restockLocation: (id: string) => void;
-  setLocationStock: (id: string, stockLevel: StockLevel) => void;
   addMachine: (locationId: string, type: MachineType) => void;
   updateMachine: (locationId: string, machine: Machine) => void;
   deleteMachine: (locationId: string, machineId: string) => void;
+  updateStockCount: (locationId: string, machineId: string, productId: string, delta: number) => void;
   addProduct: (name: string, emoji?: string, category?: ProductCategory) => void;
   updateProduct: (product: Product) => void;
   deleteProduct: (id: string) => void;
@@ -169,22 +182,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (raw) {
         try {
           const parsed: AppState = JSON.parse(raw);
-          // Merge any new default products that aren't already in the saved catalog
-          const savedIds = new Set(parsed.products.map((p) => p.id));
+          // Ensure all machines have stockCounts (migration for older data)
+          const migrated: AppState = {
+            ...parsed,
+            locations: parsed.locations.map((l) => ({
+              ...l,
+              stockLevel: undefined,
+              machines: l.machines.map((m) => ({
+                ...m,
+                stockLevel: undefined,
+                stockCounts: m.stockCounts ?? {},
+              })),
+            })),
+          };
+          // Merge any new default products not already in saved catalog
+          const savedIds = new Set(migrated.products.map((p) => p.id));
           const newDefaults = DEFAULT_PRODUCTS.filter((p) => !savedIds.has(p.id));
           dispatch({
             type: 'LOAD_STATE',
             payload: {
-              ...parsed,
-              products: [...parsed.products, ...newDefaults],
+              ...migrated,
+              products: [...migrated.products, ...newDefaults],
             },
           });
         } catch {
-          // corrupted data — start fresh with defaults
           dispatch({ type: 'LOAD_STATE', payload: { ...initialState, products: DEFAULT_PRODUCTS } });
         }
       } else {
-        // First launch — seed defaults
         dispatch({ type: 'LOAD_STATE', payload: { ...initialState, products: DEFAULT_PRODUCTS } });
       }
     });
@@ -213,15 +237,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const restockLocation = (id: string) =>
     dispatch({ type: 'RESTOCK_LOCATION', payload: { id, timestamp: new Date().toISOString() } });
 
-  const setLocationStock = (id: string, stockLevel: StockLevel) =>
-    dispatch({ type: 'SET_LOCATION_STOCK', payload: { id, stockLevel } });
-
   const addMachine = (locationId: string, type: MachineType) => {
     const machine: Machine = {
       id: uid(),
       type,
-      stockLevel: 'full',
       slots: Array(9).fill(null),
+      stockCounts: {},
     };
     dispatch({ type: 'ADD_MACHINE', payload: { locationId, machine } });
   };
@@ -231,6 +252,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const deleteMachine = (locationId: string, machineId: string) =>
     dispatch({ type: 'DELETE_MACHINE', payload: { locationId, machineId } });
+
+  const updateStockCount = (locationId: string, machineId: string, productId: string, delta: number) =>
+    dispatch({ type: 'UPDATE_STOCK_COUNT', payload: { locationId, machineId, productId, delta } });
 
   const addProduct = (name: string, emoji?: string, category?: ProductCategory) => {
     const product: Product = { id: uid(), name, emoji, category };
@@ -252,10 +276,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         updateLocation,
         deleteLocation,
         restockLocation,
-        setLocationStock,
         addMachine,
         updateMachine,
         deleteMachine,
+        updateStockCount,
         addProduct,
         updateProduct,
         deleteProduct,
