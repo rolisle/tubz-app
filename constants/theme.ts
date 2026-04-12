@@ -16,6 +16,9 @@ export const Colors = {
     icon: '#687076',
     tabIconDefault: '#687076',
     tabIconSelected: tintColorLight,
+    card: '#F8F9FA',
+    border: '#E9ECEF',
+    subtext: '#6B7280',
   },
   dark: {
     text: '#ECEDEE',
@@ -24,6 +27,27 @@ export const Colors = {
     icon: '#9BA1A6',
     tabIconDefault: '#9BA1A6',
     tabIconSelected: tintColorDark,
+    card: '#1E2022',
+    border: '#2C2F31',
+    subtext: '#9BA1A6',
+  },
+};
+
+export const StockColors = {
+  full: {
+    bg: '#DCFCE7',
+    text: '#166534',
+    dot: '#22c55e',
+  },
+  half: {
+    bg: '#FEF9C3',
+    text: '#854D0E',
+    dot: '#f59e0b',
+  },
+  none: {
+    bg: '#FEE2E2',
+    text: '#991B1B',
+    dot: '#ef4444',
   },
 };
 
