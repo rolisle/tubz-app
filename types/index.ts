@@ -23,6 +23,8 @@ export interface Location {
   id: string;
   name: string;
   address?: string;
+  city?: string;
+  postcode?: string;
   notes?: string;
   lastRestockedAt: string | null;
   machines: Machine[];
