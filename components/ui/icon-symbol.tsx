@@ -26,6 +26,8 @@ const MAPPING = {
   'checkmark': 'check',
   'xmark': 'close',
   'arrow.left': 'arrow-back',
+  'tag.fill': 'local-offer',
+  'cart.fill': 'shopping-cart',
 } as IconMapping;
 
 /**

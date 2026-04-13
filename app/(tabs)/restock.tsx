@@ -33,8 +33,10 @@ const MAX_QTY: Record<MachineType, number> = { sweet: 9, toy: 12 };
 /* ─── Local data model ───────────────────────────────────────── */
 
 interface RestockItem {
+  id: string;
   productId: string;
   qty: number;
+  done?: boolean;
 }
 interface RestockMachine {
   id: string;
@@ -67,12 +69,11 @@ function ProductThumb({ product, size }: { product: Product | undefined; size: n
 interface ProductPickerProps {
   machineType: MachineType;
   products: Product[];
-  alreadyAdded: string[];
   onSelect: (productId: string) => void;
   onClose: () => void;
 }
 
-function ProductPicker({ machineType, products, alreadyAdded, onSelect, onClose }: ProductPickerProps) {
+function ProductPicker({ machineType, products, onSelect, onClose }: ProductPickerProps) {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
   const filtered = useMemo(
@@ -95,19 +96,14 @@ function ProductPicker({ machineType, products, alreadyAdded, onSelect, onClose 
           data={filtered}
           keyExtractor={(p) => p.id}
           contentContainerStyle={{ paddingBottom: 20 }}
-          renderItem={({ item }) => {
-            const added = alreadyAdded.includes(item.id);
-            return (
-              <TouchableOpacity
-                style={[styles.pickerRow, { borderBottomColor: colors.border, opacity: added ? 0.4 : 1 }]}
-                onPress={() => { if (!added) { onSelect(item.id); onClose(); } }}
-                disabled={added}>
-                <ProductThumb product={item} size={36} />
-                <Text style={[styles.pickerRowName, { color: colors.text }]}>{item.name}</Text>
-                {added && <Text style={[styles.pickerAdded, { color: colors.subtext }]}>Added</Text>}
-              </TouchableOpacity>
-            );
-          }}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={[styles.pickerRow, { borderBottomColor: colors.border }]}
+              onPress={() => { onSelect(item.id); onClose(); }}>
+              <ProductThumb product={item} size={36} />
+              <Text style={[styles.pickerRowName, { color: colors.text }]}>{item.name}</Text>
+            </TouchableOpacity>
+          )}
           ListEmptyComponent={
             <Text style={[styles.pickerEmpty, { color: colors.subtext }]}>No products match this machine type.</Text>
           }
@@ -131,24 +127,25 @@ function MachineCard({ machine, products, colors, onChange, onRemove }: MachineC
   const [showPicker, setShowPicker] = useState(false);
   const max = MAX_QTY[machine.type];
 
-  const setQty = useCallback((productId: string, delta: number) => {
-    const existing = machine.items.find((i) => i.productId === productId);
-    const newQty = Math.max(0, Math.min(max, (existing?.qty ?? 0) + delta));
-    let newItems: RestockItem[];
-    if (newQty === 0) {
-      newItems = machine.items.filter((i) => i.productId !== productId);
-    } else if (existing) {
-      newItems = machine.items.map((i) => i.productId === productId ? { ...i, qty: newQty } : i);
-    } else {
-      newItems = [...machine.items, { productId, qty: newQty }];
-    }
+  const setQty = useCallback((itemId: string, delta: number) => {
+    const existing = machine.items.find((i) => i.id === itemId);
+    if (!existing) return;
+    const newQty = Math.max(0, Math.min(max, existing.qty + delta));
+    const newItems = newQty === 0
+      ? machine.items.filter((i) => i.id !== itemId)
+      : machine.items.map((i) => i.id === itemId ? { ...i, qty: newQty } : i);
     onChange({ ...machine, items: newItems });
   }, [machine, max, onChange]);
 
   const handleAddProduct = useCallback((productId: string) => {
-    if (!machine.items.find((i) => i.productId === productId)) {
-      onChange({ ...machine, items: [...machine.items, { productId, qty: 1 }] });
-    }
+    onChange({ ...machine, items: [...machine.items, { id: uid(), productId, qty: 1, done: false }] });
+  }, [machine, onChange]);
+
+  const toggleDone = useCallback((itemId: string) => {
+    onChange({
+      ...machine,
+      items: machine.items.map((i) => i.id === itemId ? { ...i, done: !i.done } : i),
+    });
   }, [machine, onChange]);
 
   const totalQty = machine.items.reduce((s, i) => s + i.qty, 0);
@@ -179,35 +176,44 @@ function MachineCard({ machine, products, colors, onChange, onRemove }: MachineC
           const pct = item.qty / max;
           const barColor = pct < 0.4 ? '#ef4444' : pct < 0.75 ? '#f59e0b' : '#22c55e';
           return (
-            <View key={item.productId} style={[styles.itemRow, { borderTopColor: colors.border }]}>
+            <View key={item.id} style={[styles.itemRow, { borderTopColor: colors.border, opacity: item.done ? 0.4 : 1 }]}>
+              {/* Done toggle */}
+              <TouchableOpacity onPress={() => toggleDone(item.id)} hitSlop={8} style={[styles.doneBtn, { borderColor: item.done ? colors.tint : colors.border, backgroundColor: item.done ? colors.tint : 'transparent' }]}>
+                {item.done && <Text style={styles.doneTick}>✓</Text>}
+              </TouchableOpacity>
+
               <ProductThumb product={product} size={38} />
               <View style={styles.itemInfo}>
-                <Text style={[styles.itemName, { color: colors.text }]} numberOfLines={1}>
+                <Text style={[styles.itemName, { color: colors.text, textDecorationLine: item.done ? 'line-through' : 'none' }]} numberOfLines={1}>
                   {product?.name ?? item.productId}
                 </Text>
-                <View style={[styles.barTrack, { backgroundColor: colors.border }]}>
-                  <View style={[styles.barFill, { width: `${pct * 100}%`, backgroundColor: barColor }]} />
+                {!item.done && (
+                  <View style={[styles.barTrack, { backgroundColor: colors.border }]}>
+                    <View style={[styles.barFill, { width: `${pct * 100}%`, backgroundColor: barColor }]} />
+                  </View>
+                )}
+              </View>
+              {!item.done && (
+                <View style={styles.counter}>
+                  <TouchableOpacity
+                    onPress={() => setQty(item.id, -1)}
+                    hitSlop={6}
+                    style={[styles.counterBtn, { borderColor: colors.border, backgroundColor: colors.background }]}>
+                    <Text style={[styles.counterBtnText, { color: colors.text }]}>−</Text>
+                  </TouchableOpacity>
+                  <Text style={[styles.counterVal, { color: colors.text }]}>
+                    {item.qty}
+                    <Text style={[styles.counterMax, { color: colors.subtext }]}>/{max}</Text>
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => setQty(item.id, +1)}
+                    disabled={item.qty >= max}
+                    hitSlop={6}
+                    style={[styles.counterBtn, { borderColor: colors.border, backgroundColor: colors.background, opacity: item.qty >= max ? 0.3 : 1 }]}>
+                    <Text style={[styles.counterBtnText, { color: colors.text }]}>＋</Text>
+                  </TouchableOpacity>
                 </View>
-              </View>
-              <View style={styles.counter}>
-                <TouchableOpacity
-                  onPress={() => setQty(item.productId, -1)}
-                  hitSlop={6}
-                  style={[styles.counterBtn, { borderColor: colors.border, backgroundColor: colors.background }]}>
-                  <Text style={[styles.counterBtnText, { color: colors.text }]}>−</Text>
-                </TouchableOpacity>
-                <Text style={[styles.counterVal, { color: colors.text }]}>
-                  {item.qty}
-                  <Text style={[styles.counterMax, { color: colors.subtext }]}>/{max}</Text>
-                </Text>
-                <TouchableOpacity
-                  onPress={() => setQty(item.productId, +1)}
-                  disabled={item.qty >= max}
-                  hitSlop={6}
-                  style={[styles.counterBtn, { borderColor: colors.border, backgroundColor: colors.background, opacity: item.qty >= max ? 0.3 : 1 }]}>
-                  <Text style={[styles.counterBtnText, { color: colors.text }]}>＋</Text>
-                </TouchableOpacity>
-              </View>
+              )}
             </View>
           );
         })
@@ -224,7 +230,6 @@ function MachineCard({ machine, products, colors, onChange, onRemove }: MachineC
         <ProductPicker
           machineType={machine.type}
           products={products}
-          alreadyAdded={machine.items.map((i) => i.productId)}
           onSelect={handleAddProduct}
           onClose={() => setShowPicker(false)}
         />
@@ -403,6 +408,17 @@ const styles = StyleSheet.create({
   totalBadge: { borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 },
   totalBadgeText: { fontSize: 11, fontWeight: '700' },
   emptyMachine: { fontSize: 13, paddingHorizontal: 14, paddingBottom: 10 },
+  // Done toggle
+  doneBtn: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  doneTick: { fontSize: 12, lineHeight: 12, includeFontPadding: false, color: '#fff', fontWeight: '700' },
   // Item row
   itemRow: {
     flexDirection: 'row',
