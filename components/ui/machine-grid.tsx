@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from "react";
 import {
   FlatList,
   Modal,
@@ -7,13 +7,13 @@ import {
   Text,
   TouchableOpacity,
   View,
-} from 'react-native';
+} from "react-native";
 
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import type { Machine, Product } from '@/types';
+import { Colors } from "@/constants/theme";
+import { useColorScheme } from "@/hooks/use-color-scheme";
+import type { Machine, Product } from "@/types";
 
-type ViewMode = 'grid' | 'list';
+type ViewMode = "grid" | "list";
 
 interface MachineGridProps {
   machine: Machine;
@@ -28,28 +28,46 @@ interface SlotPickerProps {
   products: Product[];
   onSelect: (productId: string | null) => void;
   onClose: () => void;
-  colorScheme: 'light' | 'dark';
+  colorScheme: "light" | "dark";
 }
 
-function SlotPicker({ slotIndex, products, onSelect, onClose, colorScheme }: SlotPickerProps) {
+function SlotPicker({
+  slotIndex,
+  products,
+  onSelect,
+  onClose,
+  colorScheme,
+}: SlotPickerProps) {
   const colors = Colors[colorScheme];
 
   return (
     <Modal transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.overlay} onPress={onClose} />
-      <View style={[styles.sheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <View
+        style={[
+          styles.sheet,
+          { backgroundColor: colors.card, borderColor: colors.border },
+        ]}
+      >
         <View style={styles.sheetHeader}>
-          <Text style={[styles.sheetTitle, { color: colors.text }]}>Slot {slotIndex + 1}</Text>
+          <Text style={[styles.sheetTitle, { color: colors.text }]}>
+            Slot {slotIndex + 1}
+          </Text>
           <TouchableOpacity onPress={onClose} hitSlop={8}>
-            <Text style={[styles.sheetClose, { color: colors.subtext }]}>Done</Text>
+            <Text style={[styles.sheetClose, { color: colors.subtext }]}>
+              Done
+            </Text>
           </TouchableOpacity>
         </View>
 
         <TouchableOpacity
           style={[styles.productRow, { borderColor: colors.border }]}
-          onPress={() => onSelect(null)}>
+          onPress={() => onSelect(null)}
+        >
           <Text style={styles.productEmoji}>–</Text>
-          <Text style={[styles.productName, { color: colors.subtext }]}>Empty</Text>
+          <Text style={[styles.productName, { color: colors.subtext }]}>
+            Empty
+          </Text>
         </TouchableOpacity>
 
         <FlatList
@@ -58,14 +76,17 @@ function SlotPicker({ slotIndex, products, onSelect, onClose, colorScheme }: Slo
           renderItem={({ item }) => (
             <TouchableOpacity
               style={[styles.productRow, { borderColor: colors.border }]}
-              onPress={() => onSelect(item.id)}>
-              <Text style={styles.productEmoji}>{item.emoji ?? '📦'}</Text>
-              <Text style={[styles.productName, { color: colors.text }]}>{item.name}</Text>
+              onPress={() => onSelect(item.id)}
+            >
+              <Text style={styles.productEmoji}>{item.emoji ?? "📦"}</Text>
+              <Text style={[styles.productName, { color: colors.text }]}>
+                {item.name}
+              </Text>
             </TouchableOpacity>
           )}
           ListEmptyComponent={
             <Text style={[styles.emptyNote, { color: colors.subtext }]}>
-              No products in catalog yet.{'\n'}Add products in the Products tab.
+              No products in catalog yet.{"\n"}Add products in the Products tab.
             </Text>
           }
         />
@@ -83,11 +104,14 @@ interface MergedItem {
   slotIndices: number[];
 }
 
-function buildMergedList(slots: (string | null)[], products: Product[]): MergedItem[] {
+function buildMergedList(
+  slots: (string | null)[],
+  products: Product[],
+): MergedItem[] {
   const map = new Map<string, MergedItem>();
 
   slots.forEach((id, i) => {
-    const key = id ?? '__empty__';
+    const key = id ?? "__empty__";
     if (map.has(key)) {
       const item = map.get(key)!;
       item.slotCount += 1;
@@ -105,7 +129,7 @@ function buildMergedList(slots: (string | null)[], products: Product[]): MergedI
   return [...map.values()].sort((a, b) => {
     if (a.productId === null) return 1;
     if (b.productId === null) return -1;
-    return (a.product?.name ?? '').localeCompare(b.product?.name ?? '');
+    return (a.product?.name ?? "").localeCompare(b.product?.name ?? "");
   });
 }
 
@@ -115,13 +139,20 @@ interface ListViewProps {
   onSlotPress: (index: number) => void;
   onStockChange: (productId: string, delta: number) => void;
   readonly?: boolean;
-  colors: (typeof Colors)['light'];
+  colors: (typeof Colors)["light"];
 }
 
-function ListView({ machine, products, onSlotPress, onStockChange, readonly, colors }: ListViewProps) {
+function ListView({
+  machine,
+  products,
+  onSlotPress,
+  onStockChange,
+  readonly,
+  colors,
+}: ListViewProps) {
   const merged = useMemo(
     () => buildMergedList(machine.slots, products),
-    [machine.slots, products]
+    [machine.slots, products],
   );
 
   const filledCount = machine.slots.filter(Boolean).length;
@@ -129,7 +160,9 @@ function ListView({ machine, products, onSlotPress, onStockChange, readonly, col
   return (
     <View style={styles.listContainer}>
       {filledCount === 0 && (
-        <Text style={[styles.listEmpty, { color: colors.subtext }]}>No items loaded</Text>
+        <Text style={[styles.listEmpty, { color: colors.subtext }]}>
+          No items loaded
+        </Text>
       )}
 
       {merged.map((item) => {
@@ -142,10 +175,15 @@ function ListView({ machine, products, onSlotPress, onStockChange, readonly, col
               disabled={readonly}
               onPress={() => !readonly && onSlotPress(item.slotIndices[0])}
               style={[styles.listRow, { borderColor: colors.border }]}
-              activeOpacity={readonly ? 1 : 0.6}>
+              activeOpacity={readonly ? 1 : 0.6}
+            >
               <Text style={[styles.listEmoji, { opacity: 0.35 }]}>＋</Text>
-              <Text style={[styles.listName, { color: colors.subtext }]}>Empty</Text>
-              <Text style={[styles.listCount, { color: colors.subtext }]}>×{item.slotCount}</Text>
+              <Text style={[styles.listName, { color: colors.subtext }]}>
+                Empty
+              </Text>
+              <Text style={[styles.listCount, { color: colors.subtext }]}>
+                ×{item.slotCount}
+              </Text>
             </TouchableOpacity>
           );
         }
@@ -159,14 +197,21 @@ function ListView({ machine, products, onSlotPress, onStockChange, readonly, col
             onPress={() => !readonly && onSlotPress(item.slotIndices[0])}
             style={[
               styles.listRow,
-              { borderColor: colors.border, backgroundColor: colors.tint + '0C' },
+              {
+                borderColor: colors.border,
+                backgroundColor: colors.tint + "0C",
+              },
             ]}
-            activeOpacity={readonly ? 1 : 0.6}>
-            <Text style={styles.listEmoji}>{item.product?.emoji ?? '📦'}</Text>
+            activeOpacity={readonly ? 1 : 0.6}
+          >
+            <Text style={styles.listEmoji}>{item.product?.emoji ?? "📦"}</Text>
 
             <View style={styles.listInfo}>
-              <Text style={[styles.listName, { color: colors.text }]} numberOfLines={1}>
-                {item.product?.name ?? 'Unknown'}
+              <Text
+                style={[styles.listName, { color: colors.text }]}
+                numberOfLines={1}
+              >
+                {item.product?.name ?? "Unknown"}
               </Text>
               {item.slotCount > 1 && (
                 <Text style={[styles.listSlotCount, { color: colors.subtext }]}>
@@ -178,19 +223,42 @@ function ListView({ machine, products, onSlotPress, onStockChange, readonly, col
             {/* Stock +/- controls */}
             <View style={styles.stockControls}>
               <TouchableOpacity
-                onPress={(e) => { e.stopPropagation(); onStockChange(item.productId!, -1); }}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  onStockChange(item.productId!, -1);
+                }}
                 hitSlop={6}
-                style={[styles.stockBtn, { borderColor: colors.border, backgroundColor: colors.card }]}>
-                <Text style={[styles.stockBtnText, { color: colors.text }]}>−</Text>
+                style={[
+                  styles.stockBtn,
+                  { borderColor: colors.border, backgroundColor: colors.card },
+                ]}
+              >
+                <Text style={[styles.stockBtnText, { color: colors.text }]}>
+                  −
+                </Text>
               </TouchableOpacity>
-              <Text style={[styles.stockValue, { color: stockCount > 0 ? colors.text : colors.subtext }]}>
+              <Text
+                style={[
+                  styles.stockValue,
+                  { color: stockCount > 0 ? colors.text : colors.subtext },
+                ]}
+              >
                 {stockCount}
               </Text>
               <TouchableOpacity
-                onPress={(e) => { e.stopPropagation(); onStockChange(item.productId!, +1); }}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  onStockChange(item.productId!, +1);
+                }}
                 hitSlop={6}
-                style={[styles.stockBtn, { borderColor: colors.border, backgroundColor: colors.card }]}>
-                <Text style={[styles.stockBtnText, { color: colors.text }]}>＋</Text>
+                style={[
+                  styles.stockBtn,
+                  { borderColor: colors.border, backgroundColor: colors.card },
+                ]}
+              >
+                <Text style={[styles.stockBtnText, { color: colors.text }]}>
+                  ＋
+                </Text>
               </TouchableOpacity>
             </View>
           </TouchableOpacity>
@@ -198,32 +266,51 @@ function ListView({ machine, products, onSlotPress, onStockChange, readonly, col
       })}
 
       {/* Empty slot footer when mixed */}
-      {filledCount > 0 && (() => {
-        const emptyItem = merged.find((m) => m.productId === null);
-        if (!emptyItem) return null;
-        return (
-          <View style={[styles.listRow, styles.listRowEmpty, { borderColor: colors.border }]}>
-            <Text style={[styles.listEmoji, { opacity: 0.3 }]}>–</Text>
-            <Text style={[styles.listName, { color: colors.subtext }]}>Empty slots</Text>
-            <Text style={[styles.listCount, { color: colors.subtext }]}>×{emptyItem.slotCount}</Text>
-          </View>
-        );
-      })()}
+      {filledCount > 0 &&
+        (() => {
+          const emptyItem = merged.find((m) => m.productId === null);
+          if (!emptyItem) return null;
+          return (
+            <View
+              style={[
+                styles.listRow,
+                styles.listRowEmpty,
+                { borderColor: colors.border },
+              ]}
+            >
+              <Text style={[styles.listEmoji, { opacity: 0.3 }]}>–</Text>
+              <Text style={[styles.listName, { color: colors.subtext }]}>
+                Empty slots
+              </Text>
+              <Text style={[styles.listCount, { color: colors.subtext }]}>
+                ×{emptyItem.slotCount}
+              </Text>
+            </View>
+          );
+        })()}
     </View>
   );
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function MachineGrid({ machine, products, onUpdate, onStockChange, readonly }: MachineGridProps) {
-  const colorScheme = useColorScheme() ?? 'light';
+export function MachineGrid({
+  machine,
+  products,
+  onUpdate,
+  onStockChange,
+  readonly,
+}: MachineGridProps) {
+  const colorScheme = useColorScheme() ?? "light";
   const colors = Colors[colorScheme];
   const [activeSlot, setActiveSlot] = useState<number | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
 
   const handleSlotPress = useCallback(
-    (index: number) => { if (!readonly) setActiveSlot(index); },
-    [readonly]
+    (index: number) => {
+      if (!readonly) setActiveSlot(index);
+    },
+    [readonly],
   );
 
   const handleProductSelect = useCallback(
@@ -234,32 +321,73 @@ export function MachineGrid({ machine, products, onUpdate, onStockChange, readon
       onUpdate({ ...machine, slots: newSlots });
       setActiveSlot(null);
     },
-    [activeSlot, machine, onUpdate]
+    [activeSlot, machine, onUpdate],
   );
 
   const getProduct = (id: string | null) =>
-    id ? products.find((p) => p.id === id) ?? null : null;
+    id ? (products.find((p) => p.id === id) ?? null) : null;
 
   return (
     <View style={styles.container}>
       {/* Toggle bar */}
-      <View style={[styles.toggleBar, { borderColor: colors.border, backgroundColor: colors.card }]}>
+      <View
+        style={[
+          styles.toggleBar,
+          { borderColor: colors.border, backgroundColor: colors.card },
+        ]}
+      >
         <TouchableOpacity
-          onPress={() => setViewMode('grid')}
-          style={[styles.toggleBtn, viewMode === 'grid' && { backgroundColor: colors.tint }]}>
-          <Text style={[styles.toggleIcon, { color: viewMode === 'grid' ? '#fff' : colors.subtext }]}>⊞</Text>
-          <Text style={[styles.toggleLabel, { color: viewMode === 'grid' ? '#fff' : colors.subtext }]}>Grid</Text>
+          onPress={() => setViewMode("grid")}
+          style={[
+            styles.toggleBtn,
+            viewMode === "grid" && { backgroundColor: colors.tint },
+          ]}
+        >
+          <Text
+            style={[
+              styles.toggleIcon,
+              { color: viewMode === "grid" ? "#fff" : colors.subtext },
+            ]}
+          >
+            ⊞
+          </Text>
+          <Text
+            style={[
+              styles.toggleLabel,
+              { color: viewMode === "grid" ? "#fff" : colors.subtext },
+            ]}
+          >
+            Grid
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          onPress={() => setViewMode('list')}
-          style={[styles.toggleBtn, viewMode === 'list' && { backgroundColor: colors.tint }]}>
-          <Text style={[styles.toggleIcon, { color: viewMode === 'list' ? '#fff' : colors.subtext }]}>≡</Text>
-          <Text style={[styles.toggleLabel, { color: viewMode === 'list' ? '#fff' : colors.subtext }]}>List</Text>
+          onPress={() => setViewMode("list")}
+          style={[
+            styles.toggleBtn,
+            viewMode === "list" && { backgroundColor: colors.tint },
+          ]}
+        >
+          <Text
+            style={[
+              styles.toggleIcon,
+              { color: viewMode === "list" ? "#fff" : colors.subtext },
+            ]}
+          >
+            ≡
+          </Text>
+          <Text
+            style={[
+              styles.toggleLabel,
+              { color: viewMode === "list" ? "#fff" : colors.subtext },
+            ]}
+          >
+            List
+          </Text>
         </TouchableOpacity>
       </View>
 
       {/* Content */}
-      {viewMode === 'grid' ? (
+      {viewMode === "grid" ? (
         <View style={styles.grid}>
           {Array.from({ length: 9 }).map((_, i) => {
             const product = getProduct(machine.slots[i] ?? null);
@@ -272,15 +400,22 @@ export function MachineGrid({ machine, products, onUpdate, onStockChange, readon
                 style={[
                   styles.slot,
                   {
-                    backgroundColor: isEmpty ? colors.card : colors.tint + '18',
-                    borderColor: isEmpty ? colors.border : colors.tint + '55',
+                    backgroundColor: isEmpty ? colors.card : colors.tint + "18",
+                    borderColor: isEmpty ? colors.border : colors.tint + "55",
                   },
-                ]}>
-                <Text style={styles.slotEmoji}>{product ? (product.emoji ?? '📦') : '+'}</Text>
+                ]}
+              >
+                <Text style={styles.slotEmoji}>
+                  {product ? (product.emoji ?? "📦") : "+"}
+                </Text>
                 <Text
-                  style={[styles.slotLabel, { color: isEmpty ? colors.subtext : colors.text }]}
-                  numberOfLines={1}>
-                  {product ? product.name : 'Empty'}
+                  style={[
+                    styles.slotLabel,
+                    { color: isEmpty ? colors.subtext : colors.text },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {product ? product.name : "Empty"}
                 </Text>
               </TouchableOpacity>
             );
@@ -314,41 +449,41 @@ const styles = StyleSheet.create({
   container: { gap: 8 },
   // Toggle
   toggleBar: {
-    flexDirection: 'row',
+    flexDirection: "row",
     borderRadius: 9,
     borderWidth: 1,
-    overflow: 'hidden',
-    alignSelf: 'flex-start',
+    overflow: "hidden",
+    alignSelf: "flex-start",
   },
   toggleBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
-  toggleIcon: { fontSize: 15, lineHeight: 18 },
-  toggleLabel: { fontSize: 12, fontWeight: '600' },
+  toggleIcon: { fontSize: 15, lineHeight: 15, includeFontPadding: false },
+  toggleLabel: { fontSize: 12, fontWeight: "600" },
   // Grid
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  grid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   slot: {
-    width: '30%',
+    width: "30%",
     aspectRatio: 1,
     borderRadius: 10,
     borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     gap: 4,
     padding: 4,
   },
   slotEmoji: { fontSize: 22 },
-  slotLabel: { fontSize: 10, fontWeight: '500', textAlign: 'center' },
+  slotLabel: { fontSize: 10, fontWeight: "500", textAlign: "center" },
   // List
   listContainer: { gap: 2 },
-  listEmpty: { fontSize: 13, textAlign: 'center', paddingVertical: 12 },
+  listEmpty: { fontSize: 13, textAlign: "center", paddingVertical: 12 },
   listRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 10,
     paddingVertical: 8,
     paddingHorizontal: 10,
@@ -357,15 +492,15 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   listRowEmpty: { opacity: 0.6 },
-  listEmoji: { fontSize: 20, width: 28, textAlign: 'center' },
+  listEmoji: { fontSize: 20, width: 28, textAlign: "center" },
   listInfo: { flex: 1, gap: 1 },
-  listName: { fontSize: 14, fontWeight: '500' },
+  listName: { fontSize: 14, fontWeight: "500" },
   listSlotCount: { fontSize: 11 },
-  listCount: { fontSize: 13, fontWeight: '600', opacity: 0.7 },
+  listCount: { fontSize: 13, fontWeight: "600", opacity: 0.7 },
   // Stock controls
   stockControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 6,
   },
   stockBtn: {
@@ -373,50 +508,56 @@ const styles = StyleSheet.create({
     height: 28,
     borderRadius: 7,
     borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#9cfc68",
   },
-  stockBtnText: { fontSize: 16, lineHeight: 20, fontWeight: '500' },
+  stockBtnText: {
+    fontSize: 16,
+    lineHeight: 16,
+    fontWeight: "500",
+    includeFontPadding: false,
+  },
   stockValue: {
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: "700",
     minWidth: 22,
-    textAlign: 'center',
+    textAlign: "center",
   },
   // Slot Picker
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
+  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)" },
   sheet: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     borderTopWidth: 1,
-    maxHeight: '60%',
+    maxHeight: "60%",
     paddingBottom: 34,
   },
   sheetHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 16,
   },
-  sheetTitle: { fontSize: 17, fontWeight: '600' },
-  sheetClose: { fontSize: 15, fontWeight: '500' },
+  sheetTitle: { fontSize: 17, fontWeight: "600" },
+  sheetClose: { fontSize: 15, fontWeight: "500" },
   productRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  productEmoji: { fontSize: 22, width: 30, textAlign: 'center' },
+  productEmoji: { fontSize: 22, width: 30, textAlign: "center" },
   productName: { fontSize: 16 },
   emptyNote: {
-    textAlign: 'center',
+    textAlign: "center",
     paddingVertical: 24,
     paddingHorizontal: 20,
     lineHeight: 22,

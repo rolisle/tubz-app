@@ -50,6 +50,8 @@ export default function LocationDetailScreen() {
 
   const [name, setName] = useState(location?.name ?? '');
   const [address, setAddress] = useState(location?.address ?? '');
+  const [city, setCity] = useState(location?.city ?? '');
+  const [postcode, setPostcode] = useState(location?.postcode ?? '');
   const [notes, setNotes] = useState(location?.notes ?? '');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [pickerDate, setPickerDate] = useState<Date>(
@@ -80,7 +82,7 @@ export default function LocationDetailScreen() {
     );
   }
 
-  const saveField = (field: 'name' | 'address' | 'notes', value: string) => {
+  const saveField = (field: 'name' | 'address' | 'city' | 'postcode' | 'notes', value: string) => {
     const trimmed = value.trim();
     if (field === 'name' && !trimmed) return;
     updateLocation({ ...location, [field]: trimmed || undefined });
@@ -171,10 +173,31 @@ export default function LocationDetailScreen() {
             value={address}
             onChangeText={setAddress}
             onBlur={() => saveField('address', address)}
-            placeholder="Address (optional)"
+            placeholder="1st line of address"
             placeholderTextColor={colors.border}
-            returnKeyType="done"
+            returnKeyType="next"
           />
+          <View style={styles.addressRow}>
+            <TextInput
+              style={[styles.addressInputHalf, { color: colors.subtext }]}
+              value={city}
+              onChangeText={setCity}
+              onBlur={() => saveField('city', city)}
+              placeholder="City"
+              placeholderTextColor={colors.border}
+              returnKeyType="next"
+            />
+            <TextInput
+              style={[styles.addressInputHalf, { color: colors.subtext }]}
+              value={postcode}
+              onChangeText={setPostcode}
+              onBlur={() => saveField('postcode', postcode)}
+              placeholder="Postcode"
+              placeholderTextColor={colors.border}
+              returnKeyType="done"
+              autoCapitalize="characters"
+            />
+          </View>
 
           {/* Last restock row */}
           <View style={styles.restockRow}>
@@ -307,7 +330,9 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     padding: 0,
   },
-  addressInput: { fontSize: 14, marginBottom: 8, padding: 0 },
+  addressInput: { fontSize: 14, marginBottom: 6, padding: 0 },
+  addressRow: { flexDirection: 'row', gap: 10, marginBottom: 8 },
+  addressInputHalf: { flex: 1, fontSize: 14, padding: 0 },
   restockRow: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -42,9 +42,9 @@ export function LocationCard({ location, onPress }: LocationCardProps) {
           <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
             {location.name}
           </Text>
-          {location.address ? (
+          {(location.address || location.city || location.postcode) ? (
             <Text style={[styles.address, { color: colors.subtext }]} numberOfLines={1}>
-              {location.address}
+              {[location.address, location.city, location.postcode].filter(Boolean).join(', ')}
             </Text>
           ) : null}
           <Text style={[styles.restock, { color: colors.subtext }]}>
