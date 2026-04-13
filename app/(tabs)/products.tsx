@@ -1,7 +1,10 @@
+import * as ImagePicker from 'expo-image-picker';
 import { useMemo, useState } from 'react';
 import {
   Alert,
+  Image,
   Modal,
+  Platform,
   Pressable,
   SectionList,
   StyleSheet,
@@ -12,6 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { PRODUCT_IMAGES } from '@/constants/product-images';
 import { Colors } from '@/constants/theme';
 import { useApp } from '@/context/app-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -48,6 +52,33 @@ function AddProductModal({ visible, onClose, colors }: AddProductModalProps) {
   const [name, setName] = useState('');
   const [emoji, setEmoji] = useState('');
   const [category, setCategory] = useState<ProductCategory>('sweet');
+  const [imageUri, setImageUri] = useState<string | null>(null);
+
+  const reset = () => {
+    setName('');
+    setEmoji('');
+    setCategory('sweet');
+    setImageUri(null);
+  };
+
+  const pickImage = async () => {
+    if (Platform.OS !== 'web') {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Allow photo access to upload a product image.');
+        return;
+      }
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: 'images',
+      allowsEditing: true,
+      aspect: [3, 4],
+      quality: 0.8,
+    });
+    if (!result.canceled) {
+      setImageUri(result.assets[0].uri);
+    }
+  };
 
   const handleAdd = () => {
     const trimmed = name.trim();
@@ -55,10 +86,8 @@ function AddProductModal({ visible, onClose, colors }: AddProductModalProps) {
       Alert.alert('Name required', 'Please enter a product name.');
       return;
     }
-    addProduct(trimmed, emoji.trim() || undefined, category);
-    setName('');
-    setEmoji('');
-    setCategory('sweet');
+    addProduct(trimmed, emoji.trim() || undefined, category, imageUri ?? undefined);
+    reset();
     onClose();
   };
 
@@ -101,30 +130,52 @@ function AddProductModal({ visible, onClose, colors }: AddProductModalProps) {
           returnKeyType="next"
         />
 
-        <Text style={[styles.fieldLabel, { color: colors.subtext }]}>Emoji (optional)</Text>
-        <TextInput
-          style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.background }]}
-          placeholder="e.g. 🍬"
-          placeholderTextColor={colors.subtext}
-          value={emoji}
-          onChangeText={setEmoji}
-          returnKeyType="done"
-          onSubmitEditing={handleAdd}
-        />
-
-        <View style={styles.emojiRow}>
-          {EMOJI_SUGGESTIONS.map((e) => (
+        {/* Image picker */}
+        <Text style={[styles.fieldLabel, { color: colors.subtext }]}>Image (optional)</Text>
+        <View style={styles.imagePickerRow}>
+          <TouchableOpacity
+            onPress={pickImage}
+            style={[
+              styles.imagePicker,
+              { borderColor: imageUri ? colors.tint : colors.border, backgroundColor: colors.background },
+            ]}>
+            {imageUri ? (
+              <Image source={{ uri: imageUri }} style={styles.imagePreview} resizeMode="cover" />
+            ) : (
+              <Text style={[styles.imagePickerPlaceholder, { color: colors.subtext }]}>
+                {'📷  Tap to upload'}
+              </Text>
+            )}
+          </TouchableOpacity>
+          {imageUri && (
             <TouchableOpacity
-              key={e}
-              onPress={() => setEmoji(e)}
-              style={[
-                styles.emojiChip,
-                { borderColor: emoji === e ? colors.tint : colors.border },
-              ]}>
-              <Text style={styles.emojiText}>{e}</Text>
+              onPress={() => setImageUri(null)}
+              hitSlop={8}
+              style={[styles.imageClear, { backgroundColor: colors.border }]}>
+              <Text style={[styles.imageClearText, { color: colors.text }]}>✕</Text>
             </TouchableOpacity>
-          ))}
+          )}
         </View>
+
+        {/* Emoji (only shown when no image selected) */}
+        {!imageUri && (
+          <>
+            <Text style={[styles.fieldLabel, { color: colors.subtext }]}>Emoji (optional)</Text>
+            <View style={styles.emojiRow}>
+              {EMOJI_SUGGESTIONS.map((e) => (
+                <TouchableOpacity
+                  key={e}
+                  onPress={() => setEmoji(e)}
+                  style={[
+                    styles.emojiChip,
+                    { borderColor: emoji === e ? colors.tint : colors.border },
+                  ]}>
+                  <Text style={styles.emojiText}>{e}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </>
+        )}
 
         <TouchableOpacity
           style={[styles.addBtn, { backgroundColor: colors.tint }]}
@@ -156,7 +207,15 @@ function ProductRow({ product, onDelete, colors }: ProductRowProps) {
 
   return (
     <View style={[styles.row, { borderBottomColor: colors.border }]}>
-      <Text style={styles.rowEmoji}>{product.emoji ?? '📦'}</Text>
+      {product.localImageUri || PRODUCT_IMAGES[product.id] ? (
+        <Image
+          source={product.localImageUri ? { uri: product.localImageUri } : PRODUCT_IMAGES[product.id]}
+          style={styles.rowImage}
+          resizeMode="cover"
+        />
+      ) : (
+        <Text style={styles.rowEmoji}>{product.emoji ?? '📦'}</Text>
+      )}
       <Text style={[styles.rowName, { color: colors.text }]}>{product.name}</Text>
       <TouchableOpacity onPress={handleDelete} hitSlop={8} style={styles.deleteBtn}>
         <Text style={styles.deleteIcon}>🗑</Text>
@@ -371,6 +430,28 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   rowEmoji: { fontSize: 22, width: 30, textAlign: 'center' },
+  rowImage: { width: 30, height: 30, borderRadius: 4 },
+  imagePickerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 },
+  imagePicker: {
+    flex: 1,
+    height: 80,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  imagePreview: { width: '100%', height: '100%' },
+  imagePickerPlaceholder: { fontSize: 14 },
+  imageClear: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  imageClearText: { fontSize: 12, fontWeight: '600' },
   rowName: { flex: 1, fontSize: 15, fontWeight: '500' },
   deleteBtn: { padding: 4 },
   deleteIcon: { fontSize: 17 },

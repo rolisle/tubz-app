@@ -162,7 +162,7 @@ interface AppContextValue {
   updateMachine: (locationId: string, machine: Machine) => void;
   deleteMachine: (locationId: string, machineId: string) => void;
   updateStockCount: (locationId: string, machineId: string, productId: string, delta: number) => void;
-  addProduct: (name: string, emoji?: string, category?: ProductCategory) => void;
+  addProduct: (name: string, emoji?: string, category?: ProductCategory, localImageUri?: string) => void;
   updateProduct: (product: Product) => void;
   deleteProduct: (id: string) => void;
 }
@@ -256,8 +256,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const updateStockCount = (locationId: string, machineId: string, productId: string, delta: number) =>
     dispatch({ type: 'UPDATE_STOCK_COUNT', payload: { locationId, machineId, productId, delta } });
 
-  const addProduct = (name: string, emoji?: string, category?: ProductCategory) => {
-    const product: Product = { id: uid(), name, emoji, category };
+  const addProduct = (name: string, emoji?: string, category?: ProductCategory, localImageUri?: string) => {
+    const product: Product = { id: uid(), name, emoji, category, localImageUri };
     dispatch({ type: 'ADD_PRODUCT', payload: product });
   };
 

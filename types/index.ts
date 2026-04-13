@@ -6,8 +6,8 @@ export interface Product {
   id: string;
   name: string;
   emoji?: string;
-  imageUrl?: string;
   category?: ProductCategory;
+  localImageUri?: string;
 }
 
 export interface Machine {

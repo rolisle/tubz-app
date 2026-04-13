@@ -38,7 +38,7 @@ function formatDate(iso: string | null): string {
 
 export default function LocationDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { state, updateLocation, deleteLocation, restockLocation, addMachine, updateMachine, deleteMachine, updateStockCount } = useApp();
+  const { state, updateLocation, deleteLocation, restockLocation, addMachine, updateMachine, deleteMachine } = useApp();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
   const router = useRouter();
@@ -63,11 +63,6 @@ export default function LocationDetailScreen() {
     [location?.id, updateMachine]
   );
 
-  const handleStockChange = useCallback(
-    (machineId: string, productId: string, delta: number) =>
-      updateStockCount(location?.id ?? '', machineId, productId, delta),
-    [location?.id, updateStockCount]
-  );
 
   if (!location) {
     return (
@@ -250,9 +245,16 @@ export default function LocationDetailScreen() {
               key={machine.id}
               style={[styles.machineCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <View style={styles.machineHeader}>
-                <Text style={[styles.machineTitle, { color: colors.text }]}>
-                  {MACHINE_LABELS[machine.type]}
-                </Text>
+                <View style={styles.machineTitleRow}>
+                  <Text style={[styles.machineTitle, { color: colors.text }]}>
+                    {MACHINE_LABELS[machine.type]}
+                  </Text>
+                  <Text style={[styles.machineCount, {
+                    color: machine.slots.filter(Boolean).length === 9 ? '#ef4444' : colors.subtext,
+                  }]}>
+                    {machine.slots.filter(Boolean).length}/9
+                  </Text>
+                </View>
                 <TouchableOpacity onPress={() => handleDeleteMachine(machine.id)} hitSlop={8}>
                   <Text style={{ color: '#ef4444', fontSize: 13 }}>Remove</Text>
                 </TouchableOpacity>
@@ -262,7 +264,6 @@ export default function LocationDetailScreen() {
                 machine={machine}
                 products={state.products}
                 onUpdate={handleMachineUpdate}
-                onStockChange={(productId, delta) => handleStockChange(machine.id, productId, delta)}
               />
             </View>
           ))}
@@ -373,7 +374,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  machineTitleRow: { flexDirection: 'row', alignItems: 'baseline', gap: 6 },
   machineTitle: { fontSize: 16, fontWeight: '700' },
+  machineCount: { fontSize: 13, fontWeight: '500' },
   addMachineRow: { flexDirection: 'row', gap: 10, marginBottom: 4 },
   addMachineBtn: {
     flex: 1,
