@@ -342,7 +342,10 @@ export function MachineGrid({ machine, products, onUpdate, readonly }: MachineGr
                       : <Text style={styles.slotEmoji}>{product.emoji ?? '📦'}</Text>;
                   })()
                 ) : (
-                  <Text style={styles.slotEmoji}>+</Text>
+                  <>
+                    <Text style={[styles.slotEmoji, { color: colors.subtext }]}>+</Text>
+                    <Text style={[styles.slotAddLabel, { color: colors.subtext }]}>Add more</Text>
+                  </>
                 )}
               </TouchableOpacity>
             );
@@ -404,7 +407,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   slotImage: { width: '100%', height: '100%' },
-  slotEmoji: { fontSize: 22 },
+  slotEmoji: { fontSize: 22, lineHeight: 22, includeFontPadding: false },
+  slotAddLabel: { fontSize: 9, fontWeight: '600', marginTop: 2, textAlign: 'center' },
   // List
   listContainer: { gap: 2 },
   listEmpty: { fontSize: 13, textAlign: 'center', paddingVertical: 12 },
@@ -419,7 +423,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   listRowEmpty: { opacity: 0.6 },
-  listEmoji: { fontSize: 20, width: 28, textAlign: 'center' },
+  listEmoji: { fontSize: 20, lineHeight: 20, includeFontPadding: false, width: 28, textAlign: 'center' },
   listInfo: { flex: 1, gap: 1 },
   listName: { fontSize: 14, fontWeight: '500' },
   listSlotCount: { fontSize: 11 },

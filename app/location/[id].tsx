@@ -1,5 +1,5 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useCallback, useMemo, useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -10,65 +10,76 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-} from 'react-native';
+} from "react-native";
 
-import { DatePickerModal } from '@/components/ui/date-picker-modal';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { DatePickerModal } from "@/components/ui/date-picker-modal";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { MachineGrid } from '@/components/ui/machine-grid';
-import { Colors } from '@/constants/theme';
-import { useApp } from '@/context/app-context';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import type { Machine, MachineType } from '@/types';
+import { MachineGrid } from "@/components/ui/machine-grid";
+import { Colors } from "@/constants/theme";
+import { useApp } from "@/context/app-context";
+import { useColorScheme } from "@/hooks/use-color-scheme";
+import type { Machine, MachineType } from "@/types";
 
 const MACHINE_LABELS: Record<MachineType, string> = {
-  sweet: 'Sweet Machine 🍬',
-  toy: 'Toy Machine 🪀',
+  sweet: "Sweet Machine 🍬",
+  toy: "Toy Machine 🪀",
 };
 
-
 function formatDate(iso: string | null): string {
-  if (!iso) return 'Never';
-  return new Date(iso).toLocaleDateString('en-AU', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
+  if (!iso) return "Never";
+  return new Date(iso).toLocaleDateString("en-AU", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
   });
 }
 
 export default function LocationDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { state, updateLocation, deleteLocation, restockLocation, addMachine, updateMachine, deleteMachine } = useApp();
-  const colorScheme = useColorScheme() ?? 'light';
+  const {
+    state,
+    updateLocation,
+    deleteLocation,
+    restockLocation,
+    addMachine,
+    updateMachine,
+    deleteMachine,
+  } = useApp();
+  const colorScheme = useColorScheme() ?? "light";
   const colors = Colors[colorScheme];
   const router = useRouter();
 
   const location = useMemo(
     () => state.locations.find((l) => l.id === id),
-    [state.locations, id]
+    [state.locations, id],
   );
 
-  const [name, setName] = useState(location?.name ?? '');
-  const [address, setAddress] = useState(location?.address ?? '');
-  const [city, setCity] = useState(location?.city ?? '');
-  const [postcode, setPostcode] = useState(location?.postcode ?? '');
-  const [notes, setNotes] = useState(location?.notes ?? '');
+  const [name, setName] = useState(location?.name ?? "");
+  const [address, setAddress] = useState(location?.address ?? "");
+  const [city, setCity] = useState(location?.city ?? "");
+  const [postcode, setPostcode] = useState(location?.postcode ?? "");
+  const [notes, setNotes] = useState(location?.notes ?? "");
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [pickerDate, setPickerDate] = useState<Date>(
-    location?.lastRestockedAt ? new Date(location.lastRestockedAt) : new Date()
+    location?.lastRestockedAt ? new Date(location.lastRestockedAt) : new Date(),
   );
 
   const handleMachineUpdate = useCallback(
-    (machine: Machine) => updateMachine(location?.id ?? '', machine),
-    [location?.id, updateMachine]
+    (machine: Machine) => updateMachine(location?.id ?? "", machine),
+    [location?.id, updateMachine],
   );
-
 
   if (!location) {
     return (
-      <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
+      <SafeAreaView
+        style={[styles.safe, { backgroundColor: colors.background }]}
+        edges={["top"]}
+      >
         <View style={styles.notFound}>
-          <Text style={[styles.notFoundText, { color: colors.subtext }]}>Location not found.</Text>
+          <Text style={[styles.notFoundText, { color: colors.subtext }]}>
+            Location not found.
+          </Text>
           <TouchableOpacity onPress={() => router.back()}>
             <Text style={{ color: colors.tint, marginTop: 8 }}>Go back</Text>
           </TouchableOpacity>
@@ -77,9 +88,12 @@ export default function LocationDetailScreen() {
     );
   }
 
-  const saveField = (field: 'name' | 'address' | 'city' | 'postcode' | 'notes', value: string) => {
+  const saveField = (
+    field: "name" | "address" | "city" | "postcode" | "notes",
+    value: string,
+  ) => {
     const trimmed = value.trim();
-    if (field === 'name' && !trimmed) return;
+    if (field === "name" && !trimmed) return;
     updateLocation({ ...location, [field]: trimmed || undefined });
   };
 
@@ -95,68 +109,75 @@ export default function LocationDetailScreen() {
 
   const handleDeleteLocation = () => {
     Alert.alert(
-      'Delete Location',
+      "Delete Location",
       `Are you sure you want to delete "${location.name}"? This cannot be undone.`,
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: "Cancel", style: "cancel" },
         {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => { deleteLocation(location.id); router.back(); },
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            deleteLocation(location.id);
+            router.back();
+          },
         },
-      ]
+      ],
     );
   };
 
   const handleAddMachine = (type: MachineType) => {
-    if (location.machines.find((m) => m.type === type)) {
-      Alert.alert('Already added', `A ${type} machine already exists for this location.`);
-      return;
-    }
     addMachine(location.id, type);
   };
 
-
   const handleDeleteMachine = (machineId: string) => {
-    Alert.alert('Remove Machine', 'Remove this machine from the location?', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert("Remove Machine", "Remove this machine from the location?", [
+      { text: "Cancel", style: "cancel" },
       {
-        text: 'Remove',
-        style: 'destructive',
+        text: "Remove",
+        style: "destructive",
         onPress: () => deleteMachine(location.id, machineId),
       },
     ]);
   };
 
-  const canAddSweet = !location.machines.find((m) => m.type === 'sweet');
-  const canAddToy = !location.machines.find((m) => m.type === 'toy');
-
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
+    <SafeAreaView
+      style={[styles.safe, { backgroundColor: colors.background }]}
+      edges={["top"]}
+    >
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
         {/* Nav bar */}
         <View style={styles.navbar}>
-          <TouchableOpacity onPress={() => router.back()} hitSlop={8} style={styles.backBtn}>
-            <Text style={[styles.backText, { color: colors.tint }]}>‹ Back</Text>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            hitSlop={8}
+            style={styles.backBtn}
+          >
+            <Text style={[styles.backText, { color: colors.tint }]}>
+              ‹ Back
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={handleDeleteLocation} hitSlop={8}>
-            <Text style={{ color: '#ef4444', fontSize: 14, fontWeight: '500' }}>Delete</Text>
+            <Text style={{ color: "#ef4444", fontSize: 14, fontWeight: "500" }}>
+              Delete
+            </Text>
           </TouchableOpacity>
         </View>
 
         <ScrollView
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled">
-
+          keyboardShouldPersistTaps="handled"
+        >
           {/* Name */}
           <TextInput
             style={[styles.nameInput, { color: colors.text }]}
             value={name}
             onChangeText={setName}
-            onBlur={() => saveField('name', name)}
+            onBlur={() => saveField("name", name)}
             placeholder="Location name"
             placeholderTextColor={colors.subtext}
             returnKeyType="done"
@@ -167,7 +188,7 @@ export default function LocationDetailScreen() {
             style={[styles.addressInput, { color: colors.subtext }]}
             value={address}
             onChangeText={setAddress}
-            onBlur={() => saveField('address', address)}
+            onBlur={() => saveField("address", address)}
             placeholder="1st line of address"
             placeholderTextColor={colors.border}
             returnKeyType="next"
@@ -177,7 +198,7 @@ export default function LocationDetailScreen() {
               style={[styles.addressInputHalf, { color: colors.subtext }]}
               value={city}
               onChangeText={setCity}
-              onBlur={() => saveField('city', city)}
+              onBlur={() => saveField("city", city)}
               placeholder="City"
               placeholderTextColor={colors.border}
               returnKeyType="next"
@@ -186,7 +207,7 @@ export default function LocationDetailScreen() {
               style={[styles.addressInputHalf, { color: colors.subtext }]}
               value={postcode}
               onChangeText={setPostcode}
-              onBlur={() => saveField('postcode', postcode)}
+              onBlur={() => saveField("postcode", postcode)}
               placeholder="Postcode"
               placeholderTextColor={colors.border}
               returnKeyType="done"
@@ -197,25 +218,43 @@ export default function LocationDetailScreen() {
           {/* Last restock row */}
           <View style={styles.restockRow}>
             <View style={styles.restockInfo}>
-              <Text style={[styles.restockMeta, { color: colors.subtext }]}>Last restocked</Text>
+              <Text style={[styles.restockMeta, { color: colors.subtext }]}>
+                Last restocked
+              </Text>
               <Text style={[styles.restockDate, { color: colors.text }]}>
-                {location.lastRestockedAt ? formatDate(location.lastRestockedAt) : 'Never'}
+                {location.lastRestockedAt
+                  ? formatDate(location.lastRestockedAt)
+                  : "Never"}
               </Text>
             </View>
             <TouchableOpacity
               onPress={() => {
-                setPickerDate(location.lastRestockedAt ? new Date(location.lastRestockedAt) : new Date());
+                setPickerDate(
+                  location.lastRestockedAt
+                    ? new Date(location.lastRestockedAt)
+                    : new Date(),
+                );
                 setShowDatePicker(true);
               }}
-              style={[styles.editDateBtn, { borderColor: colors.border, backgroundColor: colors.card }]}>
-              <Text style={[styles.editDateBtnText, { color: colors.subtext }]}>Edit date</Text>
+              style={[
+                styles.editDateBtn,
+                { borderColor: colors.border, backgroundColor: colors.card },
+              ]}
+            >
+              <Text style={[styles.editDateBtnText, { color: colors.subtext }]}>
+                Edit date
+              </Text>
             </TouchableOpacity>
           </View>
 
           {/* Restock button */}
           <TouchableOpacity
-            style={[styles.restockBtn, { backgroundColor: colors.card, borderColor: colors.tint }]}
-            onPress={handleRestock}>
+            style={[
+              styles.restockBtn,
+              { backgroundColor: colors.card, borderColor: colors.tint },
+            ]}
+            onPress={handleRestock}
+          >
             <Text style={[styles.restockBtnText, { color: colors.tint }]}>
               ✓ Mark Restocked Now
             </Text>
@@ -232,7 +271,37 @@ export default function LocationDetailScreen() {
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
           {/* Machines */}
-          <Text style={[styles.sectionLabel, { color: colors.text }]}>Machines</Text>
+          <Text style={[styles.sectionLabel, { color: colors.text }]}>
+            Machines
+          </Text>
+
+          {/* Add machine buttons */}
+          <View style={styles.addMachineRow}>
+            <TouchableOpacity
+              style={[
+                styles.addMachineBtn,
+                { borderColor: colors.tint, backgroundColor: colors.card },
+              ]}
+              onPress={() => handleAddMachine("sweet")}
+            >
+              <Text style={styles.addMachineEmoji}>🍬</Text>
+              <Text style={[styles.addMachineBtnText, { color: colors.tint }]}>
+                Add Sweet Machine
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.addMachineBtn,
+                { borderColor: colors.tint, backgroundColor: colors.card },
+              ]}
+              onPress={() => handleAddMachine("toy")}
+            >
+              <Text style={styles.addMachineEmoji}>🪀</Text>
+              <Text style={[styles.addMachineBtnText, { color: colors.tint }]}>
+                Add Toy Machine
+              </Text>
+            </TouchableOpacity>
+          </View>
 
           {location.machines.length === 0 && (
             <Text style={[styles.sectionNote, { color: colors.subtext }]}>
@@ -243,20 +312,35 @@ export default function LocationDetailScreen() {
           {location.machines.map((machine) => (
             <View
               key={machine.id}
-              style={[styles.machineCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              style={[
+                styles.machineCard,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+            >
               <View style={styles.machineHeader}>
                 <View style={styles.machineTitleRow}>
                   <Text style={[styles.machineTitle, { color: colors.text }]}>
                     {MACHINE_LABELS[machine.type]}
                   </Text>
-                  <Text style={[styles.machineCount, {
-                    color: machine.slots.filter(Boolean).length === 9 ? '#ef4444' : colors.subtext,
-                  }]}>
+                  <Text
+                    style={[
+                      styles.machineCount,
+                      {
+                        color:
+                          machine.slots.filter(Boolean).length === 9
+                            ? "#ef4444"
+                            : colors.subtext,
+                      },
+                    ]}
+                  >
                     {machine.slots.filter(Boolean).length}/9
                   </Text>
                 </View>
-                <TouchableOpacity onPress={() => handleDeleteMachine(machine.id)} hitSlop={8}>
-                  <Text style={{ color: '#ef4444', fontSize: 13 }}>Remove</Text>
+                <TouchableOpacity
+                  onPress={() => handleDeleteMachine(machine.id)}
+                  hitSlop={8}
+                >
+                  <Text style={{ color: "#ef4444", fontSize: 13 }}>Remove</Text>
                 </TouchableOpacity>
               </View>
 
@@ -268,38 +352,25 @@ export default function LocationDetailScreen() {
             </View>
           ))}
 
-          {/* Add machine buttons */}
-          {(canAddSweet || canAddToy) && (
-            <View style={styles.addMachineRow}>
-              {canAddSweet && (
-                <TouchableOpacity
-                  style={[styles.addMachineBtn, { borderColor: colors.tint, backgroundColor: colors.card }]}
-                  onPress={() => handleAddMachine('sweet')}>
-                  <Text style={styles.addMachineEmoji}>🍬</Text>
-                  <Text style={[styles.addMachineBtnText, { color: colors.tint }]}>Add Sweet Machine</Text>
-                </TouchableOpacity>
-              )}
-              {canAddToy && (
-                <TouchableOpacity
-                  style={[styles.addMachineBtn, { borderColor: colors.tint, backgroundColor: colors.card }]}
-                  onPress={() => handleAddMachine('toy')}>
-                  <Text style={styles.addMachineEmoji}>🪀</Text>
-                  <Text style={[styles.addMachineBtnText, { color: colors.tint }]}>Add Toy Machine</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          )}
-
           {/* Divider */}
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
           {/* Notes */}
-          <Text style={[styles.sectionLabel, { color: colors.text }]}>Notes</Text>
+          <Text style={[styles.sectionLabel, { color: colors.text }]}>
+            Notes
+          </Text>
           <TextInput
-            style={[styles.notesInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.card }]}
+            style={[
+              styles.notesInput,
+              {
+                color: colors.text,
+                borderColor: colors.border,
+                backgroundColor: colors.card,
+              },
+            ]}
             value={notes}
             onChangeText={setNotes}
-            onBlur={() => saveField('notes', notes)}
+            onBlur={() => saveField("notes", notes)}
             placeholder="Add notes about this location…"
             placeholderTextColor={colors.subtext}
             multiline
@@ -315,52 +386,57 @@ export default function LocationDetailScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   navbar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 12,
   },
-  backBtn: { flexDirection: 'row', alignItems: 'center' },
-  backText: { fontSize: 16, fontWeight: '500' },
+  backBtn: { flexDirection: "row", alignItems: "center" },
+  backText: { fontSize: 16, fontWeight: "500" },
   content: { paddingHorizontal: 20, paddingBottom: 60 },
   nameInput: {
     fontSize: 26,
-    fontWeight: '800',
+    fontWeight: "800",
     letterSpacing: -0.5,
     marginBottom: 4,
     padding: 0,
   },
   addressInput: { fontSize: 14, marginBottom: 6, padding: 0 },
-  addressRow: { flexDirection: 'row', gap: 10, marginBottom: 8 },
+  addressRow: { flexDirection: "row", gap: 10, marginBottom: 8 },
   addressInputHalf: { flex: 1, fontSize: 14, padding: 0 },
   restockRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: 10,
     gap: 10,
   },
   restockInfo: { flex: 1, gap: 1 },
-  restockMeta: { fontSize: 11, fontWeight: '500', textTransform: 'uppercase', letterSpacing: 0.4 },
-  restockDate: { fontSize: 14, fontWeight: '600' },
+  restockMeta: {
+    fontSize: 11,
+    fontWeight: "500",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  restockDate: { fontSize: 14, fontWeight: "600" },
   editDateBtn: {
     borderRadius: 8,
     borderWidth: 1,
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
-  editDateBtnText: { fontSize: 12, fontWeight: '500' },
+  editDateBtnText: { fontSize: 12, fontWeight: "500" },
   restockBtn: {
     borderRadius: 10,
     borderWidth: 1.5,
     paddingVertical: 11,
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 20,
   },
-  restockBtnText: { fontSize: 15, fontWeight: '700' },
+  restockBtnText: { fontSize: 15, fontWeight: "700" },
   divider: { height: StyleSheet.hairlineWidth, marginVertical: 20 },
-  sectionLabel: { fontSize: 17, fontWeight: '700', marginBottom: 4 },
+  sectionLabel: { fontSize: 17, fontWeight: "700", marginBottom: 4 },
   sectionNote: { fontSize: 13, marginBottom: 12, lineHeight: 18 },
   machineCard: {
     borderRadius: 14,
@@ -370,27 +446,27 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   machineHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
-  machineTitleRow: { flexDirection: 'row', alignItems: 'baseline', gap: 6 },
-  machineTitle: { fontSize: 16, fontWeight: '700' },
-  machineCount: { fontSize: 13, fontWeight: '500' },
-  addMachineRow: { flexDirection: 'row', gap: 10, marginBottom: 4 },
+  machineTitleRow: { flexDirection: "row", alignItems: "baseline", gap: 6 },
+  machineTitle: { fontSize: 16, fontWeight: "700" },
+  machineCount: { fontSize: 13, fontWeight: "500" },
+  addMachineRow: { flexDirection: "row", gap: 10, marginBottom: 4 },
   addMachineBtn: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 6,
     borderWidth: 1.5,
     borderRadius: 12,
-    borderStyle: 'dashed',
+    borderStyle: "dashed",
     paddingVertical: 14,
   },
   addMachineEmoji: { fontSize: 18 },
-  addMachineBtnText: { fontSize: 14, fontWeight: '600' },
+  addMachineBtnText: { fontSize: 14, fontWeight: "600" },
   notesInput: {
     borderWidth: 1,
     borderRadius: 10,
@@ -399,6 +475,6 @@ const styles = StyleSheet.create({
     minHeight: 96,
     marginTop: 8,
   },
-  notFound: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  notFound: { flex: 1, alignItems: "center", justifyContent: "center" },
   notFoundText: { fontSize: 16 },
 });
