@@ -255,6 +255,11 @@ export function MachineGrid({ machine, products, onUpdate, readonly }: MachineGr
   const [activeSlot, setActiveSlot] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
 
+  const compact = (slots: (string | null)[]): (string | null)[] => {
+    const filled = slots.filter(Boolean) as string[];
+    return [...filled, ...Array(9 - filled.length).fill(null)];
+  };
+
   const handleSlotPress = useCallback(
     (index: number) => { if (!readonly) setActiveSlot(index); },
     [readonly]
@@ -265,7 +270,7 @@ export function MachineGrid({ machine, products, onUpdate, readonly }: MachineGr
       if (activeSlot === null) return;
       const newSlots = [...machine.slots];
       newSlots[activeSlot] = productId;
-      onUpdate({ ...machine, slots: newSlots });
+      onUpdate({ ...machine, slots: compact(newSlots) });
       setActiveSlot(null);
     },
     [activeSlot, machine, onUpdate]
@@ -279,15 +284,11 @@ export function MachineGrid({ machine, products, onUpdate, readonly }: MachineGr
         if (emptyIndex === -1) return;
         newSlots[emptyIndex] = productId;
       } else {
-        // Remove the last occurrence of this product
-        let lastIndex = -1;
-        for (let i = newSlots.length - 1; i >= 0; i--) {
-          if (newSlots[i] === productId) { lastIndex = i; break; }
-        }
+        const lastIndex = newSlots.reduce((found, id, i) => id === productId ? i : found, -1);
         if (lastIndex === -1) return;
         newSlots[lastIndex] = null;
       }
-      onUpdate({ ...machine, slots: newSlots });
+      onUpdate({ ...machine, slots: compact(newSlots) });
     },
     [machine, onUpdate]
   );
@@ -331,14 +332,18 @@ export function MachineGrid({ machine, products, onUpdate, readonly }: MachineGr
                     borderColor: isEmpty ? colors.border : colors.tint + '55',
                   },
                 ]}>
-                {product
-                  ? <ProductThumb product={product} size={44} />
-                  : <Text style={styles.slotEmoji}>+</Text>}
-                <Text
-                  style={[styles.slotLabel, { color: isEmpty ? colors.subtext : colors.text }]}
-                  numberOfLines={1}>
-                  {product ? product.name : 'Empty'}
-                </Text>
+                {product ? (
+                  (() => {
+                    const src = product.localImageUri
+                      ? { uri: product.localImageUri }
+                      : PRODUCT_IMAGES[product.id];
+                    return src
+                      ? <Image source={src} style={styles.slotImage} resizeMode="contain" />
+                      : <Text style={styles.slotEmoji}>{product.emoji ?? '📦'}</Text>;
+                  })()
+                ) : (
+                  <Text style={styles.slotEmoji}>+</Text>
+                )}
               </TouchableOpacity>
             );
           })}
@@ -391,16 +396,15 @@ const styles = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   slot: {
     width: '30%',
-    aspectRatio: 1,
+    aspectRatio: 300 / 479,
     borderRadius: 10,
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
-    padding: 4,
+    overflow: 'hidden',
   },
+  slotImage: { width: '100%', height: '100%' },
   slotEmoji: { fontSize: 22 },
-  slotLabel: { fontSize: 10, fontWeight: '500', textAlign: 'center' },
   // List
   listContainer: { gap: 2 },
   listEmpty: { fontSize: 13, textAlign: 'center', paddingVertical: 12 },
