@@ -161,7 +161,7 @@ function MachineCard({ machine, products, colors, onChange, onRemove }: MachineC
   }, [machine, max, onChange]);
 
   const handleAddProduct = useCallback((productId: string) => {
-    onChange({ ...machine, items: [...machine.items, { id: uid(), productId, qty: 1, done: false }] });
+    onChange({ ...machine, items: [...machine.items, { id: uid(), productId, qty: 0, done: false }] });
   }, [machine, onChange]);
 
   const toggleDone = useCallback((itemId: string) => {
@@ -218,12 +218,13 @@ function MachineCard({ machine, products, colors, onChange, onRemove }: MachineC
               </View>
               {!item.done && (
                 <View style={styles.counter}>
-                  <TouchableOpacity
-                    onPress={() => setQty(item.id, -1)}
-                    hitSlop={6}
-                    style={[styles.counterBtn, { borderColor: colors.border, backgroundColor: colors.background }]}>
-                    <Text style={[styles.counterBtnText, { color: colors.text }]}>−</Text>
-                  </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setQty(item.id, -1)}
+                  disabled={item.qty === 0}
+                  hitSlop={6}
+                  style={[styles.counterBtn, { borderColor: colors.border, backgroundColor: colors.background, opacity: item.qty === 0 ? 0.3 : 1 }]}>
+                  <Text style={[styles.counterBtnText, { color: colors.text }]}>−</Text>
+                </TouchableOpacity>
                   <Text style={[styles.counterVal, { color: colors.text }]}>
                     {item.qty}
                     <Text style={[styles.counterMax, { color: colors.subtext }]}>/{max}</Text>
