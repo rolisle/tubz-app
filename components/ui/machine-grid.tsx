@@ -193,7 +193,7 @@ function ListView({ machine, products, onSlotPress, onSlotCountChange, readonly,
               { borderColor: colors.border, backgroundColor: colors.tint + '0C' },
             ]}
             activeOpacity={readonly ? 1 : 0.6}>
-            <ProductThumb product={item.product} size={28} />
+            <ProductThumb product={item.product} size={48} />
 
             <View style={styles.listInfo}>
               <Text style={[styles.listName, { color: colors.text }]} numberOfLines={1}>
@@ -416,14 +416,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    paddingVertical: 8,
+    paddingVertical: 12,
     paddingHorizontal: 10,
     borderRadius: 8,
     borderWidth: StyleSheet.hairlineWidth,
     marginBottom: 2,
   },
   listRowEmpty: { opacity: 0.6 },
-  listEmoji: { fontSize: 20, lineHeight: 20, includeFontPadding: false, width: 28, textAlign: 'center' },
+  listEmoji: { fontSize: 32, lineHeight: 32, includeFontPadding: false, width: 48, textAlign: 'center' },
   listInfo: { flex: 1, gap: 1 },
   listName: { fontSize: 14, fontWeight: '500' },
   listSlotCount: { fontSize: 11 },

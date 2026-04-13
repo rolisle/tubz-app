@@ -2,6 +2,7 @@ import * as ImagePicker from "expo-image-picker";
 import { useMemo, useState } from "react";
 import {
   Alert,
+  Dimensions,
   FlatList,
   Image,
   Modal,
@@ -279,6 +280,11 @@ interface ProductRowProps {
 }
 
 function ProductRow({ product, onDelete, colors }: ProductRowProps) {
+  const [zoomed, setZoomed] = useState(false);
+  const src = product.localImageUri
+    ? { uri: product.localImageUri }
+    : PRODUCT_IMAGES[product.id];
+
   const handleDelete = () => {
     Alert.alert(
       "Delete Product",
@@ -290,18 +296,14 @@ function ProductRow({ product, onDelete, colors }: ProductRowProps) {
     );
   };
 
+  const { width, height } = Dimensions.get("window");
+
   return (
     <View style={[styles.row, { borderBottomColor: colors.border }]}>
-      {product.localImageUri || PRODUCT_IMAGES[product.id] ? (
-        <Image
-          source={
-            product.localImageUri
-              ? { uri: product.localImageUri }
-              : PRODUCT_IMAGES[product.id]
-          }
-          style={styles.rowImage}
-          resizeMode="cover"
-        />
+      {src ? (
+        <TouchableOpacity onPress={() => setZoomed(true)} activeOpacity={0.8}>
+          <Image source={src} style={styles.rowImage} resizeMode="cover" />
+        </TouchableOpacity>
       ) : (
         <Text style={styles.rowEmoji}>{product.emoji ?? "📦"}</Text>
       )}
@@ -315,6 +317,29 @@ function ProductRow({ product, onDelete, colors }: ProductRowProps) {
       >
         <Text style={styles.deleteIcon}>X</Text>
       </TouchableOpacity>
+
+      {/* Image zoom modal */}
+      {src && (
+        <Modal
+          visible={zoomed}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setZoomed(false)}
+        >
+          <Pressable style={styles.zoomOverlay} onPress={() => setZoomed(false)}>
+            <View style={styles.zoomCard}>
+              <Image
+                source={src}
+                style={{ width: width * 0.85, height: height * 0.7 }}
+                resizeMode="contain"
+              />
+              <Text style={[styles.zoomName, { color: colors.text }]}>
+                {product.name}
+              </Text>
+            </View>
+          </Pressable>
+        </Modal>
+      )}
     </View>
   );
 }
@@ -629,11 +654,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    paddingVertical: 11,
+    paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  rowEmoji: { fontSize: 22, width: 30, textAlign: "center" },
-  rowImage: { width: 30, height: 30, borderRadius: 4 },
+  rowEmoji: { fontSize: 32, width: 50, textAlign: "center" },
+  rowImage: { width: 50, height: 50, borderRadius: 6 },
   imagePickerRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -704,6 +729,22 @@ const styles = StyleSheet.create({
   emptyEmoji: { fontSize: 36, marginBottom: 4 },
   emptyTitle: { fontSize: 17, fontWeight: "700" },
   emptyNote: { fontSize: 14, textAlign: "center", lineHeight: 20 },
+  // Image zoom
+  zoomOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.85)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  zoomCard: {
+    alignItems: "center",
+    gap: 14,
+  },
+  zoomName: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#fff",
+  },
   // Modal
   overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)" },
   sheet: {
