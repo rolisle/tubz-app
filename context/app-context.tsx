@@ -195,14 +195,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               })),
             })),
           };
+          // Strip legacy "Tubz " prefix from product names
+          const cleanedProducts = migrated.products.map((p) => ({
+            ...p,
+            name: p.name.startsWith('Tubz ') ? p.name.slice(5) : p.name,
+          }));
           // Merge any new default products not already in saved catalog
-          const savedIds = new Set(migrated.products.map((p) => p.id));
+          const savedIds = new Set(cleanedProducts.map((p) => p.id));
           const newDefaults = DEFAULT_PRODUCTS.filter((p) => !savedIds.has(p.id));
           dispatch({
             type: 'LOAD_STATE',
             payload: {
               ...migrated,
-              products: [...migrated.products, ...newDefaults],
+              products: [...cleanedProducts, ...newDefaults],
             },
           });
         } catch {
