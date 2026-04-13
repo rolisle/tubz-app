@@ -5,11 +5,11 @@ import {
   FlatList,
   Image,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -76,10 +76,15 @@ interface ProductPickerProps {
 function ProductPicker({ machineType, products, onSelect, onClose }: ProductPickerProps) {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
-  const filtered = useMemo(
-    () => products.filter((p) => !p.category || p.category === machineType).sort((a, b) => a.name.localeCompare(b.name)),
-    [products, machineType],
-  );
+  const [search, setSearch] = useState('');
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return products
+      .filter((p) => !p.category || p.category === machineType)
+      .filter((p) => !q || p.name.toLowerCase().includes(q))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [products, machineType, search]);
 
   return (
     <Modal transparent animationType="slide" onRequestClose={onClose}>
@@ -92,9 +97,25 @@ function ProductPicker({ machineType, products, onSelect, onClose }: ProductPick
           </TouchableOpacity>
         </View>
 
+        {/* Search */}
+        <View style={[styles.searchWrap, { backgroundColor: colors.background, borderColor: colors.border }]}>
+          <Text style={[styles.searchIcon, { color: colors.subtext }]}>🔍</Text>
+          <TextInput
+            style={[styles.searchInput, { color: colors.text }]}
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Search products…"
+            placeholderTextColor={colors.subtext}
+            autoFocus
+            returnKeyType="search"
+            clearButtonMode="while-editing"
+          />
+        </View>
+
         <FlatList
           data={filtered}
           keyExtractor={(p) => p.id}
+          keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ paddingBottom: 20 }}
           renderItem={({ item }) => (
             <TouchableOpacity
@@ -105,7 +126,9 @@ function ProductPicker({ machineType, products, onSelect, onClose }: ProductPick
             </TouchableOpacity>
           )}
           ListEmptyComponent={
-            <Text style={[styles.pickerEmpty, { color: colors.subtext }]}>No products match this machine type.</Text>
+            <Text style={[styles.pickerEmpty, { color: colors.subtext }]}>
+              {search ? `No results for "${search}"` : 'No products match this machine type.'}
+            </Text>
           }
         />
       </View>
@@ -182,7 +205,7 @@ function MachineCard({ machine, products, colors, onChange, onRemove }: MachineC
                 {item.done && <Text style={styles.doneTick}>✓</Text>}
               </TouchableOpacity>
 
-              <ProductThumb product={product} size={38} />
+              <ProductThumb product={product} size={50} />
               <View style={styles.itemInfo}>
                 <Text style={[styles.itemName, { color: colors.text, textDecorationLine: item.done ? 'line-through' : 'none' }]} numberOfLines={1}>
                   {product?.name ?? item.productId}
@@ -469,6 +492,19 @@ const styles = StyleSheet.create({
   },
   sheetTitle: { fontSize: 17, fontWeight: '700' },
   sheetClose: { fontSize: 15 },
+  searchWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginBottom: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    gap: 6,
+  },
+  searchIcon: { fontSize: 14 },
+  searchInput: { flex: 1, fontSize: 15 },
   pickerRow: {
     flexDirection: 'row',
     alignItems: 'center',
