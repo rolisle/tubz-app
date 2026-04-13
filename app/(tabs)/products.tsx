@@ -1,7 +1,8 @@
-import * as ImagePicker from 'expo-image-picker';
-import { useMemo, useState } from 'react';
+import * as ImagePicker from "expo-image-picker";
+import { useMemo, useState } from "react";
 import {
   Alert,
+  FlatList,
   Image,
   Modal,
   Platform,
@@ -12,65 +13,93 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { PRODUCT_IMAGES } from '@/constants/product-images';
-import { Colors } from '@/constants/theme';
-import { useApp } from '@/context/app-context';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import type { Product, ProductCategory } from '@/types';
+import { PRODUCT_IMAGES } from "@/constants/product-images";
+import { Colors } from "@/constants/theme";
+import { useApp } from "@/context/app-context";
+import { useColorScheme } from "@/hooks/use-color-scheme";
+import type { Product, ProductCategory } from "@/types";
 
 const CATEGORY_LABELS: Record<ProductCategory, string> = {
-  sweet: '🍬 Sweets',
-  toy: '🪀 Toys',
-  other: '📦 Other',
+  sweet: "🍬 Sweets",
+  toy: "🪀 Toys",
+  other: "📦 Other",
 };
 
-const CATEGORY_ORDER: ProductCategory[] = ['sweet', 'toy', 'other'];
+const CATEGORY_ORDER: ProductCategory[] = ["sweet", "toy", "other"];
 
-const EMOJI_SUGGESTIONS = ['🍬', '🍭', '🍫', '🍩', '🌈', '🍊', '🍓', '🦈', '🍉', '🍦', '🥤', '❄️',
-                           '🪀', '🤖', '🦄', '🦕', '🐶', '🌀', '⭐', '👾', '🧩', '🎬', '🐉', '🧚'];
+const EMOJI_SUGGESTIONS = [
+  "🍬",
+  "🍭",
+  "🍫",
+  "🍩",
+  "🌈",
+  "🍊",
+  "🍓",
+  "🦈",
+  "🍉",
+  "🍦",
+  "🥤",
+  "❄️",
+  "🪀",
+  "🤖",
+  "🦄",
+  "🦕",
+  "🐶",
+  "🌀",
+  "⭐",
+  "👾",
+  "🧩",
+  "🎬",
+  "🐉",
+  "🧚",
+];
 
-type FilterTab = 'all' | ProductCategory;
+type FilterTab = "all" | ProductCategory;
 
 const FILTER_TABS: { label: string; value: FilterTab }[] = [
-  { label: 'All', value: 'all' },
-  { label: 'Sweets', value: 'sweet' },
-  { label: 'Toys', value: 'toy' },
-  { label: 'Other', value: 'other' },
+  { label: "All", value: "all" },
+  { label: "Sweets", value: "sweet" },
+  { label: "Toys", value: "toy" },
+  { label: "Other", value: "other" },
 ];
 
 interface AddProductModalProps {
   visible: boolean;
   onClose: () => void;
-  colors: (typeof Colors)['light'];
+  colors: (typeof Colors)["light"];
 }
 
 function AddProductModal({ visible, onClose, colors }: AddProductModalProps) {
   const { addProduct } = useApp();
-  const [name, setName] = useState('');
-  const [emoji, setEmoji] = useState('');
-  const [category, setCategory] = useState<ProductCategory>('sweet');
+  const [name, setName] = useState("");
+  const [emoji, setEmoji] = useState("");
+  const [category, setCategory] = useState<ProductCategory>("sweet");
   const [imageUri, setImageUri] = useState<string | null>(null);
 
   const reset = () => {
-    setName('');
-    setEmoji('');
-    setCategory('sweet');
+    setName("");
+    setEmoji("");
+    setCategory("sweet");
     setImageUri(null);
   };
 
   const pickImage = async () => {
-    if (Platform.OS !== 'web') {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission needed', 'Allow photo access to upload a product image.');
+    if (Platform.OS !== "web") {
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert(
+          "Permission needed",
+          "Allow photo access to upload a product image.",
+        );
         return;
       }
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: 'images',
+      mediaTypes: "images",
       allowsEditing: true,
       aspect: [3, 4],
       quality: 0.8,
@@ -83,23 +112,42 @@ function AddProductModal({ visible, onClose, colors }: AddProductModalProps) {
   const handleAdd = () => {
     const trimmed = name.trim();
     if (!trimmed) {
-      Alert.alert('Name required', 'Please enter a product name.');
+      Alert.alert("Name required", "Please enter a product name.");
       return;
     }
-    addProduct(trimmed, emoji.trim() || undefined, category, imageUri ?? undefined);
+    addProduct(
+      trimmed,
+      emoji.trim() || undefined,
+      category,
+      imageUri ?? undefined,
+    );
     reset();
     onClose();
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
       <Pressable style={styles.overlay} onPress={onClose} />
-      <View style={[styles.sheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <View
+        style={[
+          styles.sheet,
+          { backgroundColor: colors.card, borderColor: colors.border },
+        ]}
+      >
         <View style={styles.sheetHandle} />
-        <Text style={[styles.sheetTitle, { color: colors.text }]}>New Product</Text>
+        <Text style={[styles.sheetTitle, { color: colors.text }]}>
+          New Product
+        </Text>
 
         {/* Category selector */}
-        <Text style={[styles.fieldLabel, { color: colors.subtext }]}>Category</Text>
+        <Text style={[styles.fieldLabel, { color: colors.subtext }]}>
+          Category
+        </Text>
         <View style={styles.categoryRow}>
           {(Object.keys(CATEGORY_LABELS) as ProductCategory[]).map((cat) => (
             <TouchableOpacity
@@ -111,17 +159,32 @@ function AddProductModal({ visible, onClose, colors }: AddProductModalProps) {
                   backgroundColor: category === cat ? colors.tint : colors.card,
                   borderColor: category === cat ? colors.tint : colors.border,
                 },
-              ]}>
-              <Text style={[styles.categoryBtnText, { color: category === cat ? '#fff' : colors.subtext }]}>
+              ]}
+            >
+              <Text
+                style={[
+                  styles.categoryBtnText,
+                  { color: category === cat ? "#fff" : colors.subtext },
+                ]}
+              >
                 {CATEGORY_LABELS[cat]}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        <Text style={[styles.fieldLabel, { color: colors.subtext }]}>Name *</Text>
+        <Text style={[styles.fieldLabel, { color: colors.subtext }]}>
+          Name *
+        </Text>
         <TextInput
-          style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.background }]}
+          style={[
+            styles.input,
+            {
+              color: colors.text,
+              borderColor: colors.border,
+              backgroundColor: colors.background,
+            },
+          ]}
           placeholder="e.g. Gummy Bears"
           placeholderTextColor={colors.subtext}
           value={name}
@@ -131,19 +194,34 @@ function AddProductModal({ visible, onClose, colors }: AddProductModalProps) {
         />
 
         {/* Image picker */}
-        <Text style={[styles.fieldLabel, { color: colors.subtext }]}>Image (optional)</Text>
+        <Text style={[styles.fieldLabel, { color: colors.subtext }]}>
+          Image (optional)
+        </Text>
         <View style={styles.imagePickerRow}>
           <TouchableOpacity
             onPress={pickImage}
             style={[
               styles.imagePicker,
-              { borderColor: imageUri ? colors.tint : colors.border, backgroundColor: colors.background },
-            ]}>
+              {
+                borderColor: imageUri ? colors.tint : colors.border,
+                backgroundColor: colors.background,
+              },
+            ]}
+          >
             {imageUri ? (
-              <Image source={{ uri: imageUri }} style={styles.imagePreview} resizeMode="cover" />
+              <Image
+                source={{ uri: imageUri }}
+                style={styles.imagePreview}
+                resizeMode="cover"
+              />
             ) : (
-              <Text style={[styles.imagePickerPlaceholder, { color: colors.subtext }]}>
-                {'📷  Tap to upload'}
+              <Text
+                style={[
+                  styles.imagePickerPlaceholder,
+                  { color: colors.subtext },
+                ]}
+              >
+                {"📷  Tap to upload"}
               </Text>
             )}
           </TouchableOpacity>
@@ -151,8 +229,11 @@ function AddProductModal({ visible, onClose, colors }: AddProductModalProps) {
             <TouchableOpacity
               onPress={() => setImageUri(null)}
               hitSlop={8}
-              style={[styles.imageClear, { backgroundColor: colors.border }]}>
-              <Text style={[styles.imageClearText, { color: colors.text }]}>✕</Text>
+              style={[styles.imageClear, { backgroundColor: colors.border }]}
+            >
+              <Text style={[styles.imageClearText, { color: colors.text }]}>
+                ✕
+              </Text>
             </TouchableOpacity>
           )}
         </View>
@@ -160,7 +241,9 @@ function AddProductModal({ visible, onClose, colors }: AddProductModalProps) {
         {/* Emoji (only shown when no image selected) */}
         {!imageUri && (
           <>
-            <Text style={[styles.fieldLabel, { color: colors.subtext }]}>Emoji (optional)</Text>
+            <Text style={[styles.fieldLabel, { color: colors.subtext }]}>
+              Emoji (optional)
+            </Text>
             <View style={styles.emojiRow}>
               {EMOJI_SUGGESTIONS.map((e) => (
                 <TouchableOpacity
@@ -169,7 +252,8 @@ function AddProductModal({ visible, onClose, colors }: AddProductModalProps) {
                   style={[
                     styles.emojiChip,
                     { borderColor: emoji === e ? colors.tint : colors.border },
-                  ]}>
+                  ]}
+                >
                   <Text style={styles.emojiText}>{e}</Text>
                 </TouchableOpacity>
               ))}
@@ -179,7 +263,8 @@ function AddProductModal({ visible, onClose, colors }: AddProductModalProps) {
 
         <TouchableOpacity
           style={[styles.addBtn, { backgroundColor: colors.tint }]}
-          onPress={handleAdd}>
+          onPress={handleAdd}
+        >
           <Text style={styles.addBtnText}>Add Product</Text>
         </TouchableOpacity>
       </View>
@@ -190,18 +275,18 @@ function AddProductModal({ visible, onClose, colors }: AddProductModalProps) {
 interface ProductRowProps {
   product: Product;
   onDelete: () => void;
-  colors: (typeof Colors)['light'];
+  colors: (typeof Colors)["light"];
 }
 
 function ProductRow({ product, onDelete, colors }: ProductRowProps) {
   const handleDelete = () => {
     Alert.alert(
-      'Delete Product',
+      "Delete Product",
       `Remove "${product.name}" from the catalog? This won't affect existing machine slots.`,
       [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: onDelete },
-      ]
+        { text: "Cancel", style: "cancel" },
+        { text: "Delete", style: "destructive", onPress: onDelete },
+      ],
     );
   };
 
@@ -209,55 +294,107 @@ function ProductRow({ product, onDelete, colors }: ProductRowProps) {
     <View style={[styles.row, { borderBottomColor: colors.border }]}>
       {product.localImageUri || PRODUCT_IMAGES[product.id] ? (
         <Image
-          source={product.localImageUri ? { uri: product.localImageUri } : PRODUCT_IMAGES[product.id]}
+          source={
+            product.localImageUri
+              ? { uri: product.localImageUri }
+              : PRODUCT_IMAGES[product.id]
+          }
           style={styles.rowImage}
           resizeMode="cover"
         />
       ) : (
-        <Text style={styles.rowEmoji}>{product.emoji ?? '📦'}</Text>
+        <Text style={styles.rowEmoji}>{product.emoji ?? "📦"}</Text>
       )}
-      <Text style={[styles.rowName, { color: colors.text }]}>{product.name}</Text>
-      <TouchableOpacity onPress={handleDelete} hitSlop={8} style={styles.deleteBtn}>
-        <Text style={styles.deleteIcon}>🗑</Text>
+      <Text style={[styles.rowName, { color: colors.text }]}>
+        {product.name}
+      </Text>
+      <TouchableOpacity
+        onPress={handleDelete}
+        hitSlop={8}
+        style={styles.deleteBtn}
+      >
+        <Text style={styles.deleteIcon}>X</Text>
       </TouchableOpacity>
     </View>
   );
 }
 
+type ViewMode = 'grid' | 'list';
+
+interface ProductGridCardProps {
+  product: Product;
+  onDelete: () => void;
+  colors: (typeof Colors)['light'];
+}
+
+function ProductGridCard({ product, onDelete, colors }: ProductGridCardProps) {
+  const src = product.localImageUri
+    ? { uri: product.localImageUri }
+    : PRODUCT_IMAGES[product.id];
+
+  return (
+    <TouchableOpacity
+      onLongPress={onDelete}
+      activeOpacity={0.8}
+      style={[styles.gridCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      {src ? (
+        <Image source={src} style={styles.gridCardImage} resizeMode="cover" />
+      ) : (
+        <Text style={styles.gridCardEmoji}>{product.emoji ?? '📦'}</Text>
+      )}
+    </TouchableOpacity>
+  );
+}
+
 export default function ProductsScreen() {
   const { state, deleteProduct } = useApp();
-  const colorScheme = useColorScheme() ?? 'light';
+  const colorScheme = useColorScheme() ?? "light";
   const colors = Colors[colorScheme];
   const [showAdd, setShowAdd] = useState(false);
-  const [filter, setFilter] = useState<FilterTab>('all');
-  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<FilterTab>("all");
+  const [search, setSearch] = useState("");
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
 
   const sections = useMemo(() => {
     const filtered = state.products.filter((p) => {
-      const matchCat = filter === 'all' || p.category === filter || (!p.category && filter === 'other');
-      const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase());
+      const matchCat =
+        filter === "all" ||
+        p.category === filter ||
+        (!p.category && filter === "other");
+      const matchSearch =
+        !search || p.name.toLowerCase().includes(search.toLowerCase());
       return matchCat && matchSearch;
-    });
+    }).sort((a, b) => a.name.localeCompare(b.name));
 
-    if (filter !== 'all') {
-      return [{ title: CATEGORY_LABELS[filter === 'other' ? 'other' : filter as ProductCategory], data: filtered }];
+    if (filter !== "all") {
+      return [
+        {
+          title:
+            CATEGORY_LABELS[
+              filter === "other" ? "other" : (filter as ProductCategory)
+            ],
+          data: filtered,
+        },
+      ];
     }
 
-    return CATEGORY_ORDER
-      .map((cat) => ({
-        title: CATEGORY_LABELS[cat],
-        data: filtered.filter((p) => (p.category ?? 'other') === cat),
-      }))
-      .filter((s) => s.data.length > 0);
+    return CATEGORY_ORDER.map((cat) => ({
+      title: CATEGORY_LABELS[cat],
+      data: filtered.filter((p) => (p.category ?? "other") === cat),
+    })).filter((s) => s.data.length > 0);
   }, [state.products, filter, search]);
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
+    <SafeAreaView
+      style={[styles.safe, { backgroundColor: colors.background }]}
+      edges={["top"]}
+    >
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.text }]}>Products</Text>
         <TouchableOpacity
           style={[styles.fab, { backgroundColor: colors.tint }]}
-          onPress={() => setShowAdd(true)}>
+          onPress={() => setShowAdd(true)}
+        >
           <Text style={styles.fabIcon}>+</Text>
         </TouchableOpacity>
       </View>
@@ -267,7 +404,12 @@ export default function ProductsScreen() {
       </Text>
 
       {/* Search */}
-      <View style={[styles.searchWrap, { borderColor: colors.border, backgroundColor: colors.card }]}>
+      <View
+        style={[
+          styles.searchWrap,
+          { borderColor: colors.border, backgroundColor: colors.card },
+        ]}
+      >
         <Text style={{ color: colors.subtext, fontSize: 16 }}>🔍</Text>
         <TextInput
           style={[styles.searchInput, { color: colors.text }]}
@@ -277,7 +419,7 @@ export default function ProductsScreen() {
           onChangeText={setSearch}
         />
         {search.length > 0 && (
-          <TouchableOpacity onPress={() => setSearch('')} hitSlop={8}>
+          <TouchableOpacity onPress={() => setSearch("")} hitSlop={8}>
             <Text style={{ color: colors.subtext }}>✕</Text>
           </TouchableOpacity>
         )}
@@ -292,49 +434,110 @@ export default function ProductsScreen() {
             style={[
               styles.filterTab,
               {
-                borderBottomColor: filter === tab.value ? colors.tint : 'transparent',
+                borderBottomColor:
+                  filter === tab.value ? colors.tint : "transparent",
               },
-            ]}>
+            ]}
+          >
             <Text
               style={[
                 styles.filterTabText,
                 { color: filter === tab.value ? colors.tint : colors.subtext },
-              ]}>
+              ]}
+            >
               {tab.label}
             </Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      <SectionList
-        sections={sections}
-        keyExtractor={(p) => p.id}
-        contentContainerStyle={styles.list}
-        stickySectionHeadersEnabled={false}
-        renderSectionHeader={({ section }) => (
-          <Text style={[styles.sectionHeader, { color: colors.subtext, backgroundColor: colors.background }]}>
-            {section.title}
-          </Text>
-        )}
-        renderItem={({ item }) => (
-          <ProductRow
-            product={item}
-            onDelete={() => deleteProduct(item.id)}
-            colors={colors}
-          />
-        )}
-        ListEmptyComponent={
-          <View style={styles.emptyWrap}>
-            <Text style={styles.emptyEmoji}>📦</Text>
-            <Text style={[styles.emptyTitle, { color: colors.text }]}>No products found</Text>
-            <Text style={[styles.emptyNote, { color: colors.subtext }]}>
-              {state.products.length === 0
-                ? 'Tap + to add products to your catalog.'
-                : 'Try a different search or filter.'}
+      {/* View toggle */}
+      <View style={[styles.toggleBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <TouchableOpacity
+          onPress={() => setViewMode('grid')}
+          style={[styles.toggleBtn, viewMode === 'grid' && { backgroundColor: colors.tint }]}>
+          <Text style={[styles.toggleIcon, { color: viewMode === 'grid' ? '#fff' : colors.subtext }]}>⊞</Text>
+          <Text style={[styles.toggleLabel, { color: viewMode === 'grid' ? '#fff' : colors.subtext }]}>Grid</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => setViewMode('list')}
+          style={[styles.toggleBtn, viewMode === 'list' && { backgroundColor: colors.tint }]}>
+          <Text style={[styles.toggleIcon, { color: viewMode === 'list' ? '#fff' : colors.subtext }]}>≡</Text>
+          <Text style={[styles.toggleLabel, { color: viewMode === 'list' ? '#fff' : colors.subtext }]}>List</Text>
+        </TouchableOpacity>
+      </View>
+
+      {viewMode === 'grid' ? (
+        <FlatList
+          data={sections.flatMap((s) => s.data)}
+          keyExtractor={(p) => p.id}
+          numColumns={3}
+          contentContainerStyle={styles.gridList}
+          columnWrapperStyle={styles.gridRow}
+          renderItem={({ item }) => (
+            <ProductGridCard
+              product={item}
+              onDelete={() => {
+                Alert.alert(
+                  'Delete Product',
+                  `Remove "${item.name}" from the catalog?`,
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Delete', style: 'destructive', onPress: () => deleteProduct(item.id) },
+                  ]
+                );
+              }}
+              colors={colors}
+            />
+          )}
+          ListEmptyComponent={
+            <View style={styles.emptyWrap}>
+              <Text style={styles.emptyEmoji}>📦</Text>
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>No products found</Text>
+              <Text style={[styles.emptyNote, { color: colors.subtext }]}>
+                {state.products.length === 0 ? 'Tap + to add products to your catalog.' : 'Try a different search or filter.'}
+              </Text>
+            </View>
+          }
+        />
+      ) : (
+        <SectionList
+          sections={sections}
+          keyExtractor={(p) => p.id}
+          contentContainerStyle={styles.list}
+          stickySectionHeadersEnabled={false}
+          renderSectionHeader={({ section }) => (
+            <Text
+              style={[
+                styles.sectionHeader,
+                { color: colors.subtext, backgroundColor: colors.background },
+              ]}
+            >
+              {section.title}
             </Text>
-          </View>
-        }
-      />
+          )}
+          renderItem={({ item }) => (
+            <ProductRow
+              product={item}
+              onDelete={() => deleteProduct(item.id)}
+              colors={colors}
+            />
+          )}
+          ListEmptyComponent={
+            <View style={styles.emptyWrap}>
+              <Text style={styles.emptyEmoji}>📦</Text>
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>
+                No products found
+              </Text>
+              <Text style={[styles.emptyNote, { color: colors.subtext }]}>
+                {state.products.length === 0
+                  ? "Tap + to add products to your catalog."
+                  : "Try a different search or filter."}
+              </Text>
+            </View>
+          }
+        />
+      )}
 
       <AddProductModal
         visible={showAdd}
@@ -348,29 +551,29 @@ export default function ProductsScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 20,
     paddingTop: 4,
     paddingBottom: 4,
   },
   title: {
     fontSize: 28,
-    fontWeight: '800',
+    fontWeight: "800",
     letterSpacing: -0.5,
   },
   fab: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   fabIcon: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 22,
-    fontWeight: '400',
+    fontWeight: "400",
     lineHeight: 24,
   },
   subtitle: {
@@ -379,8 +582,8 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   searchWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginHorizontal: 20,
     marginBottom: 4,
     borderRadius: 10,
@@ -395,21 +598,21 @@ const styles = StyleSheet.create({
     padding: 0,
   },
   filterRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     paddingHorizontal: 20,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(128,128,128,0.2)',
+    borderBottomColor: "rgba(128,128,128,0.2)",
     marginBottom: 4,
   },
   filterTab: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: "center",
     paddingVertical: 10,
     borderBottomWidth: 2,
   },
   filterTabText: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   list: {
     paddingHorizontal: 20,
@@ -417,56 +620,94 @@ const styles = StyleSheet.create({
   },
   sectionHeader: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: "700",
     letterSpacing: 0.3,
     paddingVertical: 8,
     marginTop: 4,
   },
   row: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
     paddingVertical: 11,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  rowEmoji: { fontSize: 22, width: 30, textAlign: 'center' },
+  rowEmoji: { fontSize: 22, width: 30, textAlign: "center" },
   rowImage: { width: 30, height: 30, borderRadius: 4 },
-  imagePickerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 },
+  imagePickerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 4,
+  },
   imagePicker: {
     flex: 1,
     height: 80,
     borderWidth: 1.5,
-    borderStyle: 'dashed',
+    borderStyle: "dashed",
     borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
   },
-  imagePreview: { width: '100%', height: '100%' },
+  imagePreview: { width: "100%", height: "100%" },
   imagePickerPlaceholder: { fontSize: 14 },
   imageClear: {
     width: 28,
     height: 28,
     borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  imageClearText: { fontSize: 12, fontWeight: "600" },
+  toggleBar: {
+    flexDirection: 'row',
+    borderRadius: 10,
+    borderWidth: 1,
+    padding: 3,
+    gap: 3,
+    marginHorizontal: 20,
+    marginBottom: 10,
+  },
+  toggleBtn: {
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    borderRadius: 7,
+    paddingVertical: 6,
+    gap: 5,
   },
-  imageClearText: { fontSize: 12, fontWeight: '600' },
-  rowName: { flex: 1, fontSize: 15, fontWeight: '500' },
-  deleteBtn: { padding: 4 },
-  deleteIcon: { fontSize: 17 },
-  emptyWrap: {
+  toggleIcon: { fontSize: 15, lineHeight: 15, includeFontPadding: false },
+  toggleLabel: { fontSize: 12, fontWeight: '600' },
+  gridList: { paddingHorizontal: 20, paddingBottom: 40 },
+  gridRow: { gap: 10, marginBottom: 10 },
+  gridCard: {
+    flex: 1,
+    borderRadius: 10,
+    borderWidth: 1,
+    overflow: 'hidden',
     alignItems: 'center',
+    justifyContent: 'center',
+    aspectRatio: 300 / 479,
+  },
+  gridCardImage: { width: '100%', height: '100%' },
+  gridCardEmoji: { fontSize: 36 },
+  rowName: { flex: 1, fontSize: 15, fontWeight: "500" },
+  deleteBtn: { padding: 4 },
+  deleteIcon: { fontSize: 17, color: "#ef4444" },
+  emptyWrap: {
+    alignItems: "center",
     paddingTop: 60,
     gap: 6,
   },
   emptyEmoji: { fontSize: 36, marginBottom: 4 },
-  emptyTitle: { fontSize: 17, fontWeight: '700' },
-  emptyNote: { fontSize: 14, textAlign: 'center', lineHeight: 20 },
+  emptyTitle: { fontSize: 17, fontWeight: "700" },
+  emptyNote: { fontSize: 14, textAlign: "center", lineHeight: 20 },
   // Modal
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
+  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)" },
   sheet: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
@@ -481,25 +722,25 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#ccc',
-    alignSelf: 'center',
+    backgroundColor: "#ccc",
+    alignSelf: "center",
     marginBottom: 12,
   },
   sheetTitle: {
     fontSize: 20,
-    fontWeight: '700',
+    fontWeight: "700",
     marginBottom: 12,
   },
   fieldLabel: {
     fontSize: 12,
-    fontWeight: '600',
-    textTransform: 'uppercase',
+    fontWeight: "600",
+    textTransform: "uppercase",
     letterSpacing: 0.5,
     marginTop: 8,
     marginBottom: 4,
   },
   categoryRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 8,
     marginBottom: 4,
   },
@@ -508,11 +749,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 8,
     paddingVertical: 7,
-    alignItems: 'center',
+    alignItems: "center",
   },
   categoryBtnText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   input: {
     borderWidth: 1,
@@ -523,8 +764,8 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   emojiRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 8,
     marginTop: 4,
   },
@@ -537,8 +778,8 @@ const styles = StyleSheet.create({
   addBtn: {
     borderRadius: 12,
     paddingVertical: 14,
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: 16,
   },
-  addBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  addBtnText: { color: "#fff", fontSize: 16, fontWeight: "700" },
 });
