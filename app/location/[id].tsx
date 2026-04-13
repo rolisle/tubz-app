@@ -56,6 +56,17 @@ export default function LocationDetailScreen() {
     location?.lastRestockedAt ? new Date(location.lastRestockedAt) : new Date()
   );
 
+  const handleMachineUpdate = useCallback(
+    (machine: Machine) => updateMachine(location?.id ?? '', machine),
+    [location?.id, updateMachine]
+  );
+
+  const handleStockChange = useCallback(
+    (machineId: string, productId: string, delta: number) =>
+      updateStockCount(location?.id ?? '', machineId, productId, delta),
+    [location?.id, updateStockCount]
+  );
+
   if (!location) {
     return (
       <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
@@ -108,16 +119,6 @@ export default function LocationDetailScreen() {
     addMachine(location.id, type);
   };
 
-  const handleMachineUpdate = useCallback(
-    (machine: Machine) => updateMachine(location.id, machine),
-    [location.id, updateMachine]
-  );
-
-  const handleStockChange = useCallback(
-    (machineId: string, productId: string, delta: number) =>
-      updateStockCount(location.id, machineId, productId, delta),
-    [location.id, updateStockCount]
-  );
 
   const handleDeleteMachine = (machineId: string) => {
     Alert.alert('Remove Machine', 'Remove this machine from the location?', [
