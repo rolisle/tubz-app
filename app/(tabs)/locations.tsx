@@ -174,12 +174,16 @@ export default function LocationsScreen() {
   const [search, setSearch] = useState("");
   const [showAdd, setShowAdd] = useState(false);
 
-  const filtered = state.locations.filter(
-    (loc) =>
-      !search ||
-      loc.name.toLowerCase().includes(search.toLowerCase()) ||
-      (loc.address?.toLowerCase().includes(search.toLowerCase()) ?? false),
-  );
+  const filtered = state.locations.filter((loc) => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return (
+      loc.name.toLowerCase().includes(q) ||
+      loc.address?.toLowerCase().includes(q) ||
+      loc.city?.toLowerCase().includes(q) ||
+      loc.postcode?.toLowerCase().includes(q)
+    );
+  });
 
   return (
     <SafeAreaView
