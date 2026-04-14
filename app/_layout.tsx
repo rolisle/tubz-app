@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 
 import { AppProvider } from '@/context/app-context';
+import { SettingsProvider } from '@/context/settings-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export const unstable_settings = {
@@ -14,6 +15,7 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
 
   return (
+    <SettingsProvider>
     <AppProvider>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <Stack>
@@ -23,5 +25,6 @@ export default function RootLayout() {
         <StatusBar style="auto" />
       </ThemeProvider>
     </AppProvider>
+    </SettingsProvider>
   );
 }

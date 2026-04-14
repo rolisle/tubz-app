@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 
 import { Colors } from '@/constants/theme';
+import { primaryColor, useSettings } from '@/context/settings-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 interface DatePickerModalProps {
@@ -37,10 +38,12 @@ function NativeDatePicker({
   value,
   onChange,
   colors,
+  accent,
 }: {
   value: Date;
   onChange: (d: Date) => void;
   colors: (typeof Colors)['light'];
+  accent: string;
 }) {
   const [day, setDay] = useState(value.getDate());
   const [month, setMonth] = useState(value.getMonth());
@@ -65,14 +68,14 @@ function NativeDatePicker({
   ) => (
     <View style={styles.col}>
       <TouchableOpacity onPress={onInc} hitSlop={8} style={styles.arrow}>
-        <Text style={[styles.arrowText, { color: colors.tint }]}>▲</Text>
+        <Text style={[styles.arrowText, { color: accent }]}>▲</Text>
       </TouchableOpacity>
-      <View style={[styles.valueBox, { borderColor: colors.border, backgroundColor: colors.background }]}>
+      <View style={[styles.valueBox, { borderColor: accent, backgroundColor: colors.background }]}>
         <Text style={[styles.colLabel, { color: colors.subtext }]}>{label}</Text>
         <Text style={[styles.colValue, { color: colors.text }]}>{value}</Text>
       </View>
       <TouchableOpacity onPress={onDec} hitSlop={8} style={styles.arrow}>
-        <Text style={[styles.arrowText, { color: colors.tint }]}>▼</Text>
+        <Text style={[styles.arrowText, { color: accent }]}>▼</Text>
       </TouchableOpacity>
     </View>
   );
@@ -106,11 +109,14 @@ function WebDatePicker({
   value,
   onChange,
   colors,
+  accent,
 }: {
   value: Date;
   onChange: (d: Date) => void;
   colors: (typeof Colors)['light'];
+  accent: string;
 }) {
+  const [focused, setFocused] = useState(false);
   const pad = (n: number) => String(n).padStart(2, '0');
   const iso = `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}`;
   const maxIso = `${new Date().getFullYear()}-${pad(new Date().getMonth() + 1)}-${pad(new Date().getDate())}`;
@@ -123,24 +129,32 @@ function WebDatePicker({
       const d = new Date(e.target.value);
       if (!isNaN(d.getTime())) onChange(d);
     },
+    onFocus: () => setFocused(true),
+    onBlur: () => setFocused(false),
     style: {
       fontSize: 18,
       padding: 16,
       margin: '16px 16px 8px',
       borderRadius: 10,
-      border: `1px solid ${colors.border}`,
+      border: `1.5px solid ${focused ? accent : colors.border}`,
       backgroundColor: colors.background,
       color: colors.text,
       width: 'calc(100% - 32px)',
       boxSizing: 'border-box',
       display: 'block',
-    },
+      accentColor: accent,
+      caretColor: accent,
+      outline: focused ? `2px solid ${accent}` : 'none',
+      outlineOffset: 2,
+    } as React.CSSProperties,
   });
 }
 
 export function DatePickerModal({ visible, value, onConfirm, onCancel }: DatePickerModalProps) {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
+  const { settings } = useSettings();
+  const accent = primaryColor(settings.accentColor);
   const [draft, setDraft] = useState<Date>(value);
 
   // Reset draft when modal opens with a new value
@@ -162,15 +176,15 @@ export function DatePickerModal({ visible, value, onConfirm, onCancel }: DatePic
           </TouchableOpacity>
           <Text style={[styles.title, { color: colors.text }]}>Set Restock Date</Text>
           <TouchableOpacity onPress={() => onConfirm(draft)} hitSlop={8}>
-            <Text style={[styles.done, { color: colors.tint }]}>Done</Text>
+            <Text style={[styles.done, { color: accent }]}>Done</Text>
           </TouchableOpacity>
         </View>
 
         {/* Picker body */}
         {Platform.OS === 'web' ? (
-          <WebDatePicker value={draft} onChange={setDraft} colors={colors} />
+          <WebDatePicker value={draft} onChange={setDraft} colors={colors} accent={accent} />
         ) : (
-          <NativeDatePicker value={draft} onChange={setDraft} colors={colors} />
+          <NativeDatePicker value={draft} onChange={setDraft} colors={colors} accent={accent} />
         )}
       </View>
     </Modal>

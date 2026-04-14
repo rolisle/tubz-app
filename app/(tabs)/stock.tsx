@@ -17,6 +17,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { PRODUCT_IMAGES } from "@/constants/product-images";
 import { Colors } from "@/constants/theme";
 import { useApp } from "@/context/app-context";
+import { primaryColor, useSettings } from "@/context/settings-context";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import type { Product, ProductCategory } from "@/types";
 
@@ -34,8 +35,8 @@ const SECTIONS: { key: ProductCategory; label: string; emoji: string }[] = [
 type StockLevel = "full" | "half" | "empty";
 
 const LEVELS: { value: StockLevel; label: string; color: string }[] = [
-  { value: "full", label: "Full", color: "#22c55e" },
-  { value: "half", label: "½ Box", color: "#f59e0b" },
+  { value: "full", label: "Full box", color: "#22c55e" },
+  { value: "half", label: "½ box", color: "#f59e0b" },
   { value: "empty", label: "Empty", color: "#ef4444" },
 ];
 
@@ -107,7 +108,10 @@ function ProductPicker({
 }: ProductPickerProps) {
   const colorScheme = useColorScheme() ?? "light";
   const colors = Colors[colorScheme];
+  const { settings } = useSettings();
+  const accent = primaryColor(settings.accentColor);
   const [search, setSearch] = useState("");
+  const [searchFocused, setSearchFocused] = useState(false);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -140,7 +144,10 @@ function ProductPicker({
         <View
           style={[
             styles.searchWrap,
-            { backgroundColor: colors.background, borderColor: colors.border },
+            {
+              backgroundColor: colors.background,
+              borderColor: searchFocused ? accent : colors.border,
+            },
           ]}
         >
           <Text style={[styles.searchIcon, { color: colors.subtext }]}>🔍</Text>
@@ -148,6 +155,8 @@ function ProductPicker({
             style={[styles.searchInput, { color: colors.text }]}
             value={search}
             onChangeText={setSearch}
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setSearchFocused(false)}
             placeholder="Search products…"
             placeholderTextColor={colors.subtext}
             autoFocus
@@ -288,8 +297,18 @@ const StockRow = memo(function StockRow({
         ]}
       >
         {/* Full — coloured whenever fullCount > 0 */}
-        <View style={[styles.levelBtn, fullCount > 0 && { backgroundColor: "#22c55e" }]}>
-          <Text style={[styles.levelBtnText, { color: fullCount > 0 ? "#fff" : colors.subtext }]}>
+        <View
+          style={[
+            styles.levelBtn,
+            fullCount > 0 && { backgroundColor: "#22c55e" },
+          ]}
+        >
+          <Text
+            style={[
+              styles.levelBtnText,
+              { color: fullCount > 0 ? "#fff" : colors.subtext },
+            ]}
+          >
             Full
           </Text>
         </View>
@@ -320,8 +339,18 @@ const StockRow = memo(function StockRow({
         />
 
         {/* Half — coloured whenever halfCount > 0 */}
-        <View style={[styles.levelBtn, halfCount > 0 && { backgroundColor: "#f59e0b" }]}>
-          <Text style={[styles.levelBtnText, { color: halfCount > 0 ? "#fff" : colors.subtext }]}>
+        <View
+          style={[
+            styles.levelBtn,
+            halfCount > 0 && { backgroundColor: "#f59e0b" },
+          ]}
+        >
+          <Text
+            style={[
+              styles.levelBtnText,
+              { color: halfCount > 0 ? "#fff" : colors.subtext },
+            ]}
+          >
             ½
           </Text>
         </View>
@@ -362,7 +391,12 @@ const StockRow = memo(function StockRow({
                 hasStock && { opacity: 0.25 },
               ]}
             >
-              <Text style={[styles.levelBtnText, { color: item.level === "empty" ? "#fff" : colors.subtext }]}>
+              <Text
+                style={[
+                  styles.levelBtnText,
+                  { color: item.level === "empty" ? "#fff" : colors.subtext },
+                ]}
+              >
                 Empty
               </Text>
             </View>
@@ -379,6 +413,8 @@ export default function StockScreen() {
   const { state } = useApp();
   const colorScheme = useColorScheme() ?? "light";
   const colors = Colors[colorScheme];
+  const { settings } = useSettings();
+  const accent = primaryColor(settings.accentColor);
 
   const [stock, setStock] = useState<StockState>(EMPTY_STATE);
   const [loaded, setLoaded] = useState(false);
@@ -480,7 +516,6 @@ export default function StockScreen() {
     [],
   );
 
-
   const totalItems = Object.values(stock).reduce((s, arr) => s + arr.length, 0);
 
   const sections = useMemo(
@@ -570,10 +605,10 @@ export default function StockScreen() {
                 onPress={() => setPicker(section.key)}
                 style={[
                   styles.addBtn,
-                  { borderColor: colors.tint, backgroundColor: colors.card },
+                  { borderColor: accent, backgroundColor: colors.card },
                 ]}
               >
-                <Text style={[styles.addBtnText, { color: colors.tint }]}>
+                <Text style={[styles.addBtnText, { color: accent }]}>
                   + Add
                 </Text>
               </TouchableOpacity>

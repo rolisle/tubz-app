@@ -15,9 +15,12 @@ import {
 import { DatePickerModal } from "@/components/ui/date-picker-modal";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { GradView } from "@/components/ui/grad-view";
+import { IconSymbol } from "@/components/ui/icon-symbol";
 import { MachineGrid } from "@/components/ui/machine-grid";
 import { Colors } from "@/constants/theme";
 import { useApp } from "@/context/app-context";
+import { primaryColor, useSettings } from "@/context/settings-context";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import type { Machine, MachineType } from "@/types";
 
@@ -48,6 +51,11 @@ export default function LocationDetailScreen() {
   } = useApp();
   const colorScheme = useColorScheme() ?? "light";
   const colors = Colors[colorScheme];
+  const { settings } = useSettings();
+  const MACHINE_COLORS: Record<MachineType, string> = {
+    sweet: primaryColor(settings.sweetColor),
+    toy: primaryColor(settings.toyColor),
+  };
   const router = useRouter();
 
   const location = useMemo(
@@ -60,6 +68,8 @@ export default function LocationDetailScreen() {
   const [city, setCity] = useState(location?.city ?? "");
   const [postcode, setPostcode] = useState(location?.postcode ?? "");
   const [notes, setNotes] = useState(location?.notes ?? "");
+  const [focusedField, setFocusedField] = useState<string | null>(null);
+  const accent = primaryColor(settings.accentColor);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [pickerDate, setPickerDate] = useState<Date>(
     location?.lastRestockedAt ? new Date(location.lastRestockedAt) : new Date(),
@@ -80,8 +90,23 @@ export default function LocationDetailScreen() {
           <Text style={[styles.notFoundText, { color: colors.subtext }]}>
             Location not found.
           </Text>
-          <TouchableOpacity onPress={() => router.back()}>
-            <Text style={{ color: colors.tint, marginTop: 8 }}>Go back</Text>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 4,
+              marginTop: 8,
+            }}
+          >
+            <IconSymbol
+              name="arrow.left"
+              size={16}
+              color={primaryColor(settings.accentColor)}
+            />
+            <Text style={{ color: primaryColor(settings.accentColor) }}>
+              Back
+            </Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -156,8 +181,18 @@ export default function LocationDetailScreen() {
             hitSlop={8}
             style={styles.backBtn}
           >
-            <Text style={[styles.backText, { color: colors.tint }]}>
-              ‹ Back
+            <IconSymbol
+              name="arrow.left"
+              size={18}
+              color={primaryColor(settings.accentColor)}
+            />
+            <Text
+              style={[
+                styles.backText,
+                { color: primaryColor(settings.accentColor) },
+              ]}
+            >
+              Back
             </Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={handleDeleteLocation} hitSlop={8}>
@@ -174,42 +209,94 @@ export default function LocationDetailScreen() {
         >
           {/* Name */}
           <TextInput
-            style={[styles.nameInput, { color: colors.text }]}
+            style={[
+              styles.nameInput,
+              {
+                color: colors.text,
+                borderBottomColor:
+                  focusedField === "name" ? accent : "transparent",
+              },
+            ]}
             value={name}
             onChangeText={setName}
-            onBlur={() => saveField("name", name)}
+            onFocus={() => setFocusedField("name")}
+            onBlur={() => {
+              setFocusedField(null);
+              saveField("name", name);
+            }}
             placeholder="Location name"
             placeholderTextColor={colors.subtext}
+            selectionColor={`${accent}44`}
+            cursorColor={accent}
             returnKeyType="done"
           />
 
           {/* Address */}
           <TextInput
-            style={[styles.addressInput, { color: colors.subtext }]}
+            style={[
+              styles.addressInput,
+              {
+                color: colors.text,
+                borderBottomColor:
+                  focusedField === "address" ? accent : "transparent",
+              },
+            ]}
             value={address}
             onChangeText={setAddress}
-            onBlur={() => saveField("address", address)}
+            onFocus={() => setFocusedField("address")}
+            onBlur={() => {
+              setFocusedField(null);
+              saveField("address", address);
+            }}
             placeholder="1st line of address"
-            placeholderTextColor={colors.border}
+            placeholderTextColor={colors.subtext}
+            selectionColor={`${accent}44`}
+            cursorColor={accent}
             returnKeyType="next"
           />
           <View style={styles.addressRow}>
             <TextInput
-              style={[styles.addressInputHalf, { color: colors.subtext }]}
+              style={[
+                styles.addressInputHalf,
+                {
+                  color: colors.text,
+                  borderBottomColor:
+                    focusedField === "city" ? accent : "transparent",
+                },
+              ]}
               value={city}
               onChangeText={setCity}
-              onBlur={() => saveField("city", city)}
+              onFocus={() => setFocusedField("city")}
+              onBlur={() => {
+                setFocusedField(null);
+                saveField("city", city);
+              }}
               placeholder="City"
-              placeholderTextColor={colors.border}
+              placeholderTextColor={colors.subtext}
+              selectionColor={`${accent}44`}
+              cursorColor={accent}
               returnKeyType="next"
             />
             <TextInput
-              style={[styles.addressInputHalf, { color: colors.subtext }]}
+              style={[
+                styles.addressInputHalf,
+                {
+                  color: colors.text,
+                  borderBottomColor:
+                    focusedField === "postcode" ? accent : "transparent",
+                },
+              ]}
               value={postcode}
               onChangeText={setPostcode}
-              onBlur={() => saveField("postcode", postcode)}
+              onFocus={() => setFocusedField("postcode")}
+              onBlur={() => {
+                setFocusedField(null);
+                saveField("postcode", postcode);
+              }}
               placeholder="Postcode"
-              placeholderTextColor={colors.border}
+              placeholderTextColor={colors.subtext}
+              selectionColor={`${accent}44`}
+              cursorColor={accent}
               returnKeyType="done"
               autoCapitalize="characters"
             />
@@ -251,11 +338,19 @@ export default function LocationDetailScreen() {
           <TouchableOpacity
             style={[
               styles.restockBtn,
-              { backgroundColor: colors.card, borderColor: colors.tint },
+              {
+                backgroundColor: colors.card,
+                borderColor: primaryColor(settings.accentColor),
+              },
             ]}
             onPress={handleRestock}
           >
-            <Text style={[styles.restockBtnText, { color: colors.tint }]}>
+            <Text
+              style={[
+                styles.restockBtnText,
+                { color: primaryColor(settings.accentColor) },
+              ]}
+            >
               ✓ Mark Restocked Now
             </Text>
           </TouchableOpacity>
@@ -280,24 +375,42 @@ export default function LocationDetailScreen() {
             <TouchableOpacity
               style={[
                 styles.addMachineBtn,
-                { borderColor: colors.tint, backgroundColor: colors.card },
+                { borderColor: primaryColor(settings.sweetColor) },
               ]}
               onPress={() => handleAddMachine("sweet")}
             >
+              <GradView
+                colors={settings.sweetColor}
+                style={[StyleSheet.absoluteFill, { opacity: 0.12 }]}
+              />
               <Text style={styles.addMachineEmoji}>🍬</Text>
-              <Text style={[styles.addMachineBtnText, { color: colors.tint }]}>
+              <Text
+                style={[
+                  styles.addMachineBtnText,
+                  { color: primaryColor(settings.sweetColor) },
+                ]}
+              >
                 Add Sweet Machine
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[
                 styles.addMachineBtn,
-                { borderColor: colors.tint, backgroundColor: colors.card },
+                { borderColor: primaryColor(settings.toyColor) },
               ]}
               onPress={() => handleAddMachine("toy")}
             >
+              <GradView
+                colors={settings.toyColor}
+                style={[StyleSheet.absoluteFill, { opacity: 0.12 }]}
+              />
               <Text style={styles.addMachineEmoji}>🪀</Text>
-              <Text style={[styles.addMachineBtnText, { color: colors.tint }]}>
+              <Text
+                style={[
+                  styles.addMachineBtnText,
+                  { color: primaryColor(settings.toyColor) },
+                ]}
+              >
                 Add Toy Machine
               </Text>
             </TouchableOpacity>
@@ -314,12 +427,22 @@ export default function LocationDetailScreen() {
               key={machine.id}
               style={[
                 styles.machineCard,
-                { backgroundColor: colors.card, borderColor: colors.border },
+                {
+                  backgroundColor: colors.card,
+                  borderColor: MACHINE_COLORS[machine.type] + "55",
+                  borderLeftColor: MACHINE_COLORS[machine.type],
+                  borderLeftWidth: 3,
+                },
               ]}
             >
               <View style={styles.machineHeader}>
                 <View style={styles.machineTitleRow}>
-                  <Text style={[styles.machineTitle, { color: colors.text }]}>
+                  <Text
+                    style={[
+                      styles.machineTitle,
+                      { color: MACHINE_COLORS[machine.type] },
+                    ]}
+                  >
                     {MACHINE_LABELS[machine.type]}
                   </Text>
                   <Text
@@ -364,15 +487,21 @@ export default function LocationDetailScreen() {
               styles.notesInput,
               {
                 color: colors.text,
-                borderColor: colors.border,
+                borderColor: focusedField === "notes" ? accent : colors.border,
                 backgroundColor: colors.card,
               },
             ]}
             value={notes}
             onChangeText={setNotes}
-            onBlur={() => saveField("notes", notes)}
+            onFocus={() => setFocusedField("notes")}
+            onBlur={() => {
+              setFocusedField(null);
+              saveField("notes", notes);
+            }}
             placeholder="Add notes about this location…"
             placeholderTextColor={colors.subtext}
+            selectionColor={`${accent}44`}
+            cursorColor={accent}
             multiline
             numberOfLines={4}
             textAlignVertical="top"
@@ -392,7 +521,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 12,
   },
-  backBtn: { flexDirection: "row", alignItems: "center" },
+  backBtn: { flexDirection: "row", alignItems: "center", gap: 4 },
   backText: { fontSize: 16, fontWeight: "500" },
   content: { paddingHorizontal: 20, paddingBottom: 60 },
   nameInput: {
@@ -401,10 +530,21 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
     marginBottom: 4,
     padding: 0,
+    borderBottomWidth: 2,
   },
-  addressInput: { fontSize: 14, marginBottom: 6, padding: 0 },
+  addressInput: {
+    fontSize: 14,
+    marginBottom: 6,
+    padding: 0,
+    borderBottomWidth: 1.5,
+  },
   addressRow: { flexDirection: "row", gap: 10, marginBottom: 8 },
-  addressInputHalf: { flex: 1, fontSize: 14, padding: 0 },
+  addressInputHalf: {
+    flex: 1,
+    fontSize: 14,
+    padding: 0,
+    borderBottomWidth: 1.5,
+  },
   restockRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -453,7 +593,12 @@ const styles = StyleSheet.create({
   machineTitleRow: { flexDirection: "row", alignItems: "baseline", gap: 6 },
   machineTitle: { fontSize: 16, fontWeight: "700" },
   machineCount: { fontSize: 13, fontWeight: "500" },
-  addMachineRow: { flexDirection: "row", gap: 10, marginBottom: 4 },
+  addMachineRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 14,
+    marginTop: 10,
+  },
   addMachineBtn: {
     flex: 1,
     flexDirection: "row",
@@ -464,6 +609,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderStyle: "dashed",
     paddingVertical: 14,
+    overflow: "hidden",
   },
   addMachineEmoji: { fontSize: 18 },
   addMachineBtnText: { fontSize: 14, fontWeight: "600" },

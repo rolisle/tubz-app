@@ -12,6 +12,8 @@ import {
 
 import { PRODUCT_IMAGES } from '@/constants/product-images';
 import { Colors } from '@/constants/theme';
+import { primaryColor, useSettings } from '@/context/settings-context';
+import { GradView } from '@/components/ui/grad-view';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import type { Machine, Product } from '@/types';
 
@@ -147,9 +149,10 @@ interface ListViewProps {
   onSlotCountChange: (productId: string, delta: number) => void;
   readonly?: boolean;
   colors: (typeof Colors)['light'];
+  machineColor: string[];
 }
 
-function ListView({ machine, products, onSlotPress, onSlotCountChange, readonly, colors }: ListViewProps) {
+function ListView({ machine, products, onSlotPress, onSlotCountChange, readonly, colors, machineColor }: ListViewProps) {
   const merged = useMemo(
     () => buildMergedList(machine.slots, products),
     [machine.slots, products]
@@ -190,9 +193,10 @@ function ListView({ machine, products, onSlotPress, onSlotCountChange, readonly,
             onPress={() => !readonly && onSlotPress(item.slotIndices[0])}
             style={[
               styles.listRow,
-              { borderColor: colors.border, backgroundColor: colors.tint + '0C' },
+              { borderColor: colors.border },
             ]}
             activeOpacity={readonly ? 1 : 0.6}>
+            <GradView colors={machineColor} style={[StyleSheet.absoluteFill, { opacity: 0.05 }]} />
             <ProductThumb product={item.product} size={48} />
 
             <View style={styles.listInfo}>
@@ -252,6 +256,9 @@ function ListView({ machine, products, onSlotPress, onSlotCountChange, readonly,
 export function MachineGrid({ machine, products, onUpdate, readonly }: MachineGridProps) {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
+  const { settings } = useSettings();
+  const machineColors = machine.type === 'sweet' ? settings.sweetColor : settings.toyColor;
+  const machineColorPrimary = primaryColor(machineColors);
   const [activeSlot, setActiveSlot] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
 
@@ -302,13 +309,15 @@ export function MachineGrid({ machine, products, onUpdate, readonly }: MachineGr
       <View style={[styles.toggleBar, { borderColor: colors.border, backgroundColor: colors.card }]}>
         <TouchableOpacity
           onPress={() => setViewMode('grid')}
-          style={[styles.toggleBtn, viewMode === 'grid' && { backgroundColor: colors.tint }]}>
+          style={styles.toggleBtn}>
+          {viewMode === 'grid' && <GradView colors={machineColors} style={StyleSheet.absoluteFill} />}
           <Text style={[styles.toggleIcon, { color: viewMode === 'grid' ? '#fff' : colors.subtext }]}>⊞</Text>
           <Text style={[styles.toggleLabel, { color: viewMode === 'grid' ? '#fff' : colors.subtext }]}>Grid</Text>
         </TouchableOpacity>
         <TouchableOpacity
           onPress={() => setViewMode('list')}
-          style={[styles.toggleBtn, viewMode === 'list' && { backgroundColor: colors.tint }]}>
+          style={styles.toggleBtn}>
+          {viewMode === 'list' && <GradView colors={machineColors} style={StyleSheet.absoluteFill} />}
           <Text style={[styles.toggleIcon, { color: viewMode === 'list' ? '#fff' : colors.subtext }]}>≡</Text>
           <Text style={[styles.toggleLabel, { color: viewMode === 'list' ? '#fff' : colors.subtext }]}>List</Text>
         </TouchableOpacity>
@@ -328,10 +337,13 @@ export function MachineGrid({ machine, products, onUpdate, readonly }: MachineGr
                 style={[
                   styles.slot,
                   {
-                    backgroundColor: isEmpty ? colors.card : colors.tint + '18',
-                    borderColor: isEmpty ? colors.border : colors.tint + '55',
+                    backgroundColor: isEmpty ? colors.card : 'transparent',
+                    borderColor: isEmpty ? colors.border : machineColorPrimary + '55',
                   },
                 ]}>
+                {!isEmpty && (
+                  <GradView colors={machineColors} style={[StyleSheet.absoluteFill, { opacity: 0.15 }]} />
+                )}
                 {product ? (
                   (() => {
                     const src = product.localImageUri
@@ -359,6 +371,7 @@ export function MachineGrid({ machine, products, onUpdate, readonly }: MachineGr
           onSlotCountChange={handleSlotCountChange}
           readonly={readonly}
           colors={colors}
+          machineColor={machineColors}
         />
       )}
 
@@ -392,6 +405,7 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: 12,
     paddingVertical: 6,
+    overflow: 'hidden',
   },
   toggleIcon: { fontSize: 15, lineHeight: 15, includeFontPadding: false },
   toggleLabel: { fontSize: 12, fontWeight: '600' },
@@ -427,6 +441,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: StyleSheet.hairlineWidth,
     marginBottom: 2,
+    overflow: 'hidden',
   },
   listRowEmpty: { opacity: 0.6 },
   listEmoji: { fontSize: 32, lineHeight: 32, includeFontPadding: false, width: 48, textAlign: 'center' },

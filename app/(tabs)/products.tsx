@@ -20,6 +20,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { PRODUCT_IMAGES } from "@/constants/product-images";
 import { Colors } from "@/constants/theme";
 import { useApp } from "@/context/app-context";
+import { primaryColor, useSettings } from "@/context/settings-context";
+import { GradView } from "@/components/ui/grad-view";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import type { Product, ProductCategory } from "@/types";
 
@@ -75,7 +77,10 @@ interface AddProductModalProps {
 
 function AddProductModal({ visible, onClose, colors }: AddProductModalProps) {
   const { addProduct } = useApp();
+  const { settings } = useSettings();
+  const accent = primaryColor(settings.accentColor);
   const [name, setName] = useState("");
+  const [nameFocused, setNameFocused] = useState(false);
   const [emoji, setEmoji] = useState("");
   const [category, setCategory] = useState<ProductCategory>("sweet");
   const [imageUri, setImageUri] = useState<string | null>(null);
@@ -182,7 +187,7 @@ function AddProductModal({ visible, onClose, colors }: AddProductModalProps) {
             styles.input,
             {
               color: colors.text,
-              borderColor: colors.border,
+              borderColor: nameFocused ? accent : colors.border,
               backgroundColor: colors.background,
             },
           ]}
@@ -190,6 +195,8 @@ function AddProductModal({ visible, onClose, colors }: AddProductModalProps) {
           placeholderTextColor={colors.subtext}
           value={name}
           onChangeText={setName}
+          onFocus={() => setNameFocused(true)}
+          onBlur={() => setNameFocused(false)}
           autoFocus
           returnKeyType="next"
         />
@@ -375,9 +382,12 @@ export default function ProductsScreen() {
   const { state, deleteProduct } = useApp();
   const colorScheme = useColorScheme() ?? "light";
   const colors = Colors[colorScheme];
+  const { settings } = useSettings();
+  const accent = primaryColor(settings.accentColor);
   const [showAdd, setShowAdd] = useState(false);
   const [filter, setFilter] = useState<FilterTab>("all");
   const [search, setSearch] = useState("");
+  const [searchFocused, setSearchFocused] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
 
   const sections = useMemo(() => {
@@ -417,10 +427,10 @@ export default function ProductsScreen() {
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.text }]}>Products</Text>
         <TouchableOpacity
-          style={[styles.headerAddBtn, { borderColor: colors.tint, backgroundColor: colors.card }]}
+          style={[styles.headerAddBtn, { borderColor: accent, backgroundColor: colors.card }]}
           onPress={() => setShowAdd(true)}
         >
-          <Text style={[styles.headerAddBtnText, { color: colors.tint }]}>+ Add</Text>
+          <Text style={[styles.headerAddBtnText, { color: accent }]}>+ Add</Text>
         </TouchableOpacity>
       </View>
 
@@ -432,7 +442,7 @@ export default function ProductsScreen() {
       <View
         style={[
           styles.searchWrap,
-          { borderColor: colors.border, backgroundColor: colors.card },
+          { borderColor: searchFocused ? accent : colors.border, backgroundColor: colors.card },
         ]}
       >
         <Text style={{ color: colors.subtext, fontSize: 16 }}>🔍</Text>
@@ -442,6 +452,8 @@ export default function ProductsScreen() {
           placeholderTextColor={colors.subtext}
           value={search}
           onChangeText={setSearch}
+          onFocus={() => setSearchFocused(true)}
+          onBlur={() => setSearchFocused(false)}
         />
         {search.length > 0 && (
           <TouchableOpacity onPress={() => setSearch("")} hitSlop={8}>
@@ -460,14 +472,14 @@ export default function ProductsScreen() {
               styles.filterTab,
               {
                 borderBottomColor:
-                  filter === tab.value ? colors.tint : "transparent",
+                  filter === tab.value ? accent : "transparent",
               },
             ]}
           >
             <Text
               style={[
                 styles.filterTabText,
-                { color: filter === tab.value ? colors.tint : colors.subtext },
+                { color: filter === tab.value ? accent : colors.subtext },
               ]}
             >
               {tab.label}
@@ -480,13 +492,15 @@ export default function ProductsScreen() {
       <View style={[styles.toggleBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <TouchableOpacity
           onPress={() => setViewMode('grid')}
-          style={[styles.toggleBtn, viewMode === 'grid' && { backgroundColor: colors.tint }]}>
+          style={styles.toggleBtn}>
+          {viewMode === 'grid' && <GradView colors={settings.accentColor} style={StyleSheet.absoluteFill} />}
           <Text style={[styles.toggleIcon, { color: viewMode === 'grid' ? '#fff' : colors.subtext }]}>⊞</Text>
           <Text style={[styles.toggleLabel, { color: viewMode === 'grid' ? '#fff' : colors.subtext }]}>Grid</Text>
         </TouchableOpacity>
         <TouchableOpacity
           onPress={() => setViewMode('list')}
-          style={[styles.toggleBtn, viewMode === 'list' && { backgroundColor: colors.tint }]}>
+          style={styles.toggleBtn}>
+          {viewMode === 'list' && <GradView colors={settings.accentColor} style={StyleSheet.absoluteFill} />}
           <Text style={[styles.toggleIcon, { color: viewMode === 'list' ? '#fff' : colors.subtext }]}>≡</Text>
           <Text style={[styles.toggleLabel, { color: viewMode === 'list' ? '#fff' : colors.subtext }]}>List</Text>
         </TouchableOpacity>
@@ -709,6 +723,7 @@ const styles = StyleSheet.create({
     borderRadius: 7,
     paddingVertical: 6,
     gap: 5,
+    overflow: 'hidden',
   },
   toggleIcon: { fontSize: 15, lineHeight: 15, includeFontPadding: false },
   toggleLabel: { fontSize: 12, fontWeight: '600' },

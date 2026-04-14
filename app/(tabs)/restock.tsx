@@ -18,6 +18,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { PRODUCT_IMAGES } from '@/constants/product-images';
 import { Colors } from '@/constants/theme';
 import { useApp } from '@/context/app-context';
+import { primaryColor, useSettings } from '@/context/settings-context';
+import { GradView } from '@/components/ui/grad-view';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import type { MachineType, Product } from '@/types';
 
@@ -76,7 +78,10 @@ interface ProductPickerProps {
 function ProductPicker({ machineType, products, onSelect, onClose }: ProductPickerProps) {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
+  const { settings } = useSettings();
+  const accent = primaryColor(settings.accentColor);
   const [search, setSearch] = useState('');
+  const [searchFocused, setSearchFocused] = useState(false);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -98,12 +103,14 @@ function ProductPicker({ machineType, products, onSelect, onClose }: ProductPick
         </View>
 
         {/* Search */}
-        <View style={[styles.searchWrap, { backgroundColor: colors.background, borderColor: colors.border }]}>
+        <View style={[styles.searchWrap, { backgroundColor: colors.background, borderColor: searchFocused ? accent : colors.border }]}>
           <Text style={[styles.searchIcon, { color: colors.subtext }]}>🔍</Text>
           <TextInput
             style={[styles.searchInput, { color: colors.text }]}
             value={search}
             onChangeText={setSearch}
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setSearchFocused(false)}
             placeholder="Search products…"
             placeholderTextColor={colors.subtext}
             autoFocus
@@ -142,11 +149,12 @@ interface MachineCardProps {
   machine: RestockMachine;
   products: Product[];
   colors: (typeof Colors)['light'];
+  accent: string;
   onChange: (updated: RestockMachine) => void;
   onRemove: () => void;
 }
 
-function MachineCard({ machine, products, colors, onChange, onRemove }: MachineCardProps) {
+function MachineCard({ machine, products, colors, accent, onChange, onRemove }: MachineCardProps) {
   const [showPicker, setShowPicker] = useState(false);
   const max = MAX_QTY[machine.type];
 
@@ -180,8 +188,8 @@ function MachineCard({ machine, products, colors, onChange, onRemove }: MachineC
         <View style={styles.machineTitleRow}>
           <Text style={[styles.machineTitle, { color: colors.text }]}>{MACHINE_LABELS[machine.type]}</Text>
           {totalQty > 0 && (
-            <View style={[styles.totalBadge, { backgroundColor: colors.tint + '22' }]}>
-              <Text style={[styles.totalBadgeText, { color: colors.tint }]}>{totalQty} total</Text>
+            <View style={[styles.totalBadge, { backgroundColor: accent + '22' }]}>
+              <Text style={[styles.totalBadgeText, { color: accent }]}>{totalQty} total</Text>
             </View>
           )}
         </View>
@@ -201,7 +209,7 @@ function MachineCard({ machine, products, colors, onChange, onRemove }: MachineC
           return (
             <View key={item.id} style={[styles.itemRow, { borderTopColor: colors.border, opacity: item.done ? 0.4 : 1 }]}>
               {/* Done toggle */}
-              <TouchableOpacity onPress={() => toggleDone(item.id)} hitSlop={8} style={[styles.doneBtn, { borderColor: item.done ? colors.tint : colors.border, backgroundColor: item.done ? colors.tint : 'transparent' }]}>
+              <TouchableOpacity onPress={() => toggleDone(item.id)} hitSlop={8} style={[styles.doneBtn, { borderColor: item.done ? accent : colors.border, backgroundColor: item.done ? accent : 'transparent' }]}>
                 {item.done && <Text style={styles.doneTick}>✓</Text>}
               </TouchableOpacity>
 
@@ -245,9 +253,9 @@ function MachineCard({ machine, products, colors, onChange, onRemove }: MachineC
 
       {/* Add product button */}
       <TouchableOpacity
-        style={[styles.addProductBtn, { borderColor: colors.tint }]}
+        style={[styles.addProductBtn, { borderColor: accent }]}
         onPress={() => setShowPicker(true)}>
-        <Text style={[styles.addProductText, { color: colors.tint }]}>+ Add product</Text>
+        <Text style={[styles.addProductText, { color: accent }]}>+ Add product</Text>
       </TouchableOpacity>
 
       {showPicker && (
@@ -268,6 +276,10 @@ export default function RestockScreen() {
   const { state } = useApp();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
+  const { settings } = useSettings();
+  const accent = primaryColor(settings.accentColor);
+  const sweetColor = settings.sweetColor;
+  const toyColor = settings.toyColor;
 
   const defaultMachines = (): RestockMachine[] => [
     { id: uid(), type: 'sweet', items: [] },
@@ -346,16 +358,18 @@ export default function RestockScreen() {
         {/* Add machine buttons */}
         <View style={styles.addMachineRow}>
           <TouchableOpacity
-            style={[styles.addMachineBtn, { borderColor: colors.tint, backgroundColor: colors.card }]}
+            style={[styles.addMachineBtn, { borderColor: primaryColor(sweetColor) }]}
             onPress={() => addMachine('sweet')}>
+            <GradView colors={sweetColor} style={[StyleSheet.absoluteFill, { opacity: 0.12 }]} />
             <Text style={styles.addMachineEmoji}>🍬</Text>
-            <Text style={[styles.addMachineBtnText, { color: colors.tint }]}>Sweet Machine</Text>
+            <Text style={[styles.addMachineBtnText, { color: primaryColor(sweetColor) }]}>Sweet Machine</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.addMachineBtn, { borderColor: colors.tint, backgroundColor: colors.card }]}
+            style={[styles.addMachineBtn, { borderColor: primaryColor(toyColor) }]}
             onPress={() => addMachine('toy')}>
+            <GradView colors={toyColor} style={[StyleSheet.absoluteFill, { opacity: 0.12 }]} />
             <Text style={styles.addMachineEmoji}>🪀</Text>
-            <Text style={[styles.addMachineBtnText, { color: colors.tint }]}>Toy Machine</Text>
+            <Text style={[styles.addMachineBtnText, { color: primaryColor(toyColor) }]}>Toy Machine</Text>
           </TouchableOpacity>
         </View>
 
@@ -374,6 +388,7 @@ export default function RestockScreen() {
               machine={machine}
               products={state.products}
               colors={colors}
+              accent={accent}
               onChange={updateMachine}
               onRemove={() => removeMachine(machine.id)}
             />
@@ -410,6 +425,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderStyle: 'dashed',
     paddingVertical: 14,
+    overflow: 'hidden',
   },
   addMachineEmoji: { fontSize: 18 },
   addMachineBtnText: { fontSize: 14, fontWeight: '600' },

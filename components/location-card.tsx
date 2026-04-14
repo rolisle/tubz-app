@@ -6,7 +6,9 @@ import {
   View,
 } from "react-native";
 
+import { GradView } from "@/components/ui/grad-view";
 import { Colors } from "@/constants/theme";
+import { primaryColor, useSettings } from "@/context/settings-context";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import type { Location } from "@/types";
 
@@ -47,6 +49,11 @@ function openMaps(location: Location) {
 export function LocationCard({ location, onPress }: LocationCardProps) {
   const colorScheme = useColorScheme() ?? "light";
   const colors = Colors[colorScheme];
+  const { settings } = useSettings();
+  const MACHINE_COLORS: Record<string, string[]> = {
+    sweet: settings.sweetColor,
+    toy:   settings.toyColor,
+  };
 
   const hasAddress = !!(location.address || location.postcode);
 
@@ -104,20 +111,28 @@ export function LocationCard({ location, onPress }: LocationCardProps) {
               count: location.machines.filter((m) => m.type === type).length,
             }))
             .filter(({ count }) => count > 0)
-            .map(({ type, count }) => (
-              <View
-                key={type}
-                style={[
-                  styles.machineChip,
-                  { backgroundColor: colors.background, borderColor: colors.border },
-                ]}
-              >
-                <Text style={styles.machineIcon}>{MACHINE_ICONS[type]}</Text>
-                <Text style={[styles.machineLabel, { color: colors.subtext }]}>
-                  {count} {type === "sweet" ? "Sweet" : "Toy"}{count !== 1 ? "s" : ""}
-                </Text>
-              </View>
-            ))}
+            .map(({ type, count }) => {
+              const chipColor = MACHINE_COLORS[type];
+              const chipPrimary = primaryColor(chipColor);
+              return (
+                <View
+                  key={type}
+                  style={[
+                    styles.machineChip,
+                    { borderColor: chipPrimary + '66' },
+                  ]}
+                >
+                  <GradView
+                    colors={chipColor}
+                    style={[StyleSheet.absoluteFill, { opacity: 0.12 }]}
+                  />
+                  <Text style={styles.machineIcon}>{MACHINE_ICONS[type]}</Text>
+                  <Text style={[styles.machineLabel, { color: chipPrimary }]}>
+                    {count} {type === "sweet" ? "Sweet" : "Toy"}{count !== 1 ? "s" : ""}
+                  </Text>
+                </View>
+              );
+            })}
         </View>
       )}
     </TouchableOpacity>
@@ -171,6 +186,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     paddingHorizontal: 8,
     paddingVertical: 4,
+    overflow: "hidden",
   },
   machineIcon: { fontSize: 13 },
   machineLabel: { fontSize: 12, fontWeight: "500" },

@@ -15,6 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { LocationCard } from "@/components/location-card";
 import { Colors } from "@/constants/theme";
 import { useApp } from "@/context/app-context";
+import { primaryColor, useSettings } from "@/context/settings-context";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 interface AddLocationModalProps {
   visible: boolean;
@@ -24,10 +25,13 @@ interface AddLocationModalProps {
 
 function AddLocationModal({ visible, onClose, colors }: AddLocationModalProps) {
   const { addLocation } = useApp();
+  const { settings } = useSettings();
+  const accent = primaryColor(settings.accentColor);
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
   const [city, setCity] = useState("");
   const [postcode, setPostcode] = useState("");
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
   const isValid =
     name.trim().length > 0 &&
@@ -57,12 +61,17 @@ function AddLocationModal({ visible, onClose, colors }: AddLocationModalProps) {
     onClose();
   };
 
-  const inputStyle = (value: string) => [
+  const inputStyle = (value: string, field: string) => [
     styles.input,
     {
       color: colors.text,
       backgroundColor: colors.background,
-      borderColor: submitted && !value.trim() ? "#ef4444" : colors.border,
+      borderColor:
+        submitted && !value.trim()
+          ? "#ef4444"
+          : focusedField === field
+          ? accent
+          : colors.border,
     },
   ];
 
@@ -89,11 +98,15 @@ function AddLocationModal({ visible, onClose, colors }: AddLocationModalProps) {
           Name <Text style={{ color: "#ef4444" }}>*</Text>
         </Text>
         <TextInput
-          style={inputStyle(name)}
+          style={inputStyle(name, 'name')}
           placeholder="e.g. Westfield Food Court"
           placeholderTextColor={colors.subtext}
           value={name}
           onChangeText={setName}
+          onFocus={() => setFocusedField('name')}
+          onBlur={() => setFocusedField(null)}
+          selectionColor={`${accent}44`}
+          cursorColor={accent}
           autoFocus
           returnKeyType="next"
         />
@@ -105,11 +118,15 @@ function AddLocationModal({ visible, onClose, colors }: AddLocationModalProps) {
           Address <Text style={{ color: "#ef4444" }}>*</Text>
         </Text>
         <TextInput
-          style={inputStyle(address)}
+          style={inputStyle(address, 'address')}
           placeholder="1st line of address"
           placeholderTextColor={colors.subtext}
           value={address}
           onChangeText={setAddress}
+          onFocus={() => setFocusedField('address')}
+          onBlur={() => setFocusedField(null)}
+          selectionColor={`${accent}44`}
+          cursorColor={accent}
           returnKeyType="next"
         />
         {submitted && !address.trim() && (
@@ -119,11 +136,15 @@ function AddLocationModal({ visible, onClose, colors }: AddLocationModalProps) {
         <View style={styles.inputRow}>
           <View style={styles.inputFlex}>
             <TextInput
-              style={inputStyle(city)}
+              style={inputStyle(city, 'city')}
               placeholder="City"
               placeholderTextColor={colors.subtext}
               value={city}
               onChangeText={setCity}
+              onFocus={() => setFocusedField('city')}
+              onBlur={() => setFocusedField(null)}
+              selectionColor={`${accent}44`}
+              cursorColor={accent}
               returnKeyType="next"
             />
             {submitted && !city.trim() && (
@@ -132,11 +153,15 @@ function AddLocationModal({ visible, onClose, colors }: AddLocationModalProps) {
           </View>
           <View style={styles.inputPostcode}>
             <TextInput
-              style={inputStyle(postcode)}
+              style={inputStyle(postcode, 'postcode')}
               placeholder="Postcode"
               placeholderTextColor={colors.subtext}
               value={postcode}
               onChangeText={setPostcode}
+              onFocus={() => setFocusedField('postcode')}
+              onBlur={() => setFocusedField(null)}
+              selectionColor={`${accent}44`}
+              cursorColor={accent}
               returnKeyType="done"
               onSubmitEditing={handleAdd}
               autoCapitalize="characters"
@@ -170,8 +195,11 @@ export default function LocationsScreen() {
   const { state } = useApp();
   const colorScheme = useColorScheme() ?? "light";
   const colors = Colors[colorScheme];
+  const { settings } = useSettings();
+  const accent = primaryColor(settings.accentColor);
   const router = useRouter();
   const [search, setSearch] = useState("");
+  const [searchFocused, setSearchFocused] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
 
   const filtered = state.locations.filter((loc) => {
@@ -195,11 +223,11 @@ export default function LocationsScreen() {
         <TouchableOpacity
           style={[
             styles.headerAddBtn,
-            { borderColor: colors.tint, backgroundColor: colors.card },
+            { borderColor: accent, backgroundColor: colors.card },
           ]}
           onPress={() => setShowAdd(true)}
         >
-          <Text style={[styles.headerAddBtnText, { color: colors.tint }]}>+ Add</Text>
+          <Text style={[styles.headerAddBtnText, { color: accent }]}>+ Add</Text>
         </TouchableOpacity>
       </View>
 
@@ -207,7 +235,7 @@ export default function LocationsScreen() {
       <View
         style={[
           styles.searchWrap,
-          { borderColor: colors.border, backgroundColor: colors.card },
+          { borderColor: searchFocused ? accent : colors.border, backgroundColor: colors.card },
         ]}
       >
         <Text style={{ color: colors.subtext, fontSize: 16 }}>🔍</Text>
@@ -217,6 +245,10 @@ export default function LocationsScreen() {
           placeholderTextColor={colors.subtext}
           value={search}
           onChangeText={setSearch}
+          onFocus={() => setSearchFocused(true)}
+          onBlur={() => setSearchFocused(false)}
+          selectionColor={`${accent}44`}
+          cursorColor={accent}
         />
         {search.length > 0 && (
           <TouchableOpacity onPress={() => setSearch("")} hitSlop={8}>
