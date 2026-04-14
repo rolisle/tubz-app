@@ -193,10 +193,13 @@ export default function LocationsScreen() {
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.text }]}>Locations</Text>
         <TouchableOpacity
-          style={[styles.fab, { backgroundColor: "#a2e62e" }]}
+          style={[
+            styles.headerAddBtn,
+            { borderColor: colors.tint, backgroundColor: colors.card },
+          ]}
           onPress={() => setShowAdd(true)}
         >
-          <Text style={styles.fabIcon}>+</Text>
+          <Text style={[styles.headerAddBtnText, { color: colors.tint }]}>+ Add</Text>
         </TouchableOpacity>
       </View>
 
@@ -275,20 +278,6 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: "800",
     letterSpacing: -0.5,
-  },
-  fab: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  fabIcon: {
-    color: "#fff",
-    fontSize: 22,
-    fontWeight: "400",
-    lineHeight: 22,
-    includeFontPadding: false,
   },
   searchWrap: {
     flexDirection: "row",
@@ -386,6 +375,13 @@ const styles = StyleSheet.create({
   inputFlex: { flex: 1 },
   inputPostcode: { width: 120 },
   errorText: { fontSize: 11, color: "#ef4444", marginTop: 2, marginBottom: 4 },
+  headerAddBtn: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+  },
+  headerAddBtnText: { fontSize: 13, fontWeight: "600" },
   addBtn: {
     borderRadius: 12,
     paddingVertical: 14,

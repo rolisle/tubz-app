@@ -1,7 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Alert,
   FlatList,
   Image,
   Modal,
@@ -242,18 +241,6 @@ const StockRow = memo(function StockRow({
   const fullCount = item.fullCount ?? 0;
   const halfCount = item.halfCount ?? 0;
 
-  const handleLevelFull = useCallback(
-    () => onLevelChange(category, item.productId, "full"),
-    [category, item.productId, onLevelChange],
-  );
-  const handleLevelHalf = useCallback(
-    () => onLevelChange(category, item.productId, "half"),
-    [category, item.productId, onLevelChange],
-  );
-  const handleLevelEmpty = useCallback(
-    () => onLevelChange(category, item.productId, "empty"),
-    [category, item.productId, onLevelChange],
-  );
   const handleFullMinus = useCallback(
     () => onFullCountChange(category, item.productId, -1),
     [category, item.productId, onFullCountChange],
@@ -301,22 +288,11 @@ const StockRow = memo(function StockRow({
         ]}
       >
         {/* Full — coloured whenever fullCount > 0 */}
-        <TouchableOpacity
-          onPress={handleLevelFull}
-          style={[
-            styles.levelBtn,
-            fullCount > 0 && { backgroundColor: "#22c55e" },
-          ]}
-        >
-          <Text
-            style={[
-              styles.levelBtnText,
-              { color: fullCount > 0 ? "#fff" : colors.subtext },
-            ]}
-          >
+        <View style={[styles.levelBtn, fullCount > 0 && { backgroundColor: "#22c55e" }]}>
+          <Text style={[styles.levelBtnText, { color: fullCount > 0 ? "#fff" : colors.subtext }]}>
             Full
           </Text>
-        </TouchableOpacity>
+        </View>
         <View style={[styles.inlineCounter, { borderColor: colors.border }]}>
           <TouchableOpacity
             onPress={handleFullMinus}
@@ -344,22 +320,11 @@ const StockRow = memo(function StockRow({
         />
 
         {/* Half — coloured whenever halfCount > 0 */}
-        <TouchableOpacity
-          onPress={handleLevelHalf}
-          style={[
-            styles.levelBtn,
-            halfCount > 0 && { backgroundColor: "#f59e0b" },
-          ]}
-        >
-          <Text
-            style={[
-              styles.levelBtnText,
-              { color: halfCount > 0 ? "#fff" : colors.subtext },
-            ]}
-          >
+        <View style={[styles.levelBtn, halfCount > 0 && { backgroundColor: "#f59e0b" }]}>
+          <Text style={[styles.levelBtnText, { color: halfCount > 0 ? "#fff" : colors.subtext }]}>
             ½
           </Text>
-        </TouchableOpacity>
+        </View>
         <View style={[styles.inlineCounter, { borderColor: colors.border }]}>
           <TouchableOpacity
             onPress={handleHalfMinus}
@@ -386,28 +351,21 @@ const StockRow = memo(function StockRow({
           style={[styles.levelDivider, { backgroundColor: colors.border }]}
         />
 
-        {/* Empty — only tappable when both counts are 0 */}
+        {/* Empty — coloured when both counts are 0 */}
         {(() => {
           const hasStock = fullCount > 0 || halfCount > 0;
           return (
-            <TouchableOpacity
-              onPress={handleLevelEmpty}
-              disabled={hasStock}
+            <View
               style={[
                 styles.levelBtn,
                 item.level === "empty" && { backgroundColor: "#ef4444" },
                 hasStock && { opacity: 0.25 },
               ]}
             >
-              <Text
-                style={[
-                  styles.levelBtnText,
-                  { color: item.level === "empty" ? "#fff" : colors.subtext },
-                ]}
-              >
+              <Text style={[styles.levelBtnText, { color: item.level === "empty" ? "#fff" : colors.subtext }]}>
                 Empty
               </Text>
-            </TouchableOpacity>
+            </View>
           );
         })()}
       </View>
@@ -522,20 +480,6 @@ export default function StockScreen() {
     [],
   );
 
-  const clearSection = (category: ProductCategory, label: string) => {
-    Alert.alert(
-      `Clear ${label}`,
-      `Remove all ${label.toLowerCase()} from stock?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Clear",
-          style: "destructive",
-          onPress: () => setStock((prev) => ({ ...prev, [category]: [] })),
-        },
-      ],
-    );
-  };
 
   const totalItems = Object.values(stock).reduce((s, arr) => s + arr.length, 0);
 
@@ -736,7 +680,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  levelBtnText: { fontSize: 9, fontWeight: "700", letterSpacing: 0.5 },
+  levelBtnText: { fontSize: 14, fontWeight: "700", letterSpacing: 0.5 },
   levelDivider: { width: StyleSheet.hairlineWidth, alignSelf: "stretch" },
   // Inline box counter
   inlineCounter: {

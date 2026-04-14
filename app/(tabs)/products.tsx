@@ -417,10 +417,10 @@ export default function ProductsScreen() {
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.text }]}>Products</Text>
         <TouchableOpacity
-          style={[styles.fab, { backgroundColor: colors.tint }]}
+          style={[styles.headerAddBtn, { borderColor: colors.tint, backgroundColor: colors.card }]}
           onPress={() => setShowAdd(true)}
         >
-          <Text style={styles.fabIcon}>+</Text>
+          <Text style={[styles.headerAddBtnText, { color: colors.tint }]}>+ Add</Text>
         </TouchableOpacity>
       </View>
 
@@ -595,6 +595,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  headerAddBtn: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+  },
+  headerAddBtnText: { fontSize: 13, fontWeight: "600" },
   fabIcon: {
     color: "#fff",
     fontSize: 22,
