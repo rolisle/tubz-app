@@ -342,10 +342,10 @@ export function MachineGrid({ machine, products, onUpdate, readonly }: MachineGr
                       : <Text style={styles.slotEmoji}>{product.emoji ?? '📦'}</Text>;
                   })()
                 ) : (
-                  <>
+                  <View style={styles.slotEmpty}>
                     <Text style={[styles.slotEmoji, { color: colors.subtext }]}>+</Text>
                     <Text style={[styles.slotAddLabel, { color: colors.subtext }]}>Add more</Text>
-                  </>
+                  </View>
                 )}
               </TouchableOpacity>
             );
@@ -407,6 +407,12 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   slotImage: { width: '100%', height: '100%' },
+  slotEmpty: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   slotEmoji: { fontSize: 22, lineHeight: 22, includeFontPadding: false },
   slotAddLabel: { fontSize: 9, fontWeight: '600', marginTop: 2, textAlign: 'center' },
   // List
