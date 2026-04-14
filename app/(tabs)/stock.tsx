@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   FlatList,
@@ -209,16 +209,30 @@ function ProductPicker({
 interface StockRowProps {
   item: StockItem;
   product: Product | undefined;
+  category: ProductCategory;
   colors: (typeof Colors)["light"];
-  onLevelChange: (level: StockLevel) => void;
-  onFullCountChange: (delta: number) => void;
-  onHalfCountChange: (delta: number) => void;
-  onRemove: () => void;
+  onLevelChange: (
+    category: ProductCategory,
+    productId: string,
+    level: StockLevel,
+  ) => void;
+  onFullCountChange: (
+    category: ProductCategory,
+    productId: string,
+    delta: number,
+  ) => void;
+  onHalfCountChange: (
+    category: ProductCategory,
+    productId: string,
+    delta: number,
+  ) => void;
+  onRemove: (category: ProductCategory, productId: string) => void;
 }
 
-function StockRow({
+const StockRow = memo(function StockRow({
   item,
   product,
+  category,
   colors,
   onLevelChange,
   onFullCountChange,
@@ -227,6 +241,39 @@ function StockRow({
 }: StockRowProps) {
   const fullCount = item.fullCount ?? 0;
   const halfCount = item.halfCount ?? 0;
+
+  const handleLevelFull = useCallback(
+    () => onLevelChange(category, item.productId, "full"),
+    [category, item.productId, onLevelChange],
+  );
+  const handleLevelHalf = useCallback(
+    () => onLevelChange(category, item.productId, "half"),
+    [category, item.productId, onLevelChange],
+  );
+  const handleLevelEmpty = useCallback(
+    () => onLevelChange(category, item.productId, "empty"),
+    [category, item.productId, onLevelChange],
+  );
+  const handleFullMinus = useCallback(
+    () => onFullCountChange(category, item.productId, -1),
+    [category, item.productId, onFullCountChange],
+  );
+  const handleFullPlus = useCallback(
+    () => onFullCountChange(category, item.productId, +1),
+    [category, item.productId, onFullCountChange],
+  );
+  const handleHalfMinus = useCallback(
+    () => onHalfCountChange(category, item.productId, -1),
+    [category, item.productId, onHalfCountChange],
+  );
+  const handleHalfPlus = useCallback(
+    () => onHalfCountChange(category, item.productId, +1),
+    [category, item.productId, onHalfCountChange],
+  );
+  const handleRemove = useCallback(
+    () => onRemove(category, item.productId),
+    [category, item.productId, onRemove],
+  );
 
   return (
     <View style={[styles.itemRow, { borderBottomColor: colors.border }]}>
@@ -239,7 +286,7 @@ function StockRow({
         >
           {product?.name ?? item.productId}
         </Text>
-        <TouchableOpacity onPress={onRemove} hitSlop={8}>
+        <TouchableOpacity onPress={handleRemove} hitSlop={8}>
           <Text style={{ color: "#ef4444", fontSize: 13, fontWeight: "500" }}>
             ✕
           </Text>
@@ -255,7 +302,7 @@ function StockRow({
       >
         {/* Full — coloured whenever fullCount > 0 */}
         <TouchableOpacity
-          onPress={() => onLevelChange("full")}
+          onPress={handleLevelFull}
           style={[
             styles.levelBtn,
             fullCount > 0 && { backgroundColor: "#22c55e" },
@@ -272,7 +319,7 @@ function StockRow({
         </TouchableOpacity>
         <View style={[styles.inlineCounter, { borderColor: colors.border }]}>
           <TouchableOpacity
-            onPress={() => onFullCountChange(-1)}
+            onPress={handleFullMinus}
             disabled={fullCount <= 0}
             hitSlop={6}
             style={{ opacity: fullCount <= 0 ? 0.3 : 1 }}
@@ -287,7 +334,7 @@ function StockRow({
           >
             {fullCount}
           </Text>
-          <TouchableOpacity onPress={() => onFullCountChange(+1)} hitSlop={6}>
+          <TouchableOpacity onPress={handleFullPlus} hitSlop={6}>
             <Text style={[styles.counterBtn, { color: colors.text }]}>＋</Text>
           </TouchableOpacity>
         </View>
@@ -298,7 +345,7 @@ function StockRow({
 
         {/* Half — coloured whenever halfCount > 0 */}
         <TouchableOpacity
-          onPress={() => onLevelChange("half")}
+          onPress={handleLevelHalf}
           style={[
             styles.levelBtn,
             halfCount > 0 && { backgroundColor: "#f59e0b" },
@@ -315,7 +362,7 @@ function StockRow({
         </TouchableOpacity>
         <View style={[styles.inlineCounter, { borderColor: colors.border }]}>
           <TouchableOpacity
-            onPress={() => onHalfCountChange(-1)}
+            onPress={handleHalfMinus}
             disabled={halfCount <= 0}
             hitSlop={6}
             style={{ opacity: halfCount <= 0 ? 0.3 : 1 }}
@@ -330,7 +377,7 @@ function StockRow({
           >
             {halfCount}
           </Text>
-          <TouchableOpacity onPress={() => onHalfCountChange(+1)} hitSlop={6}>
+          <TouchableOpacity onPress={handleHalfPlus} hitSlop={6}>
             <Text style={[styles.counterBtn, { color: colors.text }]}>＋</Text>
           </TouchableOpacity>
         </View>
@@ -344,7 +391,7 @@ function StockRow({
           const hasStock = fullCount > 0 || halfCount > 0;
           return (
             <TouchableOpacity
-              onPress={() => onLevelChange("empty")}
+              onPress={handleLevelEmpty}
               disabled={hasStock}
               style={[
                 styles.levelBtn,
@@ -366,7 +413,7 @@ function StockRow({
       </View>
     </View>
   );
-}
+});
 
 /* ─── Main screen ────────────────────────────────────────────── */
 
@@ -492,10 +539,42 @@ export default function StockScreen() {
 
   const totalItems = Object.values(stock).reduce((s, arr) => s + arr.length, 0);
 
-  const sections = SECTIONS.map((sec) => ({
-    ...sec,
-    data: stock[sec.key],
-  }));
+  const sections = useMemo(
+    () => SECTIONS.map((sec) => ({ ...sec, data: stock[sec.key] })),
+    [stock],
+  );
+
+  const renderItem = useCallback(
+    ({
+      item,
+      section,
+    }: {
+      item: StockItem;
+      section: (typeof sections)[number];
+    }) => {
+      const product = state.products.find((p) => p.id === item.productId);
+      return (
+        <StockRow
+          item={item}
+          product={product}
+          category={section.key}
+          colors={colors}
+          onLevelChange={setLevel}
+          onFullCountChange={changeFullCount}
+          onHalfCountChange={changeHalfCount}
+          onRemove={removeItem}
+        />
+      );
+    },
+    [
+      state.products,
+      colors,
+      setLevel,
+      changeFullCount,
+      changeHalfCount,
+      removeItem,
+    ],
+  );
 
   return (
     <SafeAreaView
@@ -543,22 +622,6 @@ export default function StockScreen() {
               {section.emoji} {section.label}
             </Text>
             <View style={styles.sectionActions}>
-              {section.data.length > 0 && (
-                <TouchableOpacity
-                  onPress={() => clearSection(section.key, section.label)}
-                  hitSlop={8}
-                >
-                  <Text
-                    style={{
-                      color: "#ef4444",
-                      fontSize: 12,
-                      fontWeight: "500",
-                    }}
-                  >
-                    Clear
-                  </Text>
-                </TouchableOpacity>
-              )}
               <TouchableOpacity
                 onPress={() => setPicker(section.key)}
                 style={[
@@ -573,26 +636,7 @@ export default function StockScreen() {
             </View>
           </View>
         )}
-        renderItem={({ item, section }) => {
-          const product = state.products.find((p) => p.id === item.productId);
-          return (
-            <StockRow
-              item={item}
-              product={product}
-              colors={colors}
-              onLevelChange={(level) =>
-                setLevel(section.key, item.productId, level)
-              }
-              onFullCountChange={(delta) =>
-                changeFullCount(section.key, item.productId, delta)
-              }
-              onHalfCountChange={(delta) =>
-                changeHalfCount(section.key, item.productId, delta)
-              }
-              onRemove={() => removeItem(section.key, item.productId)}
-            />
-          );
-        }}
+        renderItem={renderItem}
         renderSectionFooter={({ section }) =>
           section.data.length === 0 ? (
             <TouchableOpacity
