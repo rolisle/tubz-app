@@ -98,26 +98,26 @@ export function LocationCard({ location, onPress }: LocationCardProps) {
 
       {location.machines.length > 0 && (
         <View style={[styles.machines, { borderTopColor: colors.border }]}>
-          {location.machines.map((m) => {
-            const filled = m.slots.filter(Boolean).length;
-            return (
+          {(["sweet", "toy"] as const)
+            .map((type) => ({
+              type,
+              count: location.machines.filter((m) => m.type === type).length,
+            }))
+            .filter(({ count }) => count > 0)
+            .map(({ type, count }) => (
               <View
-                key={m.id}
+                key={type}
                 style={[
                   styles.machineChip,
-                  {
-                    backgroundColor: colors.background,
-                    borderColor: colors.border,
-                  },
+                  { backgroundColor: colors.background, borderColor: colors.border },
                 ]}
               >
-                <Text style={styles.machineIcon}>{MACHINE_ICONS[m.type]}</Text>
+                <Text style={styles.machineIcon}>{MACHINE_ICONS[type]}</Text>
                 <Text style={[styles.machineLabel, { color: colors.subtext }]}>
-                  {m.type === "sweet" ? "Sweet" : "Toy"} · {filled}/9
+                  {count} {type === "sweet" ? "Sweet" : "Toy"}{count !== 1 ? "s" : ""}
                 </Text>
               </View>
-            );
-          })}
+            ))}
         </View>
       )}
     </TouchableOpacity>
