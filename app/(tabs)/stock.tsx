@@ -1,5 +1,5 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   FlatList,
@@ -12,32 +12,32 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { PRODUCT_IMAGES } from '@/constants/product-images';
-import { Colors } from '@/constants/theme';
-import { useApp } from '@/context/app-context';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import type { Product, ProductCategory } from '@/types';
+import { PRODUCT_IMAGES } from "@/constants/product-images";
+import { Colors } from "@/constants/theme";
+import { useApp } from "@/context/app-context";
+import { useColorScheme } from "@/hooks/use-color-scheme";
+import type { Product, ProductCategory } from "@/types";
 
 /* ─── Constants ─────────────────────────────────────────────── */
 
-const STORAGE_KEY = '@tubz_stock_v2';
+const STORAGE_KEY = "@tubz_stock_v2";
 
 const SECTIONS: { key: ProductCategory; label: string; emoji: string }[] = [
-  { key: 'sweet', label: 'Sweets', emoji: '🍬' },
-  { key: 'toy',   label: 'Toys',   emoji: '🪀' },
+  { key: "sweet", label: "Sweets", emoji: "🍬" },
+  { key: "toy", label: "Toys", emoji: "🪀" },
 ];
 
 /* ─── Stock level ────────────────────────────────────────────── */
 
-type StockLevel = 'full' | 'half' | 'empty';
+type StockLevel = "full" | "half" | "empty";
 
 const LEVELS: { value: StockLevel; label: string; color: string }[] = [
-  { value: 'full',  label: 'Full',  color: '#22c55e' },
-  { value: 'half',  label: '½ Box', color: '#f59e0b' },
-  { value: 'empty', label: 'Empty', color: '#ef4444' },
+  { value: "full", label: "Full", color: "#22c55e" },
+  { value: "half", label: "½ Box", color: "#f59e0b" },
+  { value: "empty", label: "Empty", color: "#ef4444" },
 ];
 
 interface StockItem {
@@ -53,16 +53,38 @@ const EMPTY_STATE: StockState = { sweet: [], toy: [], other: [] };
 
 /* ─── Helpers ────────────────────────────────────────────────── */
 
-function ProductThumb({ product, size }: { product: Product | undefined; size: number }) {
+function ProductThumb({
+  product,
+  size,
+}: {
+  product: Product | undefined;
+  size: number;
+}) {
   const src = product?.localImageUri
     ? { uri: product.localImageUri }
-    : product ? PRODUCT_IMAGES[product.id] : undefined;
+    : product
+      ? PRODUCT_IMAGES[product.id]
+      : undefined;
   if (src) {
-    return <Image source={src} style={{ width: size, height: size, borderRadius: 6 }} resizeMode="cover" />;
+    return (
+      <Image
+        source={src}
+        style={{ width: size, height: size, borderRadius: 6 }}
+        resizeMode="cover"
+      />
+    );
   }
   return (
-    <Text style={{ fontSize: size * 0.65, width: size, textAlign: 'center', lineHeight: size, includeFontPadding: false }}>
-      {product?.emoji ?? '📦'}
+    <Text
+      style={{
+        fontSize: size * 0.65,
+        width: size,
+        textAlign: "center",
+        lineHeight: size,
+        includeFontPadding: false,
+      }}
+    >
+      {product?.emoji ?? "📦"}
     </Text>
   );
 }
@@ -77,10 +99,16 @@ interface ProductPickerProps {
   onClose: () => void;
 }
 
-function ProductPicker({ category, products, alreadyAdded, onSelect, onClose }: ProductPickerProps) {
-  const colorScheme = useColorScheme() ?? 'light';
+function ProductPicker({
+  category,
+  products,
+  alreadyAdded,
+  onSelect,
+  onClose,
+}: ProductPickerProps) {
+  const colorScheme = useColorScheme() ?? "light";
   const colors = Colors[colorScheme];
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState("");
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -93,15 +121,29 @@ function ProductPicker({ category, products, alreadyAdded, onSelect, onClose }: 
   return (
     <Modal transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.overlay} onPress={onClose} />
-      <View style={[styles.sheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <View
+        style={[
+          styles.sheet,
+          { backgroundColor: colors.card, borderColor: colors.border },
+        ]}
+      >
         <View style={styles.sheetHeader}>
-          <Text style={[styles.sheetTitle, { color: colors.text }]}>Add product</Text>
+          <Text style={[styles.sheetTitle, { color: colors.text }]}>
+            Add product
+          </Text>
           <TouchableOpacity onPress={onClose} hitSlop={8}>
-            <Text style={[styles.sheetClose, { color: colors.subtext }]}>Done</Text>
+            <Text style={[styles.sheetClose, { color: colors.subtext }]}>
+              Done
+            </Text>
           </TouchableOpacity>
         </View>
 
-        <View style={[styles.searchWrap, { backgroundColor: colors.background, borderColor: colors.border }]}>
+        <View
+          style={[
+            styles.searchWrap,
+            { backgroundColor: colors.background, borderColor: colors.border },
+          ]}
+        >
           <Text style={[styles.searchIcon, { color: colors.subtext }]}>🔍</Text>
           <TextInput
             style={[styles.searchInput, { color: colors.text }]}
@@ -124,18 +166,36 @@ function ProductPicker({ category, products, alreadyAdded, onSelect, onClose }: 
             const added = alreadyAdded.includes(item.id);
             return (
               <TouchableOpacity
-                style={[styles.pickerRow, { borderBottomColor: colors.border, opacity: added ? 0.4 : 1 }]}
+                style={[
+                  styles.pickerRow,
+                  {
+                    borderBottomColor: colors.border,
+                    opacity: added ? 0.4 : 1,
+                  },
+                ]}
                 disabled={added}
-                onPress={() => { onSelect(item.id); onClose(); }}>
+                onPress={() => {
+                  onSelect(item.id);
+                  onClose();
+                }}
+              >
                 <ProductThumb product={item} size={40} />
-                <Text style={[styles.pickerName, { color: colors.text }]}>{item.name}</Text>
-                {added && <Text style={[styles.pickerAdded, { color: colors.subtext }]}>Added</Text>}
+                <Text style={[styles.pickerName, { color: colors.text }]}>
+                  {item.name}
+                </Text>
+                {added && (
+                  <Text style={[styles.pickerAdded, { color: colors.subtext }]}>
+                    Added
+                  </Text>
+                )}
               </TouchableOpacity>
             );
           }}
           ListEmptyComponent={
             <Text style={[styles.pickerEmpty, { color: colors.subtext }]}>
-              {search ? `No results for "${search}"` : 'No products in this category.'}
+              {search
+                ? `No results for "${search}"`
+                : "No products in this category."}
             </Text>
           }
         />
@@ -149,76 +209,161 @@ function ProductPicker({ category, products, alreadyAdded, onSelect, onClose }: 
 interface StockRowProps {
   item: StockItem;
   product: Product | undefined;
-  colors: (typeof Colors)['light'];
+  colors: (typeof Colors)["light"];
   onLevelChange: (level: StockLevel) => void;
   onFullCountChange: (delta: number) => void;
   onHalfCountChange: (delta: number) => void;
   onRemove: () => void;
 }
 
-function StockRow({ item, product, colors, onLevelChange, onFullCountChange, onHalfCountChange, onRemove }: StockRowProps) {
+function StockRow({
+  item,
+  product,
+  colors,
+  onLevelChange,
+  onFullCountChange,
+  onHalfCountChange,
+  onRemove,
+}: StockRowProps) {
   const fullCount = item.fullCount ?? 0;
   const halfCount = item.halfCount ?? 0;
 
   return (
     <View style={[styles.itemRow, { borderBottomColor: colors.border }]}>
-      <ProductThumb product={product} size={50} />
+      {/* Top line: thumbnail + name + remove */}
+      <View style={styles.itemTop}>
+        <ProductThumb product={product} size={50} />
+        <Text
+          style={[styles.itemName, { color: colors.text }]}
+          numberOfLines={2}
+        >
+          {product?.name ?? item.productId}
+        </Text>
+        <TouchableOpacity onPress={onRemove} hitSlop={8}>
+          <Text style={{ color: "#ef4444", fontSize: 13, fontWeight: "500" }}>
+            ✕
+          </Text>
+        </TouchableOpacity>
+      </View>
 
-      <Text style={[styles.itemName, { color: colors.text }]} numberOfLines={2}>
-        {product?.name ?? item.productId}
-      </Text>
-
-      {/* Single inline bar: Full [−N+] | ½ Box [−N+] | Empty */}
-      <View style={[styles.levelBar, { backgroundColor: colors.background, borderColor: colors.border }]}>
-
+      {/* Bottom line: status bar full-width */}
+      <View
+        style={[
+          styles.levelBar,
+          { backgroundColor: colors.background, borderColor: colors.border },
+        ]}
+      >
         {/* Full — coloured whenever fullCount > 0 */}
         <TouchableOpacity
-          onPress={() => onLevelChange('full')}
-          style={[styles.levelBtn, fullCount > 0 && { backgroundColor: '#22c55e' }]}>
-          <Text style={[styles.levelBtnText, { color: fullCount > 0 ? '#fff' : colors.subtext }]}>Full</Text>
+          onPress={() => onLevelChange("full")}
+          style={[
+            styles.levelBtn,
+            fullCount > 0 && { backgroundColor: "#22c55e" },
+          ]}
+        >
+          <Text
+            style={[
+              styles.levelBtnText,
+              { color: fullCount > 0 ? "#fff" : colors.subtext },
+            ]}
+          >
+            Full
+          </Text>
         </TouchableOpacity>
         <View style={[styles.inlineCounter, { borderColor: colors.border }]}>
-          <TouchableOpacity onPress={() => onFullCountChange(-1)} disabled={fullCount <= 0} hitSlop={6} style={{ opacity: fullCount <= 0 ? 0.3 : 1 }}>
+          <TouchableOpacity
+            onPress={() => onFullCountChange(-1)}
+            disabled={fullCount <= 0}
+            hitSlop={6}
+            style={{ opacity: fullCount <= 0 ? 0.3 : 1 }}
+          >
             <Text style={[styles.counterBtn, { color: colors.text }]}>−</Text>
           </TouchableOpacity>
-          <Text style={[styles.counterVal, { color: fullCount > 0 ? '#22c55e' : colors.text }]}>{fullCount}</Text>
+          <Text
+            style={[
+              styles.counterVal,
+              { color: fullCount > 0 ? "#22c55e" : colors.text },
+            ]}
+          >
+            {fullCount}
+          </Text>
           <TouchableOpacity onPress={() => onFullCountChange(+1)} hitSlop={6}>
             <Text style={[styles.counterBtn, { color: colors.text }]}>＋</Text>
           </TouchableOpacity>
         </View>
 
-        <View style={[styles.levelDivider, { backgroundColor: colors.border }]} />
+        <View
+          style={[styles.levelDivider, { backgroundColor: colors.border }]}
+        />
 
         {/* Half — coloured whenever halfCount > 0 */}
         <TouchableOpacity
-          onPress={() => onLevelChange('half')}
-          style={[styles.levelBtn, halfCount > 0 && { backgroundColor: '#f59e0b' }]}>
-          <Text style={[styles.levelBtnText, { color: halfCount > 0 ? '#fff' : colors.subtext }]}>½</Text>
+          onPress={() => onLevelChange("half")}
+          style={[
+            styles.levelBtn,
+            halfCount > 0 && { backgroundColor: "#f59e0b" },
+          ]}
+        >
+          <Text
+            style={[
+              styles.levelBtnText,
+              { color: halfCount > 0 ? "#fff" : colors.subtext },
+            ]}
+          >
+            ½
+          </Text>
         </TouchableOpacity>
         <View style={[styles.inlineCounter, { borderColor: colors.border }]}>
-          <TouchableOpacity onPress={() => onHalfCountChange(-1)} disabled={halfCount <= 0} hitSlop={6} style={{ opacity: halfCount <= 0 ? 0.3 : 1 }}>
+          <TouchableOpacity
+            onPress={() => onHalfCountChange(-1)}
+            disabled={halfCount <= 0}
+            hitSlop={6}
+            style={{ opacity: halfCount <= 0 ? 0.3 : 1 }}
+          >
             <Text style={[styles.counterBtn, { color: colors.text }]}>−</Text>
           </TouchableOpacity>
-          <Text style={[styles.counterVal, { color: halfCount > 0 ? '#f59e0b' : colors.text }]}>{halfCount}</Text>
+          <Text
+            style={[
+              styles.counterVal,
+              { color: halfCount > 0 ? "#f59e0b" : colors.text },
+            ]}
+          >
+            {halfCount}
+          </Text>
           <TouchableOpacity onPress={() => onHalfCountChange(+1)} hitSlop={6}>
             <Text style={[styles.counterBtn, { color: colors.text }]}>＋</Text>
           </TouchableOpacity>
         </View>
 
-        <View style={[styles.levelDivider, { backgroundColor: colors.border }]} />
+        <View
+          style={[styles.levelDivider, { backgroundColor: colors.border }]}
+        />
 
-        {/* Empty — coloured when both counts are 0 */}
-        <TouchableOpacity
-          onPress={() => onLevelChange('empty')}
-          style={[styles.levelBtn, item.level === 'empty' && { backgroundColor: '#ef4444' }]}>
-          <Text style={[styles.levelBtnText, { color: item.level === 'empty' ? '#fff' : colors.subtext }]}>Empty</Text>
-        </TouchableOpacity>
-
+        {/* Empty — only tappable when both counts are 0 */}
+        {(() => {
+          const hasStock = fullCount > 0 || halfCount > 0;
+          return (
+            <TouchableOpacity
+              onPress={() => onLevelChange("empty")}
+              disabled={hasStock}
+              style={[
+                styles.levelBtn,
+                item.level === "empty" && { backgroundColor: "#ef4444" },
+                hasStock && { opacity: 0.25 },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.levelBtnText,
+                  { color: item.level === "empty" ? "#fff" : colors.subtext },
+                ]}
+              >
+                Empty
+              </Text>
+            </TouchableOpacity>
+          );
+        })()}
       </View>
-
-      <TouchableOpacity onPress={onRemove} hitSlop={8}>
-        <Text style={{ color: '#ef4444', fontSize: 13, fontWeight: '500' }}>✕</Text>
-      </TouchableOpacity>
     </View>
   );
 }
@@ -227,7 +372,7 @@ function StockRow({ item, product, colors, onLevelChange, onFullCountChange, onH
 
 export default function StockScreen() {
   const { state } = useApp();
-  const colorScheme = useColorScheme() ?? 'light';
+  const colorScheme = useColorScheme() ?? "light";
   const colors = Colors[colorScheme];
 
   const [stock, setStock] = useState<StockState>(EMPTY_STATE);
@@ -240,7 +385,9 @@ export default function StockScreen() {
         try {
           const parsed = JSON.parse(raw) as Partial<StockState>;
           setStock({ ...EMPTY_STATE, ...parsed });
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       }
       setLoaded(true);
     });
@@ -250,58 +397,97 @@ export default function StockScreen() {
     if (loaded) AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(stock));
   }, [stock, loaded]);
 
-  const addItem = useCallback((category: ProductCategory, productId: string) => {
-    setStock((prev) => ({
-      ...prev,
-      [category]: [...prev[category], { productId, level: 'full' as StockLevel, fullCount: 1, halfCount: 0 }],
-    }));
-  }, []);
+  const addItem = useCallback(
+    (category: ProductCategory, productId: string) => {
+      setStock((prev) => ({
+        ...prev,
+        [category]: [
+          ...prev[category],
+          {
+            productId,
+            level: "full" as StockLevel,
+            fullCount: 1,
+            halfCount: 0,
+          },
+        ],
+      }));
+    },
+    [],
+  );
 
-  const setLevel = useCallback((category: ProductCategory, productId: string, level: StockLevel) => {
-    setStock((prev) => ({
-      ...prev,
-      [category]: prev[category].map((i) => i.productId === productId ? { ...i, level } : i),
-    }));
-  }, []);
+  const setLevel = useCallback(
+    (category: ProductCategory, productId: string, level: StockLevel) => {
+      setStock((prev) => ({
+        ...prev,
+        [category]: prev[category].map((i) =>
+          i.productId === productId ? { ...i, level } : i,
+        ),
+      }));
+    },
+    [],
+  );
 
-  const changeFullCount = useCallback((category: ProductCategory, productId: string, delta: number) => {
-    setStock((prev) => ({
-      ...prev,
-      [category]: prev[category].map((i) => {
-        if (i.productId !== productId) return i;
-        const newFull = Math.max(0, (i.fullCount ?? 0) + delta);
-        const half = i.halfCount ?? 0;
-        const level: StockLevel = newFull === 0 && half === 0 ? 'empty' : newFull > 0 ? 'full' : 'half';
-        return { ...i, fullCount: newFull, level };
-      }),
-    }));
-  }, []);
+  const changeFullCount = useCallback(
+    (category: ProductCategory, productId: string, delta: number) => {
+      setStock((prev) => ({
+        ...prev,
+        [category]: prev[category].map((i) => {
+          if (i.productId !== productId) return i;
+          const newFull = Math.max(0, (i.fullCount ?? 0) + delta);
+          const half = i.halfCount ?? 0;
+          const level: StockLevel =
+            newFull === 0 && half === 0
+              ? "empty"
+              : newFull > 0
+                ? "full"
+                : "half";
+          return { ...i, fullCount: newFull, level };
+        }),
+      }));
+    },
+    [],
+  );
 
-  const changeHalfCount = useCallback((category: ProductCategory, productId: string, delta: number) => {
-    setStock((prev) => ({
-      ...prev,
-      [category]: prev[category].map((i) => {
-        if (i.productId !== productId) return i;
-        const newHalf = Math.max(0, (i.halfCount ?? 0) + delta);
-        const full = i.fullCount ?? 0;
-        const level: StockLevel = full === 0 && newHalf === 0 ? 'empty' : full > 0 ? 'full' : 'half';
-        return { ...i, halfCount: newHalf, level };
-      }),
-    }));
-  }, []);
+  const changeHalfCount = useCallback(
+    (category: ProductCategory, productId: string, delta: number) => {
+      setStock((prev) => ({
+        ...prev,
+        [category]: prev[category].map((i) => {
+          if (i.productId !== productId) return i;
+          const newHalf = Math.max(0, (i.halfCount ?? 0) + delta);
+          const full = i.fullCount ?? 0;
+          const level: StockLevel =
+            full === 0 && newHalf === 0 ? "empty" : full > 0 ? "full" : "half";
+          return { ...i, halfCount: newHalf, level };
+        }),
+      }));
+    },
+    [],
+  );
 
-  const removeItem = useCallback((category: ProductCategory, productId: string) => {
-    setStock((prev) => ({
-      ...prev,
-      [category]: prev[category].filter((i) => i.productId !== productId),
-    }));
-  }, []);
+  const removeItem = useCallback(
+    (category: ProductCategory, productId: string) => {
+      setStock((prev) => ({
+        ...prev,
+        [category]: prev[category].filter((i) => i.productId !== productId),
+      }));
+    },
+    [],
+  );
 
   const clearSection = (category: ProductCategory, label: string) => {
-    Alert.alert(`Clear ${label}`, `Remove all ${label.toLowerCase()} from stock?`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Clear', style: 'destructive', onPress: () => setStock((prev) => ({ ...prev, [category]: [] })) },
-    ]);
+    Alert.alert(
+      `Clear ${label}`,
+      `Remove all ${label.toLowerCase()} from stock?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Clear",
+          style: "destructive",
+          onPress: () => setStock((prev) => ({ ...prev, [category]: [] })),
+        },
+      ],
+    );
   };
 
   const totalItems = Object.values(stock).reduce((s, arr) => s + arr.length, 0);
@@ -312,22 +498,34 @@ export default function StockScreen() {
   }));
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
+    <SafeAreaView
+      style={[styles.safe, { backgroundColor: colors.background }]}
+      edges={["top"]}
+    >
       <View style={styles.header}>
         <View>
           <Text style={[styles.title, { color: colors.text }]}>Stock</Text>
           <Text style={[styles.subtitle, { color: colors.subtext }]}>
-            {totalItems === 0 ? 'No products tracked yet' : `${totalItems} product${totalItems !== 1 ? 's' : ''} tracked`}
+            {totalItems === 0
+              ? "No products tracked yet"
+              : `${totalItems} product${totalItems !== 1 ? "s" : ""} tracked`}
           </Text>
         </View>
       </View>
 
       {/* Legend */}
-      <View style={[styles.legend, { borderColor: colors.border, backgroundColor: colors.card }]}>
+      <View
+        style={[
+          styles.legend,
+          { borderColor: colors.border, backgroundColor: colors.card },
+        ]}
+      >
         {LEVELS.map((lvl) => (
           <View key={lvl.value} style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: lvl.color }]} />
-            <Text style={[styles.legendLabel, { color: colors.subtext }]}>{lvl.label}</Text>
+            <Text style={[styles.legendLabel, { color: colors.subtext }]}>
+              {lvl.label}
+            </Text>
           </View>
         ))}
       </View>
@@ -346,14 +544,31 @@ export default function StockScreen() {
             </Text>
             <View style={styles.sectionActions}>
               {section.data.length > 0 && (
-                <TouchableOpacity onPress={() => clearSection(section.key, section.label)} hitSlop={8}>
-                  <Text style={{ color: '#ef4444', fontSize: 12, fontWeight: '500' }}>Clear</Text>
+                <TouchableOpacity
+                  onPress={() => clearSection(section.key, section.label)}
+                  hitSlop={8}
+                >
+                  <Text
+                    style={{
+                      color: "#ef4444",
+                      fontSize: 12,
+                      fontWeight: "500",
+                    }}
+                  >
+                    Clear
+                  </Text>
                 </TouchableOpacity>
               )}
               <TouchableOpacity
                 onPress={() => setPicker(section.key)}
-                style={[styles.addBtn, { borderColor: colors.tint, backgroundColor: colors.card }]}>
-                <Text style={[styles.addBtnText, { color: colors.tint }]}>+ Add</Text>
+                style={[
+                  styles.addBtn,
+                  { borderColor: colors.tint, backgroundColor: colors.card },
+                ]}
+              >
+                <Text style={[styles.addBtnText, { color: colors.tint }]}>
+                  + Add
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -365,9 +580,15 @@ export default function StockScreen() {
               item={item}
               product={product}
               colors={colors}
-              onLevelChange={(level) => setLevel(section.key, item.productId, level)}
-              onFullCountChange={(delta) => changeFullCount(section.key, item.productId, delta)}
-              onHalfCountChange={(delta) => changeHalfCount(section.key, item.productId, delta)}
+              onLevelChange={(level) =>
+                setLevel(section.key, item.productId, level)
+              }
+              onFullCountChange={(delta) =>
+                changeFullCount(section.key, item.productId, delta)
+              }
+              onHalfCountChange={(delta) =>
+                changeHalfCount(section.key, item.productId, delta)
+              }
               onRemove={() => removeItem(section.key, item.productId)}
             />
           );
@@ -376,8 +597,11 @@ export default function StockScreen() {
           section.data.length === 0 ? (
             <TouchableOpacity
               onPress={() => setPicker(section.key)}
-              style={[styles.emptySection, { borderColor: colors.border }]}>
-              <Text style={[styles.emptySectionText, { color: colors.subtext }]}>
+              style={[styles.emptySection, { borderColor: colors.border }]}
+            >
+              <Text
+                style={[styles.emptySectionText, { color: colors.subtext }]}
+              >
                 Tap + Add to track {section.label.toLowerCase()} stock
               </Text>
             </TouchableOpacity>
@@ -407,11 +631,11 @@ const styles = StyleSheet.create({
     paddingTop: 4,
     paddingBottom: 8,
   },
-  title: { fontSize: 28, fontWeight: '800', letterSpacing: -0.5 },
+  title: { fontSize: 28, fontWeight: "800", letterSpacing: -0.5 },
   subtitle: { fontSize: 13, marginTop: 2 },
   legend: {
-    flexDirection: 'row',
-    justifyContent: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
     gap: 20,
     marginHorizontal: 20,
     marginBottom: 4,
@@ -419,78 +643,109 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
   },
-  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  legendItem: { flexDirection: "row", alignItems: "center", gap: 6 },
   legendDot: { width: 8, height: 8, borderRadius: 4 },
-  legendLabel: { fontSize: 12, fontWeight: '500' },
+  legendLabel: { fontSize: 12, fontWeight: "500" },
   content: { paddingHorizontal: 20, paddingBottom: 60 },
   // Section
   sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingTop: 16,
     paddingBottom: 8,
   },
-  sectionTitle: { fontSize: 18, fontWeight: '700' },
-  sectionActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  addBtn: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 5 },
-  addBtnText: { fontSize: 13, fontWeight: '600' },
+  sectionTitle: { fontSize: 18, fontWeight: "700" },
+  sectionActions: { flexDirection: "row", alignItems: "center", gap: 10 },
+  addBtn: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+  },
+  addBtnText: { fontSize: 13, fontWeight: "600" },
   // Item row
   itemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+    flexDirection: "column",
+    gap: 8,
     paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  itemName: { flex: 1, fontSize: 13, fontWeight: '500', lineHeight: 18 },
+  itemTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  itemName: { flex: 1, fontSize: 13, fontWeight: "500", lineHeight: 18 },
   // Level selector (single inline bar)
   levelBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "stretch",
     borderRadius: 8,
     borderWidth: 1,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   levelBtn: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 12,
     paddingVertical: 7,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
-  levelBtnText: { fontSize: 11, fontWeight: '700' },
-  levelDivider: { width: StyleSheet.hairlineWidth, alignSelf: 'stretch' },
+  levelBtnText: { fontSize: 9, fontWeight: "700", letterSpacing: 0.5 },
+  levelDivider: { width: StyleSheet.hairlineWidth, alignSelf: "stretch" },
   // Inline box counter
   inlineCounter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 6,
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 8,
     paddingVertical: 4,
     borderLeftWidth: StyleSheet.hairlineWidth,
     borderRightWidth: StyleSheet.hairlineWidth,
   },
-  counterBtn: { fontSize: 14, lineHeight: 14, includeFontPadding: false, fontWeight: '600' },
-  counterVal: { fontSize: 12, fontWeight: '800', minWidth: 14, textAlign: 'center' },
+  counterBtn: {
+    fontSize: 16,
+    lineHeight: 16,
+    includeFontPadding: false,
+    fontWeight: "600",
+  },
+  counterVal: {
+    fontSize: 16,
+    fontWeight: "800",
+    minWidth: 16,
+    textAlign: "center",
+  },
   // Empty section
   emptySection: {
     borderWidth: 1,
-    borderStyle: 'dashed',
+    borderStyle: "dashed",
     borderRadius: 10,
     paddingVertical: 16,
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 4,
   },
   emptySectionText: { fontSize: 13 },
   // Picker modal
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
-  sheet: { maxHeight: '75%', borderTopLeftRadius: 20, borderTopRightRadius: 20, borderWidth: 1 },
-  sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16 },
-  sheetTitle: { fontSize: 17, fontWeight: '700' },
+  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)" },
+  sheet: {
+    maxHeight: "75%",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderWidth: 1,
+  },
+  sheetHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 16,
+  },
+  sheetTitle: { fontSize: 17, fontWeight: "700" },
   sheetClose: { fontSize: 15 },
   searchWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginHorizontal: 16,
     marginBottom: 8,
     borderRadius: 10,
@@ -502,14 +757,14 @@ const styles = StyleSheet.create({
   searchIcon: { fontSize: 14 },
   searchInput: { flex: 1, fontSize: 15 },
   pickerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  pickerName: { flex: 1, fontSize: 14, fontWeight: '500' },
+  pickerName: { flex: 1, fontSize: 14, fontWeight: "500" },
   pickerAdded: { fontSize: 12 },
-  pickerEmpty: { padding: 24, textAlign: 'center', fontSize: 13 },
+  pickerEmpty: { padding: 24, textAlign: "center", fontSize: 13 },
 });
