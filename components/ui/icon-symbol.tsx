@@ -28,6 +28,7 @@ const MAPPING = {
   'arrow.left': 'arrow-back',
   'tag.fill': 'local-offer',
   'cart.fill': 'shopping-cart',
+  'archivebox.fill': 'archive',
 } as IconMapping;
 
 /**
