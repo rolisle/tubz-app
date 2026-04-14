@@ -87,6 +87,7 @@ export const DEFAULT_PRODUCTS: Product[] = [
   p("lucky-dip-boys",           "Lucky Dip Boys Toys Mix",      "👦", "toy"),
   p("lucky-dip-girls",          "Lucky Dip Girls Toys Mix",     "👧", "toy"),
   p("lucky-duckies",            "Lucky Duckies",                "🦆", "toy"),
+  p("magic-squishy-bead-balls", "Magic Squishy Bead Balls",     "🫧", "toy"),
   p("moon-sand",                "Moon Sand",                    "🌙", "toy"),
   p("pet-shoppe-4d-tattoos",    "Pet Shoppe 4D Tattoos",        "🐱", "toy"),
   p("puffle-pals",              "Puffle Pals",                  "🫧", "toy"),

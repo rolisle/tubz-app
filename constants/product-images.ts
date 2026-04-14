@@ -112,4 +112,5 @@ export const PRODUCT_IMAGES: Record<string, ImageSourcePropType> = {
   'tubz-flashing-emoji-balls': require('../assets/products/tubz-flashing-emoji-balls.png'),
   'tubz-glitter-pets':         require('../assets/products/tubz-glitter-pets.jpg'),
   'puffle-pals':               require('../assets/products/puffle-pals.jpg'),
+  'magic-squishy-bead-balls':  require('../assets/products/magic-squishy-bead-balls.png'),
 };
