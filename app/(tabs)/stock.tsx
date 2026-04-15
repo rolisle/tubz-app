@@ -407,7 +407,96 @@ const StockRow = memo(function StockRow({
   );
 });
 
+/* ─── Simple row ─────────────────────────────────────────────── */
+
+interface SimpleRowProps {
+  item: StockItem;
+  product: Product | undefined;
+  colors: (typeof Colors)["light"];
+}
+
+const SimpleRow = memo(function SimpleRow({
+  item,
+  product,
+  colors,
+}: SimpleRowProps) {
+  const fullCount = item.fullCount ?? 0;
+  const halfCount = item.halfCount ?? 0;
+  const isEmpty = item.level === "empty" && fullCount === 0 && halfCount === 0;
+
+  return (
+    <View style={[styles.simpleRow, { borderBottomColor: colors.border }]}>
+      <ProductThumb product={product} size={38} />
+      <Text
+        style={[styles.simpleRowName, { color: colors.text }]}
+        numberOfLines={1}
+      >
+        {product?.name ?? item.productId}
+      </Text>
+      <View style={styles.simpleRowCounts}>
+        {fullCount > 0 && (
+          <View
+            style={[
+              styles.simpleChip,
+              { backgroundColor: "#22c55e18", borderColor: "#22c55e55" },
+            ]}
+          >
+            <Text style={[styles.simpleChipNum, { color: "#22c55e" }]}>
+              {fullCount}
+            </Text>
+            <Text style={[styles.simpleChipLabel, { color: "#22c55e" }]}>
+              Full
+            </Text>
+          </View>
+        )}
+        {halfCount > 0 && (
+          <View
+            style={[
+              styles.simpleChip,
+              { backgroundColor: "#f59e0b18", borderColor: "#f59e0b55" },
+            ]}
+          >
+            <Text style={[styles.simpleChipNum, { color: "#f59e0b" }]}>
+              {halfCount}
+            </Text>
+            <Text style={[styles.simpleChipLabel, { color: "#f59e0b" }]}>
+              ½
+            </Text>
+          </View>
+        )}
+        {isEmpty && (
+          <View
+            style={[
+              styles.simpleChip,
+              { backgroundColor: "#ef444418", borderColor: "#ef444455" },
+            ]}
+          >
+            <Text style={[styles.simpleChipLabel, { color: "#ef4444", opacity: 1 }]}>
+              Empty
+            </Text>
+          </View>
+        )}
+      </View>
+    </View>
+  );
+});
+
 /* ─── Main screen ────────────────────────────────────────────── */
+
+type StockViewMode = "simple" | "detail";
+type SortOrder = "az" | "za" | "low" | "high";
+
+const SORT_OPTIONS: { value: SortOrder; label: string; icon: string }[] = [
+  { value: "az", label: "A → Z", icon: "🔤" },
+  { value: "za", label: "Z → A", icon: "🔤" },
+  { value: "low", label: "Lowest stock", icon: "📉" },
+  { value: "high", label: "Highest stock", icon: "📈" },
+];
+
+/** Lower = emptier, higher = more stock */
+function stockScore(item: StockItem) {
+  return (item.fullCount ?? 0) * 2 + (item.halfCount ?? 0);
+}
 
 export default function StockScreen() {
   const { state } = useApp();
@@ -416,6 +505,9 @@ export default function StockScreen() {
   const { settings } = useSettings();
   const accent = primaryColor(settings.accentColor);
 
+  const [viewMode, setViewMode] = useState<StockViewMode>("simple");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("az");
+  const [showSort, setShowSort] = useState(false);
   const [stock, setStock] = useState<StockState>(EMPTY_STATE);
   const [loaded, setLoaded] = useState(false);
   const [picker, setPicker] = useState<ProductCategory | null>(null);
@@ -518,10 +610,38 @@ export default function StockScreen() {
 
   const totalItems = Object.values(stock).reduce((s, arr) => s + arr.length, 0);
 
-  const sections = useMemo(
-    () => SECTIONS.map((sec) => ({ ...sec, data: stock[sec.key] })),
-    [stock],
-  );
+  const sections = useMemo(() => {
+    const sortItems = (items: StockItem[]) => {
+      const sorted = [...items];
+      switch (sortOrder) {
+        case "az":
+          return sorted.sort((a, b) => {
+            const na =
+              state.products.find((p) => p.id === a.productId)?.name ??
+              a.productId;
+            const nb =
+              state.products.find((p) => p.id === b.productId)?.name ??
+              b.productId;
+            return na.localeCompare(nb);
+          });
+        case "za":
+          return sorted.sort((a, b) => {
+            const na =
+              state.products.find((p) => p.id === a.productId)?.name ??
+              a.productId;
+            const nb =
+              state.products.find((p) => p.id === b.productId)?.name ??
+              b.productId;
+            return nb.localeCompare(na);
+          });
+        case "low":
+          return sorted.sort((a, b) => stockScore(a) - stockScore(b));
+        case "high":
+          return sorted.sort((a, b) => stockScore(b) - stockScore(a));
+      }
+    };
+    return SECTIONS.map((sec) => ({ ...sec, data: sortItems(stock[sec.key]) }));
+  }, [stock, sortOrder, state.products]);
 
   const renderItem = useCallback(
     ({
@@ -555,11 +675,27 @@ export default function StockScreen() {
     ],
   );
 
+  const simpleRenderItem = useCallback(
+    ({
+      item,
+      section,
+    }: {
+      item: StockItem;
+      section: (typeof sections)[number];
+    }) => {
+      void section;
+      const product = state.products.find((p) => p.id === item.productId);
+      return <SimpleRow item={item} product={product} colors={colors} />;
+    },
+    [state.products, colors],
+  );
+
   return (
     <SafeAreaView
       style={[styles.safe, { backgroundColor: colors.background }]}
       edges={["top"]}
     >
+      {/* Header */}
       <View style={styles.header}>
         <View>
           <Text style={[styles.title, { color: colors.text }]}>Stock</Text>
@@ -569,68 +705,229 @@ export default function StockScreen() {
               : `${totalItems} product${totalItems !== 1 ? "s" : ""} tracked`}
           </Text>
         </View>
+        <TouchableOpacity
+          onPress={() => setShowSort((v) => !v)}
+          hitSlop={8}
+          style={[
+            styles.addBtn,
+            { borderColor: accent, backgroundColor: colors.card },
+          ]}
+        >
+          <Text style={[styles.addBtnText, { color: accent }]}>
+            ↕ Sort
+          </Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Legend */}
-      <View
-        style={[
-          styles.legend,
-          { borderColor: colors.border, backgroundColor: colors.card },
-        ]}
-      >
-        {LEVELS.map((lvl) => (
-          <View key={lvl.value} style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: lvl.color }]} />
-            <Text style={[styles.legendLabel, { color: colors.subtext }]}>
-              {lvl.label}
-            </Text>
-          </View>
-        ))}
-      </View>
-
-      <SectionList
-        sections={sections}
-        keyExtractor={(item) => item.productId}
-        stickySectionHeadersEnabled={false}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        renderSectionHeader={({ section }) => (
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              {section.emoji} {section.label}
-            </Text>
-            <View style={styles.sectionActions}>
+      {/* Sort popover */}
+      {showSort && (
+        <View
+          style={[
+            styles.sortPopover,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
+          {SORT_OPTIONS.map((opt) => {
+            const active = sortOrder === opt.value;
+            return (
               <TouchableOpacity
-                onPress={() => setPicker(section.key)}
+                key={opt.value}
+                onPress={() => {
+                  setSortOrder(opt.value);
+                  setShowSort(false);
+                }}
                 style={[
-                  styles.addBtn,
-                  { borderColor: accent, backgroundColor: colors.card },
+                  styles.sortOption,
+                  { borderBottomColor: colors.border },
+                  active && { backgroundColor: accent + "18" },
                 ]}
               >
-                <Text style={[styles.addBtnText, { color: accent }]}>
-                  + Add
+                <Text style={styles.sortOptionIcon}>{opt.icon}</Text>
+                <Text
+                  style={[
+                    styles.sortOptionLabel,
+                    { color: active ? accent : colors.text },
+                  ]}
+                >
+                  {opt.label}
                 </Text>
+                {active && (
+                  <Text style={[styles.sortOptionCheck, { color: accent }]}>
+                    ✓
+                  </Text>
+                )}
               </TouchableOpacity>
-            </View>
+            );
+          })}
+        </View>
+      )}
+
+      {/* View toggle */}
+      <View
+        style={[
+          styles.toggleBar,
+          { backgroundColor: colors.card, borderColor: colors.border },
+        ]}
+      >
+        <TouchableOpacity
+          style={styles.toggleBtn}
+          onPress={() => setViewMode("simple")}
+          activeOpacity={0.8}
+        >
+          {viewMode === "simple" && (
+            <View
+              style={[
+                StyleSheet.absoluteFill,
+                { borderRadius: 8, backgroundColor: accent },
+              ]}
+            />
+          )}
+          <Text
+            style={[
+              styles.toggleLabel,
+              { color: viewMode === "simple" ? "#fff" : colors.subtext },
+            ]}
+          >
+            Overview
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.toggleBtn}
+          onPress={() => setViewMode("detail")}
+          activeOpacity={0.8}
+        >
+          {viewMode === "detail" && (
+            <View
+              style={[
+                StyleSheet.absoluteFill,
+                { borderRadius: 8, backgroundColor: accent },
+              ]}
+            />
+          )}
+          <Text
+            style={[
+              styles.toggleLabel,
+              { color: viewMode === "detail" ? "#fff" : colors.subtext },
+            ]}
+          >
+            Edit Stock
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {viewMode === "simple" ? (
+        /* ── Overview ── */
+        <>
+          <View
+            style={[
+              styles.legend,
+              { borderColor: colors.border, backgroundColor: colors.card },
+            ]}
+          >
+            {LEVELS.map((lvl) => (
+              <View key={lvl.value} style={styles.legendItem}>
+                <View
+                  style={[styles.legendDot, { backgroundColor: lvl.color }]}
+                />
+                <Text style={[styles.legendLabel, { color: colors.subtext }]}>
+                  {lvl.label}
+                </Text>
+              </View>
+            ))}
           </View>
-        )}
-        renderItem={renderItem}
-        renderSectionFooter={({ section }) =>
-          section.data.length === 0 ? (
-            <TouchableOpacity
-              onPress={() => setPicker(section.key)}
-              style={[styles.emptySection, { borderColor: colors.border }]}
-            >
-              <Text
-                style={[styles.emptySectionText, { color: colors.subtext }]}
-              >
-                Tap + Add to track {section.label.toLowerCase()} stock
-              </Text>
-            </TouchableOpacity>
-          ) : null
-        }
-      />
+          <SectionList
+            sections={sections}
+            keyExtractor={(item) => item.productId}
+            stickySectionHeadersEnabled={false}
+            contentContainerStyle={styles.content}
+            showsVerticalScrollIndicator={false}
+            renderSectionHeader={({ section }) => (
+              <View style={styles.sectionHeader}>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                  {section.emoji} {section.label}
+                </Text>
+              </View>
+            )}
+            renderItem={simpleRenderItem}
+            renderSectionFooter={({ section }) =>
+              section.data.length === 0 ? (
+                <TouchableOpacity
+                  onPress={() => setPicker(section.key)}
+                  style={[styles.emptySection, { borderColor: colors.border }]}
+                >
+                  <Text
+                    style={[styles.emptySectionText, { color: colors.subtext }]}
+                  >
+                    Tap + Add to track {section.label.toLowerCase()} stock
+                  </Text>
+                </TouchableOpacity>
+              ) : null
+            }
+          />
+        </>
+      ) : (
+        /* ── Detail ── */
+        <>
+          <View
+            style={[
+              styles.legend,
+              { borderColor: colors.border, backgroundColor: colors.card },
+            ]}
+          >
+            {LEVELS.map((lvl) => (
+              <View key={lvl.value} style={styles.legendItem}>
+                <View
+                  style={[styles.legendDot, { backgroundColor: lvl.color }]}
+                />
+                <Text style={[styles.legendLabel, { color: colors.subtext }]}>
+                  {lvl.label}
+                </Text>
+              </View>
+            ))}
+          </View>
+          <SectionList
+            sections={sections}
+            keyExtractor={(item) => item.productId}
+            stickySectionHeadersEnabled={false}
+            contentContainerStyle={styles.content}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            renderSectionHeader={({ section }) => (
+              <View style={styles.sectionHeader}>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                  {section.emoji} {section.label}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setPicker(section.key)}
+                  style={[
+                    styles.addBtn,
+                    { borderColor: accent, backgroundColor: colors.card },
+                  ]}
+                >
+                  <Text style={[styles.addBtnText, { color: accent }]}>
+                    + Add
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            renderItem={renderItem}
+            renderSectionFooter={({ section }) =>
+              section.data.length === 0 ? (
+                <TouchableOpacity
+                  onPress={() => setPicker(section.key)}
+                  style={[styles.emptySection, { borderColor: colors.border }]}
+                >
+                  <Text
+                    style={[styles.emptySectionText, { color: colors.subtext }]}
+                  >
+                    Tap + Add to track {section.label.toLowerCase()} stock
+                  </Text>
+                </TouchableOpacity>
+              ) : null
+            }
+          />
+        </>
+      )}
 
       {picker && (
         <ProductPicker
@@ -650,12 +947,72 @@ export default function StockScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   header: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
     paddingHorizontal: 20,
     paddingTop: 4,
     paddingBottom: 8,
   },
   title: { fontSize: 28, fontWeight: "800", letterSpacing: -0.5 },
   subtitle: { fontSize: 13, marginTop: 2 },
+  sortPopover: {
+    marginHorizontal: 20,
+    marginBottom: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+  sortOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  sortOptionIcon: { fontSize: 15 },
+  sortOptionLabel: { flex: 1, fontSize: 14, fontWeight: "500" },
+  sortOptionCheck: { fontSize: 14, fontWeight: "700" },
+  // View toggle
+  toggleBar: {
+    flexDirection: "row",
+    marginHorizontal: 20,
+    marginBottom: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    padding: 3,
+    gap: 3,
+  },
+  toggleBtn: {
+    flex: 1,
+    borderRadius: 8,
+    paddingVertical: 7,
+    alignItems: "center",
+    overflow: "hidden",
+  },
+  toggleLabel: { fontSize: 13, fontWeight: "600" },
+  // Simple row
+  simpleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 9,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  simpleRowName: { flex: 1, fontSize: 13, fontWeight: "500" },
+  simpleRowCounts: { flexDirection: "row", gap: 6, alignItems: "center" },
+  simpleChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  simpleChipNum: { fontSize: 15, fontWeight: "800", lineHeight: 18 },
+  simpleChipLabel: { fontSize: 10, fontWeight: "600", opacity: 0.8 },
   legend: {
     flexDirection: "row",
     justifyContent: "center",
