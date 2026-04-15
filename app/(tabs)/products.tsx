@@ -33,32 +33,15 @@ const CATEGORY_LABELS: Record<ProductCategory, string> = {
 
 const CATEGORY_ORDER: ProductCategory[] = ["sweet", "toy", "other"];
 
-const EMOJI_SUGGESTIONS = [
-  "🍬",
-  "🍭",
-  "🍫",
-  "🍩",
-  "🌈",
-  "🍊",
-  "🍓",
-  "🦈",
-  "🍉",
-  "🍦",
-  "🥤",
-  "❄️",
-  "🪀",
-  "🤖",
-  "🦄",
-  "🦕",
-  "🐶",
-  "🌀",
-  "⭐",
-  "👾",
-  "🧩",
-  "🎬",
-  "🐉",
-  "🧚",
-];
+const CATEGORY_ICON: Record<string, string> = {
+  sweet: "🍬",
+  toy: "🪀",
+  other: "📦",
+};
+
+function categoryIcon(product: Product): string {
+  return CATEGORY_ICON[product.category ?? "other"] ?? "📦";
+}
 
 type FilterTab = "all" | ProductCategory;
 
@@ -69,38 +52,44 @@ const FILTER_TABS: { label: string; value: FilterTab }[] = [
   { label: "Other", value: "other" },
 ];
 
-interface AddProductModalProps {
+interface ProductFormModalProps {
   visible: boolean;
   onClose: () => void;
   colors: (typeof Colors)["light"];
+  /** When set, the modal is in edit mode */
+  editProduct?: Product | null;
 }
 
-function AddProductModal({ visible, onClose, colors }: AddProductModalProps) {
-  const { addProduct } = useApp();
+function ProductFormModal({ visible, onClose, colors, editProduct }: ProductFormModalProps) {
+  const { addProduct, updateProduct } = useApp();
   const { settings } = useSettings();
   const accent = primaryColor(settings.accentColor);
+  const isEdit = !!editProduct;
+
   const [name, setName] = useState("");
   const [nameFocused, setNameFocused] = useState(false);
-  const [emoji, setEmoji] = useState("");
   const [category, setCategory] = useState<ProductCategory>("sweet");
   const [imageUri, setImageUri] = useState<string | null>(null);
 
-  const reset = () => {
-    setName("");
-    setEmoji("");
-    setCategory("sweet");
-    setImageUri(null);
+  // Populate fields when opening in edit mode – called by Modal's onShow
+  const handleShow = () => {
+    if (editProduct) {
+      setName(editProduct.name);
+      setCategory(editProduct.category ?? "sweet");
+      setImageUri(editProduct.localImageUri ?? null);
+    } else {
+      setName("");
+      setCategory("sweet");
+      setImageUri(null);
+    }
+    setNameFocused(false);
   };
 
   const pickImage = async () => {
     if (Platform.OS !== "web") {
-      const { status } =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== "granted") {
-        Alert.alert(
-          "Permission needed",
-          "Allow photo access to upload a product image.",
-        );
+        Alert.alert("Permission needed", "Allow photo access to upload a product image.");
         return;
       }
     }
@@ -110,24 +99,25 @@ function AddProductModal({ visible, onClose, colors }: AddProductModalProps) {
       aspect: [3, 4],
       quality: 0.8,
     });
-    if (!result.canceled) {
-      setImageUri(result.assets[0].uri);
-    }
+    if (!result.canceled) setImageUri(result.assets[0].uri);
   };
 
-  const handleAdd = () => {
+  const handleSave = () => {
     const trimmed = name.trim();
     if (!trimmed) {
       Alert.alert("Name required", "Please enter a product name.");
       return;
     }
-    addProduct(
-      trimmed,
-      emoji.trim() || undefined,
-      category,
-      imageUri ?? undefined,
-    );
-    reset();
+    if (isEdit && editProduct) {
+      updateProduct({
+        ...editProduct,
+        name: trimmed,
+        category,
+        localImageUri: imageUri ?? undefined,
+      });
+    } else {
+      addProduct(trimmed, undefined, category, imageUri ?? undefined);
+    }
     onClose();
   };
 
@@ -137,23 +127,24 @@ function AddProductModal({ visible, onClose, colors }: AddProductModalProps) {
       transparent
       animationType="slide"
       onRequestClose={onClose}
+      onShow={handleShow}
     >
       <Pressable style={styles.overlay} onPress={onClose} />
-      <View
-        style={[
-          styles.sheet,
-          { backgroundColor: colors.card, borderColor: colors.border },
-        ]}
-      >
+      <View style={[styles.sheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <View style={styles.sheetHandle} />
-        <Text style={[styles.sheetTitle, { color: colors.text }]}>
-          New Product
-        </Text>
+
+        {/* Header row */}
+        <View style={styles.sheetHeaderRow}>
+          <Text style={[styles.sheetTitle, { color: colors.text }]}>
+            {isEdit ? "Edit Product" : "New Product"}
+          </Text>
+          <TouchableOpacity onPress={onClose} hitSlop={8}>
+            <Text style={[styles.sheetDoneText, { color: accent }]}>Done</Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Category selector */}
-        <Text style={[styles.fieldLabel, { color: colors.subtext }]}>
-          Category
-        </Text>
+        <Text style={[styles.fieldLabel, { color: colors.subtext }]}>Category</Text>
         <View style={styles.categoryRow}>
           {(Object.keys(CATEGORY_LABELS) as ProductCategory[]).map((cat) => (
             <TouchableOpacity
@@ -162,26 +153,19 @@ function AddProductModal({ visible, onClose, colors }: AddProductModalProps) {
               style={[
                 styles.categoryBtn,
                 {
-                  backgroundColor: category === cat ? colors.tint : colors.card,
-                  borderColor: category === cat ? colors.tint : colors.border,
+                  backgroundColor: category === cat ? accent : colors.card,
+                  borderColor: category === cat ? accent : colors.border,
                 },
               ]}
             >
-              <Text
-                style={[
-                  styles.categoryBtnText,
-                  { color: category === cat ? "#fff" : colors.subtext },
-                ]}
-              >
+              <Text style={[styles.categoryBtnText, { color: category === cat ? "#fff" : colors.subtext }]}>
                 {CATEGORY_LABELS[cat]}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        <Text style={[styles.fieldLabel, { color: colors.subtext }]}>
-          Name *
-        </Text>
+        <Text style={[styles.fieldLabel, { color: colors.subtext }]}>Name *</Text>
         <TextInput
           style={[
             styles.input,
@@ -197,83 +181,61 @@ function AddProductModal({ visible, onClose, colors }: AddProductModalProps) {
           onChangeText={setName}
           onFocus={() => setNameFocused(true)}
           onBlur={() => setNameFocused(false)}
-          autoFocus
+          selectionColor={`${accent}44`}
+          cursorColor={accent}
+          autoFocus={!isEdit}
           returnKeyType="next"
         />
 
         {/* Image picker */}
-        <Text style={[styles.fieldLabel, { color: colors.subtext }]}>
-          Image (optional)
-        </Text>
-        <View style={styles.imagePickerRow}>
-          <TouchableOpacity
-            onPress={pickImage}
-            style={[
-              styles.imagePicker,
-              {
-                borderColor: imageUri ? colors.tint : colors.border,
-                backgroundColor: colors.background,
-              },
-            ]}
-          >
-            {imageUri ? (
-              <Image
-                source={{ uri: imageUri }}
-                style={styles.imagePreview}
-                resizeMode="cover"
-              />
-            ) : (
-              <Text
-                style={[
-                  styles.imagePickerPlaceholder,
-                  { color: colors.subtext },
-                ]}
-              >
-                {"📷  Tap to upload"}
-              </Text>
-            )}
-          </TouchableOpacity>
-          {imageUri && (
-            <TouchableOpacity
-              onPress={() => setImageUri(null)}
-              hitSlop={8}
-              style={[styles.imageClear, { backgroundColor: colors.border }]}
-            >
-              <Text style={[styles.imageClearText, { color: colors.text }]}>
-                ✕
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* Emoji (only shown when no image selected) */}
-        {!imageUri && (
-          <>
-            <Text style={[styles.fieldLabel, { color: colors.subtext }]}>
-              Emoji (optional)
-            </Text>
-            <View style={styles.emojiRow}>
-              {EMOJI_SUGGESTIONS.map((e) => (
+        {(() => {
+          // User-uploaded URI takes priority; fall back to the bundled asset for this product id
+          const uploadedSrc = imageUri ? { uri: imageUri } : null;
+          const bundledSrc = editProduct ? PRODUCT_IMAGES[editProduct.id] : null;
+          const displaySrc = uploadedSrc ?? bundledSrc ?? null;
+          // Show clear button only when there's a user-set URI (not a read-only bundled image)
+          const canClear = !!imageUri;
+          return (
+            <>
+              <Text style={[styles.fieldLabel, { color: colors.subtext }]}>Image (optional)</Text>
+              <View style={styles.imagePickerRow}>
                 <TouchableOpacity
-                  key={e}
-                  onPress={() => setEmoji(e)}
+                  onPress={pickImage}
                   style={[
-                    styles.emojiChip,
-                    { borderColor: emoji === e ? colors.tint : colors.border },
+                    styles.imagePicker,
+                    {
+                      borderColor: displaySrc ? accent : colors.border,
+                      backgroundColor: colors.background,
+                    },
                   ]}
                 >
-                  <Text style={styles.emojiText}>{e}</Text>
+                  {displaySrc ? (
+                    <Image source={displaySrc} style={styles.imagePreview} resizeMode="contain" />
+                  ) : (
+                    <Text style={[styles.imagePickerPlaceholder, { color: colors.subtext }]}>
+                      {"📷  Tap to upload"}
+                    </Text>
+                  )}
                 </TouchableOpacity>
-              ))}
-            </View>
-          </>
-        )}
+                {canClear && (
+                  <TouchableOpacity
+                    onPress={() => setImageUri(null)}
+                    hitSlop={8}
+                    style={[styles.imageClear, { backgroundColor: colors.border }]}
+                  >
+                    <Text style={[styles.imageClearText, { color: colors.text }]}>✕</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </>
+          );
+        })()}
 
         <TouchableOpacity
-          style={[styles.addBtn, { backgroundColor: colors.tint }]}
-          onPress={handleAdd}
+          style={[styles.addBtn, { backgroundColor: accent }]}
+          onPress={handleSave}
         >
-          <Text style={styles.addBtnText}>Add Product</Text>
+          <Text style={styles.addBtnText}>{isEdit ? "Save Changes" : "Add Product"}</Text>
         </TouchableOpacity>
       </View>
     </Modal>
@@ -282,11 +244,12 @@ function AddProductModal({ visible, onClose, colors }: AddProductModalProps) {
 
 interface ProductRowProps {
   product: Product;
+  onEdit: () => void;
   onDelete: () => void;
   colors: (typeof Colors)["light"];
 }
 
-function ProductRow({ product, onDelete, colors }: ProductRowProps) {
+function ProductRow({ product, onEdit, onDelete, colors }: ProductRowProps) {
   const [zoomed, setZoomed] = useState(false);
   const src = product.localImageUri
     ? { uri: product.localImageUri }
@@ -310,13 +273,17 @@ function ProductRow({ product, onDelete, colors }: ProductRowProps) {
   const { width, height } = Dimensions.get("window");
 
   return (
-    <View style={[styles.row, { borderBottomColor: colors.border }]}>
+    <TouchableOpacity
+      style={[styles.row, { borderBottomColor: colors.border }]}
+      onPress={onEdit}
+      activeOpacity={0.7}
+    >
       {src ? (
         <TouchableOpacity onPress={() => setZoomed(true)} activeOpacity={0.8}>
           <Image source={src} style={styles.rowImage} resizeMode="cover" />
         </TouchableOpacity>
       ) : (
-        <Text style={styles.rowEmoji}>{product.emoji ?? "📦"}</Text>
+        <Text style={styles.rowEmoji}>{categoryIcon(product)}</Text>
       )}
       <Text style={[styles.rowName, { color: colors.text }]}>
         {product.name}
@@ -326,7 +293,7 @@ function ProductRow({ product, onDelete, colors }: ProductRowProps) {
         hitSlop={8}
         style={styles.deleteBtn}
       >
-        <Text style={styles.deleteIcon}>X</Text>
+        <Text style={styles.deleteIcon}>✕</Text>
       </TouchableOpacity>
 
       {/* Image zoom modal */}
@@ -351,7 +318,7 @@ function ProductRow({ product, onDelete, colors }: ProductRowProps) {
           </Pressable>
         </Modal>
       )}
-    </View>
+    </TouchableOpacity>
   );
 }
 
@@ -359,24 +326,26 @@ type ViewMode = 'grid' | 'list';
 
 interface ProductGridCardProps {
   product: Product;
+  onEdit: () => void;
   onDelete: () => void;
   colors: (typeof Colors)['light'];
 }
 
-function ProductGridCard({ product, onDelete, colors }: ProductGridCardProps) {
+function ProductGridCard({ product, onEdit, onDelete, colors }: ProductGridCardProps) {
   const src = product.localImageUri
     ? { uri: product.localImageUri }
     : PRODUCT_IMAGES[product.id];
 
   return (
     <TouchableOpacity
+      onPress={onEdit}
       onLongPress={onDelete}
       activeOpacity={0.8}
       style={[styles.gridCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
       {src ? (
         <Image source={src} style={styles.gridCardImage} resizeMode="cover" />
       ) : (
-        <Text style={styles.gridCardEmoji}>{product.emoji ?? '📦'}</Text>
+        <Text style={styles.gridCardEmoji}>{categoryIcon(product)}</Text>
       )}
     </TouchableOpacity>
   );
@@ -389,6 +358,7 @@ export default function ProductsScreen() {
   const { settings } = useSettings();
   const accent = primaryColor(settings.accentColor);
   const [showAdd, setShowAdd] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [filter, setFilter] = useState<FilterTab>("all");
   const [search, setSearch] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
@@ -520,6 +490,7 @@ export default function ProductsScreen() {
           renderItem={({ item }) => (
             <ProductGridCard
               product={item}
+              onEdit={() => setEditingProduct(item)}
               onDelete={() => {
                 if (Platform.OS === 'web') {
                   if (window.confirm(`Remove "${item.name}" from the catalog?`)) deleteProduct(item.id);
@@ -566,6 +537,7 @@ export default function ProductsScreen() {
           renderItem={({ item }) => (
             <ProductRow
               product={item}
+              onEdit={() => setEditingProduct(item)}
               onDelete={() => deleteProduct(item.id)}
               colors={colors}
             />
@@ -586,10 +558,16 @@ export default function ProductsScreen() {
         />
       )}
 
-      <AddProductModal
+      <ProductFormModal
         visible={showAdd}
         onClose={() => setShowAdd(false)}
         colors={colors}
+      />
+      <ProductFormModal
+        visible={!!editingProduct}
+        onClose={() => setEditingProduct(null)}
+        colors={colors}
+        editProduct={editingProduct}
       />
     </SafeAreaView>
   );
@@ -696,7 +674,7 @@ const styles = StyleSheet.create({
   },
   imagePicker: {
     flex: 1,
-    height: 80,
+    height: 240,
     borderWidth: 1.5,
     borderStyle: "dashed",
     borderRadius: 10,
@@ -797,10 +775,19 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     marginBottom: 12,
   },
+  sheetHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
   sheetTitle: {
     fontSize: 20,
     fontWeight: "700",
-    marginBottom: 12,
+  },
+  sheetDoneText: {
+    fontSize: 15,
+    fontWeight: "600",
   },
   fieldLabel: {
     fontSize: 12,
@@ -834,18 +821,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 4,
   },
-  emojiRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginTop: 4,
-  },
-  emojiChip: {
-    borderWidth: 1.5,
-    borderRadius: 8,
-    padding: 6,
-  },
-  emojiText: { fontSize: 20 },
   addBtn: {
     borderRadius: 12,
     paddingVertical: 14,
