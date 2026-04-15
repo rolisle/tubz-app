@@ -316,18 +316,28 @@ export default function RestockScreen() {
   }, []);
 
   const removeMachine = (id: string) => {
-    Alert.alert('Remove Machine', 'Remove this machine from your restock list?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Remove', style: 'destructive', onPress: () => setMachines((prev) => prev.filter((m) => m.id !== id)) },
-    ]);
+    const doRemove = () => setMachines((prev) => prev.filter((m) => m.id !== id));
+    if (Platform.OS === 'web') {
+      if (window.confirm('Remove this machine from your restock list?')) doRemove();
+    } else {
+      Alert.alert('Remove Machine', 'Remove this machine from your restock list?', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Remove', style: 'destructive', onPress: doRemove },
+      ]);
+    }
   };
 
   const clearAll = () => {
     if (machines.length === 0) return;
-    Alert.alert('Clear Restock List', 'Remove all machines and reset quantities?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Clear', style: 'destructive', onPress: () => setMachines([]) },
-    ]);
+    const doClear = () => setMachines([]);
+    if (Platform.OS === 'web') {
+      if (window.confirm('Remove all machines and reset quantities?')) doClear();
+    } else {
+      Alert.alert('Clear Restock List', 'Remove all machines and reset quantities?', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Clear', style: 'destructive', onPress: doClear },
+      ]);
+    }
   };
 
   const totalItems = useMemo(() => machines.reduce((s, m) => s + m.items.reduce((ss, i) => ss + i.qty, 0), 0), [machines]);

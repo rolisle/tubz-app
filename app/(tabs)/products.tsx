@@ -293,14 +293,18 @@ function ProductRow({ product, onDelete, colors }: ProductRowProps) {
     : PRODUCT_IMAGES[product.id];
 
   const handleDelete = () => {
-    Alert.alert(
-      "Delete Product",
-      `Remove "${product.name}" from the catalog? This won't affect existing machine slots.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Delete", style: "destructive", onPress: onDelete },
-      ],
-    );
+    if (Platform.OS === "web") {
+      if (window.confirm(`Remove "${product.name}" from the catalog?`)) onDelete();
+    } else {
+      Alert.alert(
+        "Delete Product",
+        `Remove "${product.name}" from the catalog? This won't affect existing machine slots.`,
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Delete", style: "destructive", onPress: onDelete },
+        ],
+      );
+    }
   };
 
   const { width, height } = Dimensions.get("window");
@@ -517,14 +521,18 @@ export default function ProductsScreen() {
             <ProductGridCard
               product={item}
               onDelete={() => {
-                Alert.alert(
-                  'Delete Product',
-                  `Remove "${item.name}" from the catalog?`,
-                  [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Delete', style: 'destructive', onPress: () => deleteProduct(item.id) },
-                  ]
-                );
+                if (Platform.OS === 'web') {
+                  if (window.confirm(`Remove "${item.name}" from the catalog?`)) deleteProduct(item.id);
+                } else {
+                  Alert.alert(
+                    'Delete Product',
+                    `Remove "${item.name}" from the catalog?`,
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      { text: 'Delete', style: 'destructive', onPress: () => deleteProduct(item.id) },
+                    ]
+                  );
+                }
               }}
               colors={colors}
             />

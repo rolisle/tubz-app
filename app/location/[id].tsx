@@ -133,21 +133,28 @@ export default function LocationDetailScreen() {
   };
 
   const handleDeleteLocation = () => {
-    Alert.alert(
-      "Delete Location",
-      `Are you sure you want to delete "${location.name}"? This cannot be undone.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () => {
-            deleteLocation(location.id);
-            router.back();
+    if (Platform.OS === "web") {
+      if (window.confirm(`Delete "${location.name}"? This cannot be undone.`)) {
+        deleteLocation(location.id);
+        router.back();
+      }
+    } else {
+      Alert.alert(
+        "Delete Location",
+        `Are you sure you want to delete "${location.name}"? This cannot be undone.`,
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Delete",
+            style: "destructive",
+            onPress: () => {
+              deleteLocation(location.id);
+              router.back();
+            },
           },
-        },
-      ],
-    );
+        ],
+      );
+    }
   };
 
   const handleAddMachine = (type: MachineType) => {
@@ -155,14 +162,20 @@ export default function LocationDetailScreen() {
   };
 
   const handleDeleteMachine = (machineId: string) => {
-    Alert.alert("Remove Machine", "Remove this machine from the location?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Remove",
-        style: "destructive",
-        onPress: () => deleteMachine(location.id, machineId),
-      },
-    ]);
+    if (Platform.OS === "web") {
+      if (window.confirm("Remove this machine from the location?")) {
+        deleteMachine(location.id, machineId);
+      }
+    } else {
+      Alert.alert("Remove Machine", "Remove this machine from the location?", [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: () => deleteMachine(location.id, machineId),
+        },
+      ]);
+    }
   };
 
   return (
@@ -365,115 +378,89 @@ export default function LocationDetailScreen() {
           {/* Divider */}
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
-          {/* Machines */}
-          <Text style={[styles.sectionLabel, { color: colors.text }]}>
-            Machines
-          </Text>
-
-          {/* Add machine buttons */}
-          <View style={styles.addMachineRow}>
-            <TouchableOpacity
-              style={[
-                styles.addMachineBtn,
-                { borderColor: primaryColor(settings.sweetColor) },
-              ]}
-              onPress={() => handleAddMachine("sweet")}
-            >
-              <GradView
-                colors={settings.sweetColor}
-                style={[StyleSheet.absoluteFill, { opacity: 0.12 }]}
-              />
-              <Text style={styles.addMachineEmoji}>🍬</Text>
-              <Text
-                style={[
-                  styles.addMachineBtnText,
-                  { color: primaryColor(settings.sweetColor) },
-                ]}
-              >
-                Add Sweet Machine
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.addMachineBtn,
-                { borderColor: primaryColor(settings.toyColor) },
-              ]}
-              onPress={() => handleAddMachine("toy")}
-            >
-              <GradView
-                colors={settings.toyColor}
-                style={[StyleSheet.absoluteFill, { opacity: 0.12 }]}
-              />
-              <Text style={styles.addMachineEmoji}>🪀</Text>
-              <Text
-                style={[
-                  styles.addMachineBtnText,
-                  { color: primaryColor(settings.toyColor) },
-                ]}
-              >
-                Add Toy Machine
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {location.machines.length === 0 && (
-            <Text style={[styles.sectionNote, { color: colors.subtext }]}>
-              No machines added yet. Add a sweet or toy machine below.
-            </Text>
-          )}
-
-          {location.machines.map((machine) => (
-            <View
-              key={machine.id}
-              style={[
-                styles.machineCard,
-                {
-                  backgroundColor: colors.card,
-                  borderColor: MACHINE_COLORS[machine.type] + "55",
-                  borderLeftColor: MACHINE_COLORS[machine.type],
-                  borderLeftWidth: 3,
-                },
-              ]}
-            >
-              <View style={styles.machineHeader}>
-                <View style={styles.machineTitleRow}>
-                  <Text
-                    style={[
-                      styles.machineTitle,
-                      { color: MACHINE_COLORS[machine.type] },
-                    ]}
-                  >
-                    {MACHINE_LABELS[machine.type]}
+          {/* Machines — grouped by type */}
+          {(["sweet", "toy"] as const).map((type) => {
+            const typeColor = MACHINE_COLORS[type];
+            const typeMachines = location.machines.filter((m) => m.type === type);
+            const emoji = type === "sweet" ? "🍬" : "🪀";
+            const machineColors = type === "sweet" ? settings.sweetColor : settings.toyColor;
+            const label = type === "sweet" ? "Sweet Machines" : "Toy Machines";
+            return (
+              <View key={type} style={styles.machineSection}>
+                {/* Section header */}
+                <View style={styles.machineSectionHeader}>
+                  <Text style={[styles.machineSectionTitle, { color: typeColor }]}>
+                    {emoji}  {label}
                   </Text>
-                  <Text
+                  <TouchableOpacity
+                    style={[styles.addMachineInlineBtn, { borderColor: typeColor }]}
+                    onPress={() => handleAddMachine(type)}
+                  >
+                    <GradView
+                      colors={machineColors}
+                      style={[StyleSheet.absoluteFill, { opacity: 0.12 }]}
+                    />
+                    <Text style={[styles.addMachineInlineBtnText, { color: typeColor }]}>
+                      + Add
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {typeMachines.length === 0 && (
+                  <Text style={[styles.sectionNote, { color: colors.subtext }]}>
+                    No {type} machines yet.
+                  </Text>
+                )}
+
+                {typeMachines.map((machine) => (
+                  <View
+                    key={machine.id}
                     style={[
-                      styles.machineCount,
+                      styles.machineCard,
                       {
-                        color:
-                          machine.slots.filter(Boolean).length === 9
-                            ? "#ef4444"
-                            : colors.subtext,
+                        backgroundColor: colors.card,
+                        borderColor: typeColor + "55",
+                        borderLeftColor: typeColor,
+                        borderLeftWidth: 3,
                       },
                     ]}
                   >
-                    {machine.slots.filter(Boolean).length}/9
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  onPress={() => handleDeleteMachine(machine.id)}
-                  hitSlop={8}
-                >
-                  <Text style={{ color: "#ef4444", fontSize: 13 }}>Remove</Text>
-                </TouchableOpacity>
+                    <View style={styles.machineHeader}>
+                      <View style={styles.machineTitleRow}>
+                        <Text style={[styles.machineTitle, { color: typeColor }]}>
+                          {MACHINE_LABELS[machine.type]}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.machineCount,
+                            {
+                              color:
+                                machine.slots.filter(Boolean).length === 9
+                                  ? "#ef4444"
+                                  : colors.subtext,
+                            },
+                          ]}
+                        >
+                          {machine.slots.filter(Boolean).length}/9
+                        </Text>
+                      </View>
+                      <TouchableOpacity
+                        onPress={() => handleDeleteMachine(machine.id)}
+                        hitSlop={8}
+                      >
+                        <Text style={{ color: "#ef4444", fontSize: 13 }}>Remove</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <MachineGrid
+                      machine={machine}
+                      products={state.products}
+                      onUpdate={handleMachineUpdate}
+                    />
+                  </View>
+                ))}
               </View>
-
-              <MachineGrid
-                machine={machine}
-                products={state.products}
-                onUpdate={handleMachineUpdate}
-              />
-            </View>
-          ))}
+            );
+          })}
 
           {/* Divider */}
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
@@ -593,26 +580,28 @@ const styles = StyleSheet.create({
   machineTitleRow: { flexDirection: "row", alignItems: "baseline", gap: 6 },
   machineTitle: { fontSize: 16, fontWeight: "700" },
   machineCount: { fontSize: 13, fontWeight: "500" },
-  addMachineRow: {
-    flexDirection: "row",
-    gap: 10,
-    marginBottom: 14,
-    marginTop: 10,
-  },
-  addMachineBtn: {
-    flex: 1,
+  // Machine sections
+  machineSection: { marginBottom: 8 },
+  machineSectionHeader: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
+    justifyContent: "space-between",
+    marginBottom: 10,
+    marginTop: 4,
+  },
+  machineSectionTitle: { fontSize: 15, fontWeight: "700" },
+  addMachineInlineBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
     borderWidth: 1.5,
-    borderRadius: 12,
+    borderRadius: 8,
     borderStyle: "dashed",
-    paddingVertical: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     overflow: "hidden",
   },
-  addMachineEmoji: { fontSize: 18 },
-  addMachineBtnText: { fontSize: 14, fontWeight: "600" },
+  addMachineInlineBtnText: { fontSize: 13, fontWeight: "600" },
   notesInput: {
     borderWidth: 1,
     borderRadius: 10,
