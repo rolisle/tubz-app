@@ -1,9 +1,10 @@
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   FlatList,
   Modal,
   Pressable,
+  SectionList,
   StyleSheet,
   Text,
   TextInput,
@@ -13,10 +14,49 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { LocationCard } from "@/components/location-card";
+import { GradView } from "@/components/ui/grad-view";
 import { Colors } from "@/constants/theme";
 import { useApp } from "@/context/app-context";
-import { primaryColor, useSettings } from "@/context/settings-context";
+import { AppColor, primaryColor, useSettings } from "@/context/settings-context";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import type { Location } from "@/types";
+
+/* ─── Tab bar ───────────────────────────────────────────────────── */
+
+type TabId = "all" | "city";
+
+interface TabBarProps {
+  active: TabId;
+  onChange: (t: TabId) => void;
+  accent: AppColor;
+  colors: (typeof Colors)["light"];
+}
+
+function TabBar({ active, onChange, accent, colors }: TabBarProps) {
+  const tabs: { id: TabId; label: string }[] = [
+    { id: "all", label: "All" },
+    { id: "city", label: "By City" },
+  ];
+  return (
+    <View style={[styles.tabBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      {tabs.map((t) => (
+        <TouchableOpacity
+          key={t.id}
+          style={styles.tab}
+          onPress={() => onChange(t.id)}
+          activeOpacity={0.8}
+        >
+          {active === t.id && (
+            <GradView colors={accent} style={[StyleSheet.absoluteFill, { borderRadius: 9 }]} />
+          )}
+          <Text style={[styles.tabLabel, { color: active === t.id ? "#fff" : colors.subtext }]}>
+            {t.label}
+          </Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+}
 interface AddLocationModalProps {
   visible: boolean;
   onClose: () => void;
@@ -201,91 +241,136 @@ export default function LocationsScreen() {
   const [search, setSearch] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
+  const [tab, setTab] = useState<TabId>("all");
 
-  const filtered = state.locations.filter((loc) => {
-    if (!search) return true;
+  const navigate = (loc: Location) =>
+    router.push({ pathname: "/location/[id]", params: { id: loc.id } });
+
+  const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    return (
-      loc.name.toLowerCase().includes(q) ||
-      loc.address?.toLowerCase().includes(q) ||
-      loc.city?.toLowerCase().includes(q) ||
-      loc.postcode?.toLowerCase().includes(q)
-    );
-  });
+    return state.locations
+      .filter((loc) =>
+        !search ||
+        loc.name.toLowerCase().includes(q) ||
+        loc.address?.toLowerCase().includes(q) ||
+        loc.city?.toLowerCase().includes(q) ||
+        loc.postcode?.toLowerCase().includes(q)
+      )
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [state.locations, search]);
+
+  const cityGroups = useMemo(() => {
+    const map = new Map<string, Location[]>();
+    for (const loc of filtered) {
+      const key = loc.city?.trim() || "No City";
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(loc);
+    }
+    return [...map.entries()]
+      .sort(([a], [b]) => {
+        if (a === "No City") return 1;
+        if (b === "No City") return -1;
+        return a.localeCompare(b);
+      })
+      .map(([city, data]) => ({ title: city, data }));
+  }, [filtered]);
+
+  const emptyComponent = (
+    <View style={styles.emptyWrap}>
+      <Text style={styles.emptyEmoji}>📍</Text>
+      <Text style={[styles.emptyTitle, { color: colors.text }]}>
+        {state.locations.length === 0 ? "No locations yet" : "No results"}
+      </Text>
+      <Text style={[styles.emptyNote, { color: colors.subtext }]}>
+        {state.locations.length === 0
+          ? "Tap + to add your first location."
+          : "Try a different search or filter."}
+      </Text>
+    </View>
+  );
+
+  const searchBar = (
+    <View
+      style={[
+        styles.searchWrap,
+        { borderColor: searchFocused ? accent : colors.border, backgroundColor: colors.card },
+      ]}
+    >
+      <Text style={{ color: colors.subtext, fontSize: 16 }}>🔍</Text>
+      <TextInput
+        style={[styles.searchInput, { color: colors.text }]}
+        placeholder="Search locations…"
+        placeholderTextColor={colors.subtext}
+        value={search}
+        onChangeText={setSearch}
+        onFocus={() => setSearchFocused(true)}
+        onBlur={() => setSearchFocused(false)}
+        selectionColor={`${accent}44`}
+        cursorColor={accent}
+      />
+      {search.length > 0 && (
+        <TouchableOpacity onPress={() => setSearch("")} hitSlop={8}>
+          <Text style={{ color: colors.subtext, fontSize: 16 }}>✕</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
 
   return (
-    <SafeAreaView
-      style={[styles.safe, { backgroundColor: colors.background }]}
-      edges={["top"]}
-    >
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={["top"]}>
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.text }]}>Locations</Text>
         <TouchableOpacity
-          style={[
-            styles.headerAddBtn,
-            { borderColor: accent, backgroundColor: colors.card },
-          ]}
+          style={[styles.headerAddBtn, { borderColor: accent, backgroundColor: colors.card }]}
           onPress={() => setShowAdd(true)}
         >
           <Text style={[styles.headerAddBtnText, { color: accent }]}>+ Add</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Search */}
-      <View
-        style={[
-          styles.searchWrap,
-          { borderColor: searchFocused ? accent : colors.border, backgroundColor: colors.card },
-        ]}
-      >
-        <Text style={{ color: colors.subtext, fontSize: 16 }}>🔍</Text>
-        <TextInput
-          style={[styles.searchInput, { color: colors.text }]}
-          placeholder="Search locations…"
-          placeholderTextColor={colors.subtext}
-          value={search}
-          onChangeText={setSearch}
-          onFocus={() => setSearchFocused(true)}
-          onBlur={() => setSearchFocused(false)}
-          selectionColor={`${accent}44`}
-          cursorColor={accent}
+      {tab === "city" ? (
+        <SectionList
+          sections={cityGroups}
+          keyExtractor={(l) => l.id}
+          contentContainerStyle={styles.list}
+          stickySectionHeadersEnabled={false}
+          ListHeaderComponent={
+            <>
+              {searchBar}
+              <TabBar active={tab} onChange={setTab} accent={settings.accentColor} colors={colors} />
+            </>
+          }
+          renderSectionHeader={({ section }) => (
+            <View style={styles.cityHeader}>
+              <Text style={[styles.cityTitle, { color: colors.text }]}>{section.title}</Text>
+              <Text style={[styles.cityCount, { color: colors.subtext }]}>
+                {section.data.length} location{section.data.length !== 1 ? "s" : ""}
+              </Text>
+            </View>
+          )}
+          renderItem={({ item }) => (
+            <LocationCard location={item} onPress={() => navigate(item)} />
+          )}
+          SectionSeparatorComponent={() => <View style={{ height: 8 }} />}
+          ListEmptyComponent={emptyComponent}
         />
-        {search.length > 0 && (
-          <TouchableOpacity onPress={() => setSearch("")} hitSlop={8}>
-            <Text style={{ color: colors.subtext, fontSize: 16 }}>✕</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      <FlatList
-        data={filtered}
-        keyExtractor={(l) => l.id}
-        contentContainerStyle={styles.list}
-        renderItem={({ item }) => (
-          <LocationCard
-            location={item}
-            onPress={() =>
-              router.push({
-                pathname: "/location/[id]",
-                params: { id: item.id },
-              })
-            }
-          />
-        )}
-        ListEmptyComponent={
-          <View style={styles.emptyWrap}>
-            <Text style={styles.emptyEmoji}>📍</Text>
-            <Text style={[styles.emptyTitle, { color: colors.text }]}>
-              {state.locations.length === 0 ? "No locations yet" : "No results"}
-            </Text>
-            <Text style={[styles.emptyNote, { color: colors.subtext }]}>
-              {state.locations.length === 0
-                ? "Tap + to add your first location."
-                : "Try a different search or filter."}
-            </Text>
-          </View>
-        }
-      />
+      ) : (
+        <FlatList
+          data={filtered}
+          keyExtractor={(l) => l.id}
+          contentContainerStyle={styles.list}
+          ListHeaderComponent={
+            <>
+              {searchBar}
+              <TabBar active={tab} onChange={setTab} accent={settings.accentColor} colors={colors} />
+            </>
+          }
+          renderItem={({ item }) => (
+            <LocationCard location={item} onPress={() => navigate(item)} />
+          )}
+          ListEmptyComponent={emptyComponent}
+        />
+      )}
 
       <AddLocationModal
         visible={showAdd}
@@ -327,21 +412,31 @@ const styles = StyleSheet.create({
     fontSize: 15,
     padding: 0,
   },
-  filters: {
-    paddingHorizontal: 20,
-    paddingBottom: 12,
-    gap: 8,
-  },
-  filterPill: {
-    borderRadius: 20,
+  tabBar: {
+    flexDirection: "row",
+    borderRadius: 12,
     borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
+    padding: 3,
+    gap: 3,
+    marginBottom: 10,
   },
-  filterLabel: {
-    fontSize: 13,
-    fontWeight: "600",
+  tab: {
+    flex: 1,
+    borderRadius: 9,
+    paddingVertical: 7,
+    alignItems: "center",
+    overflow: "hidden",
   },
+  tabLabel: { fontSize: 13, fontWeight: "600" },
+  cityHeader: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    gap: 8,
+    marginBottom: 8,
+    marginTop: 4,
+  },
+  cityTitle: { fontSize: 16, fontWeight: "700" },
+  cityCount: { fontSize: 13 },
   list: {
     paddingHorizontal: 20,
     paddingBottom: 40,
