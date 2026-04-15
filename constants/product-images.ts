@@ -39,6 +39,7 @@ export const PRODUCT_IMAGES: Record<string, ImageSourcePropType> = {
   "tango-popping-candy": require("../assets/products/tango-popping-candy.jpg"),
   "chocolate-jazzies": require("../assets/products/chocolate-jazzies.jpg"),
   "white-choc-snowies": require("../assets/products/white-choc-snowies.jpg"),
+  "chocolate-footballs": require("../assets/products/chocolate-footballs.png"),
   "slush-puppie-chewbies": require("../assets/products/slush-puppie-chewbies.jpg"),
   "slush-puppie-shock-rocks": require("../assets/products/slush-puppie-shock-rocks.jpg"),
   "minions-stickers-candy": require("../assets/products/minions-stickers-candy.jpg"),

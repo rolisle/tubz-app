@@ -53,6 +53,7 @@ export const DEFAULT_PRODUCTS: Product[] = [
   p("tango-popping-candy", "Tango Popping Candy", "🍊", "sweet"),
   p("chocolate-jazzies", "Chocolate Jazzies", "🍫", "sweet"),
   p("white-choc-snowies", "White Chocolate Snowies", "❄️", "sweet"),
+  p("chocolate-footballs", "Chocolate Footballs", "⚽", "sweet"),
   p("slush-puppie-chewbies", "Slush Puppie Chewbies", "🧊", "sweet"),
   p("slush-puppie-shock-rocks", "Slush Puppie Shock Rocks", "⚡", "sweet"),
   p("minions-stickers-candy", "Minions Stickers & Candy", "💛", "sweet"),
