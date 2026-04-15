@@ -18,7 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { PRODUCT_IMAGES } from '@/constants/product-images';
 import { Colors } from '@/constants/theme';
 import { useApp } from '@/context/app-context';
-import { primaryColor, useSettings } from '@/context/settings-context';
+import { AppColor, primaryColor, useSettings } from '@/context/settings-context';
 import { GradView } from '@/components/ui/grad-view';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import type { MachineType, Product } from '@/types';
@@ -150,11 +150,13 @@ interface MachineCardProps {
   products: Product[];
   colors: (typeof Colors)['light'];
   accent: string;
+  machineColor: AppColor;
   onChange: (updated: RestockMachine) => void;
   onRemove: () => void;
 }
 
-function MachineCard({ machine, products, colors, accent, onChange, onRemove }: MachineCardProps) {
+function MachineCard({ machine, products, colors, accent, machineColor, onChange, onRemove }: MachineCardProps) {
+  const machineColorPrimary = primaryColor(machineColor);
   const [showPicker, setShowPicker] = useState(false);
   const max = MAX_QTY[machine.type];
 
@@ -182,14 +184,23 @@ function MachineCard({ machine, products, colors, accent, onChange, onRemove }: 
   const totalQty = machine.items.reduce((s, i) => s + i.qty, 0);
 
   return (
-    <View style={[styles.machineCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+    <View style={[
+      styles.machineCard,
+      {
+        backgroundColor: colors.card,
+        borderColor: machineColorPrimary + '55',
+        borderLeftColor: machineColorPrimary,
+        borderLeftWidth: 3,
+      },
+    ]}>
       {/* Header */}
-      <View style={styles.machineHeader}>
+      <View style={[styles.machineHeader, { overflow: 'hidden' }]}>
+        <GradView colors={machineColor} style={[StyleSheet.absoluteFill, { opacity: 0.07 }]} />
         <View style={styles.machineTitleRow}>
-          <Text style={[styles.machineTitle, { color: colors.text }]}>{MACHINE_LABELS[machine.type]}</Text>
+          <Text style={[styles.machineTitle, { color: machineColorPrimary }]}>{MACHINE_LABELS[machine.type]}</Text>
           {totalQty > 0 && (
-            <View style={[styles.totalBadge, { backgroundColor: accent + '22' }]}>
-              <Text style={[styles.totalBadgeText, { color: accent }]}>{totalQty} total</Text>
+            <View style={[styles.totalBadge, { backgroundColor: machineColorPrimary + '22' }]}>
+              <Text style={[styles.totalBadgeText, { color: machineColorPrimary }]}>{totalQty} total</Text>
             </View>
           )}
         </View>
@@ -399,6 +410,7 @@ export default function RestockScreen() {
               products={state.products}
               colors={colors}
               accent={accent}
+              machineColor={machine.type === 'sweet' ? sweetColor : toyColor}
               onChange={updateMachine}
               onRemove={() => removeMachine(machine.id)}
             />
