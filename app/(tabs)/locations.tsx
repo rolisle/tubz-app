@@ -17,7 +17,11 @@ import { LocationCard } from "@/components/location-card";
 import { GradView } from "@/components/ui/grad-view";
 import { Colors } from "@/constants/theme";
 import { useApp } from "@/context/app-context";
-import { AppColor, primaryColor, useSettings } from "@/context/settings-context";
+import {
+  AppColor,
+  primaryColor,
+  useSettings,
+} from "@/context/settings-context";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import type { Location } from "@/types";
 
@@ -38,7 +42,12 @@ function TabBar({ active, onChange, accent, colors }: TabBarProps) {
     { id: "city", label: "By City" },
   ];
   return (
-    <View style={[styles.tabBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
+    <View
+      style={[
+        styles.tabBar,
+        { backgroundColor: colors.card, borderColor: colors.border },
+      ]}
+    >
       {tabs.map((t) => (
         <TouchableOpacity
           key={t.id}
@@ -47,9 +56,17 @@ function TabBar({ active, onChange, accent, colors }: TabBarProps) {
           activeOpacity={0.8}
         >
           {active === t.id && (
-            <GradView colors={accent} style={[StyleSheet.absoluteFill, { borderRadius: 9 }]} />
+            <GradView
+              colors={accent}
+              style={[StyleSheet.absoluteFill, { borderRadius: 9 }]}
+            />
           )}
-          <Text style={[styles.tabLabel, { color: active === t.id ? "#fff" : colors.subtext }]}>
+          <Text
+            style={[
+              styles.tabLabel,
+              { color: active === t.id ? "#fff" : colors.subtext },
+            ]}
+          >
             {t.label}
           </Text>
         </TouchableOpacity>
@@ -110,8 +127,8 @@ function AddLocationModal({ visible, onClose, colors }: AddLocationModalProps) {
         submitted && !value.trim()
           ? "#ef4444"
           : focusedField === field
-          ? accent
-          : colors.border,
+            ? accent
+            : colors.border,
     },
   ];
 
@@ -138,12 +155,12 @@ function AddLocationModal({ visible, onClose, colors }: AddLocationModalProps) {
           Name <Text style={{ color: "#ef4444" }}>*</Text>
         </Text>
         <TextInput
-          style={inputStyle(name, 'name')}
+          style={inputStyle(name, "name")}
           placeholder="e.g. Westfield Food Court"
           placeholderTextColor={colors.subtext}
           value={name}
           onChangeText={setName}
-          onFocus={() => setFocusedField('name')}
+          onFocus={() => setFocusedField("name")}
           onBlur={() => setFocusedField(null)}
           selectionColor={`${accent}44`}
           cursorColor={accent}
@@ -158,12 +175,12 @@ function AddLocationModal({ visible, onClose, colors }: AddLocationModalProps) {
           Address <Text style={{ color: "#ef4444" }}>*</Text>
         </Text>
         <TextInput
-          style={inputStyle(address, 'address')}
+          style={inputStyle(address, "address")}
           placeholder="1st line of address"
           placeholderTextColor={colors.subtext}
           value={address}
           onChangeText={setAddress}
-          onFocus={() => setFocusedField('address')}
+          onFocus={() => setFocusedField("address")}
           onBlur={() => setFocusedField(null)}
           selectionColor={`${accent}44`}
           cursorColor={accent}
@@ -176,12 +193,12 @@ function AddLocationModal({ visible, onClose, colors }: AddLocationModalProps) {
         <View style={styles.inputRow}>
           <View style={styles.inputFlex}>
             <TextInput
-              style={inputStyle(city, 'city')}
+              style={inputStyle(city, "city")}
               placeholder="City"
               placeholderTextColor={colors.subtext}
               value={city}
               onChangeText={setCity}
-              onFocus={() => setFocusedField('city')}
+              onFocus={() => setFocusedField("city")}
               onBlur={() => setFocusedField(null)}
               selectionColor={`${accent}44`}
               cursorColor={accent}
@@ -193,12 +210,12 @@ function AddLocationModal({ visible, onClose, colors }: AddLocationModalProps) {
           </View>
           <View style={styles.inputPostcode}>
             <TextInput
-              style={inputStyle(postcode, 'postcode')}
+              style={inputStyle(postcode, "postcode")}
               placeholder="Postcode"
               placeholderTextColor={colors.subtext}
               value={postcode}
               onChangeText={setPostcode}
-              onFocus={() => setFocusedField('postcode')}
+              onFocus={() => setFocusedField("postcode")}
               onBlur={() => setFocusedField(null)}
               selectionColor={`${accent}44`}
               cursorColor={accent}
@@ -249,12 +266,13 @@ export default function LocationsScreen() {
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
     return state.locations
-      .filter((loc) =>
-        !search ||
-        loc.name.toLowerCase().includes(q) ||
-        loc.address?.toLowerCase().includes(q) ||
-        loc.city?.toLowerCase().includes(q) ||
-        loc.postcode?.toLowerCase().includes(q)
+      .filter(
+        (loc) =>
+          !search ||
+          loc.name.toLowerCase().includes(q) ||
+          loc.address?.toLowerCase().includes(q) ||
+          loc.city?.toLowerCase().includes(q) ||
+          loc.postcode?.toLowerCase().includes(q),
       )
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [state.locations, search]);
@@ -293,7 +311,10 @@ export default function LocationsScreen() {
     <View
       style={[
         styles.searchWrap,
-        { borderColor: searchFocused ? accent : colors.border, backgroundColor: colors.card },
+        {
+          borderColor: searchFocused ? accent : colors.border,
+          backgroundColor: colors.card,
+        },
       ]}
     >
       <Text style={{ color: colors.subtext, fontSize: 16 }}>🔍</Text>
@@ -317,14 +338,22 @@ export default function LocationsScreen() {
   );
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={["top"]}>
+    <SafeAreaView
+      style={[styles.safe, { backgroundColor: colors.background }]}
+      edges={["top"]}
+    >
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.text }]}>Locations</Text>
         <TouchableOpacity
-          style={[styles.headerAddBtn, { borderColor: accent, backgroundColor: colors.card }]}
+          style={[
+            styles.headerAddBtn,
+            { borderColor: accent, backgroundColor: colors.card },
+          ]}
           onPress={() => setShowAdd(true)}
         >
-          <Text style={[styles.headerAddBtnText, { color: accent }]}>+ Add</Text>
+          <Text style={[styles.headerAddBtnText, { color: accent }]}>
+            + Add
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -337,14 +366,22 @@ export default function LocationsScreen() {
           ListHeaderComponent={
             <>
               {searchBar}
-              <TabBar active={tab} onChange={setTab} accent={settings.accentColor} colors={colors} />
+              <TabBar
+                active={tab}
+                onChange={setTab}
+                accent={settings.accentColor}
+                colors={colors}
+              />
             </>
           }
           renderSectionHeader={({ section }) => (
             <View style={styles.cityHeader}>
-              <Text style={[styles.cityTitle, { color: colors.text }]}>{section.title}</Text>
+              <Text style={[styles.cityTitle, { color: colors.text }]}>
+                {section.title}
+              </Text>
               <Text style={[styles.cityCount, { color: colors.subtext }]}>
-                {section.data.length} location{section.data.length !== 1 ? "s" : ""}
+                {section.data.length} location
+                {section.data.length !== 1 ? "s" : ""}
               </Text>
             </View>
           )}
@@ -362,7 +399,12 @@ export default function LocationsScreen() {
           ListHeaderComponent={
             <>
               {searchBar}
-              <TabBar active={tab} onChange={setTab} accent={settings.accentColor} colors={colors} />
+              <TabBar
+                active={tab}
+                onChange={setTab}
+                accent={settings.accentColor}
+                colors={colors}
+              />
             </>
           }
           renderItem={({ item }) => (
@@ -399,7 +441,6 @@ const styles = StyleSheet.create({
   searchWrap: {
     flexDirection: "row",
     alignItems: "center",
-    marginHorizontal: 20,
     marginBottom: 10,
     borderRadius: 10,
     borderWidth: 1,

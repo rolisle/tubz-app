@@ -17,11 +17,11 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { GradView } from "@/components/ui/grad-view";
 import { PRODUCT_IMAGES } from "@/constants/product-images";
 import { Colors } from "@/constants/theme";
 import { useApp } from "@/context/app-context";
 import { primaryColor, useSettings } from "@/context/settings-context";
-import { GradView } from "@/components/ui/grad-view";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import type { Product, ProductCategory } from "@/types";
 
@@ -60,7 +60,12 @@ interface ProductFormModalProps {
   editProduct?: Product | null;
 }
 
-function ProductFormModal({ visible, onClose, colors, editProduct }: ProductFormModalProps) {
+function ProductFormModal({
+  visible,
+  onClose,
+  colors,
+  editProduct,
+}: ProductFormModalProps) {
   const { addProduct, updateProduct } = useApp();
   const { settings } = useSettings();
   const accent = primaryColor(settings.accentColor);
@@ -87,9 +92,13 @@ function ProductFormModal({ visible, onClose, colors, editProduct }: ProductForm
 
   const pickImage = async () => {
     if (Platform.OS !== "web") {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== "granted") {
-        Alert.alert("Permission needed", "Allow photo access to upload a product image.");
+        Alert.alert(
+          "Permission needed",
+          "Allow photo access to upload a product image.",
+        );
         return;
       }
     }
@@ -130,7 +139,12 @@ function ProductFormModal({ visible, onClose, colors, editProduct }: ProductForm
       onShow={handleShow}
     >
       <Pressable style={styles.overlay} onPress={onClose} />
-      <View style={[styles.sheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <View
+        style={[
+          styles.sheet,
+          { backgroundColor: colors.card, borderColor: colors.border },
+        ]}
+      >
         <View style={styles.sheetHandle} />
 
         {/* Header row */}
@@ -144,7 +158,9 @@ function ProductFormModal({ visible, onClose, colors, editProduct }: ProductForm
         </View>
 
         {/* Category selector */}
-        <Text style={[styles.fieldLabel, { color: colors.subtext }]}>Category</Text>
+        <Text style={[styles.fieldLabel, { color: colors.subtext }]}>
+          Category
+        </Text>
         <View style={styles.categoryRow}>
           {(Object.keys(CATEGORY_LABELS) as ProductCategory[]).map((cat) => (
             <TouchableOpacity
@@ -158,14 +174,21 @@ function ProductFormModal({ visible, onClose, colors, editProduct }: ProductForm
                 },
               ]}
             >
-              <Text style={[styles.categoryBtnText, { color: category === cat ? "#fff" : colors.subtext }]}>
+              <Text
+                style={[
+                  styles.categoryBtnText,
+                  { color: category === cat ? "#fff" : colors.subtext },
+                ]}
+              >
                 {CATEGORY_LABELS[cat]}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        <Text style={[styles.fieldLabel, { color: colors.subtext }]}>Name *</Text>
+        <Text style={[styles.fieldLabel, { color: colors.subtext }]}>
+          Name *
+        </Text>
         <TextInput
           style={[
             styles.input,
@@ -191,13 +214,17 @@ function ProductFormModal({ visible, onClose, colors, editProduct }: ProductForm
         {(() => {
           // User-uploaded URI takes priority; fall back to the bundled asset for this product id
           const uploadedSrc = imageUri ? { uri: imageUri } : null;
-          const bundledSrc = editProduct ? PRODUCT_IMAGES[editProduct.id] : null;
+          const bundledSrc = editProduct
+            ? PRODUCT_IMAGES[editProduct.id]
+            : null;
           const displaySrc = uploadedSrc ?? bundledSrc ?? null;
           // Show clear button only when there's a user-set URI (not a read-only bundled image)
           const canClear = !!imageUri;
           return (
             <>
-              <Text style={[styles.fieldLabel, { color: colors.subtext }]}>Image (optional)</Text>
+              <Text style={[styles.fieldLabel, { color: colors.subtext }]}>
+                Image (optional)
+              </Text>
               <View style={styles.imagePickerRow}>
                 <TouchableOpacity
                   onPress={pickImage}
@@ -210,9 +237,18 @@ function ProductFormModal({ visible, onClose, colors, editProduct }: ProductForm
                   ]}
                 >
                   {displaySrc ? (
-                    <Image source={displaySrc} style={styles.imagePreview} resizeMode="contain" />
+                    <Image
+                      source={displaySrc}
+                      style={styles.imagePreview}
+                      resizeMode="contain"
+                    />
                   ) : (
-                    <Text style={[styles.imagePickerPlaceholder, { color: colors.subtext }]}>
+                    <Text
+                      style={[
+                        styles.imagePickerPlaceholder,
+                        { color: colors.subtext },
+                      ]}
+                    >
                       {"📷  Tap to upload"}
                     </Text>
                   )}
@@ -221,9 +257,16 @@ function ProductFormModal({ visible, onClose, colors, editProduct }: ProductForm
                   <TouchableOpacity
                     onPress={() => setImageUri(null)}
                     hitSlop={8}
-                    style={[styles.imageClear, { backgroundColor: colors.border }]}
+                    style={[
+                      styles.imageClear,
+                      { backgroundColor: colors.border },
+                    ]}
                   >
-                    <Text style={[styles.imageClearText, { color: colors.text }]}>✕</Text>
+                    <Text
+                      style={[styles.imageClearText, { color: colors.text }]}
+                    >
+                      ✕
+                    </Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -235,7 +278,9 @@ function ProductFormModal({ visible, onClose, colors, editProduct }: ProductForm
           style={[styles.addBtn, { backgroundColor: accent }]}
           onPress={handleSave}
         >
-          <Text style={styles.addBtnText}>{isEdit ? "Save Changes" : "Add Product"}</Text>
+          <Text style={styles.addBtnText}>
+            {isEdit ? "Save Changes" : "Add Product"}
+          </Text>
         </TouchableOpacity>
       </View>
     </Modal>
@@ -257,7 +302,8 @@ function ProductRow({ product, onEdit, onDelete, colors }: ProductRowProps) {
 
   const handleDelete = () => {
     if (Platform.OS === "web") {
-      if (window.confirm(`Remove "${product.name}" from the catalog?`)) onDelete();
+      if (window.confirm(`Remove "${product.name}" from the catalog?`))
+        onDelete();
     } else {
       Alert.alert(
         "Delete Product",
@@ -304,7 +350,10 @@ function ProductRow({ product, onEdit, onDelete, colors }: ProductRowProps) {
           animationType="fade"
           onRequestClose={() => setZoomed(false)}
         >
-          <Pressable style={styles.zoomOverlay} onPress={() => setZoomed(false)}>
+          <Pressable
+            style={styles.zoomOverlay}
+            onPress={() => setZoomed(false)}
+          >
             <View style={styles.zoomCard}>
               <Image
                 source={src}
@@ -322,16 +371,21 @@ function ProductRow({ product, onEdit, onDelete, colors }: ProductRowProps) {
   );
 }
 
-type ViewMode = 'grid' | 'list';
+type ViewMode = "grid" | "list";
 
 interface ProductGridCardProps {
   product: Product;
   onEdit: () => void;
   onDelete: () => void;
-  colors: (typeof Colors)['light'];
+  colors: (typeof Colors)["light"];
 }
 
-function ProductGridCard({ product, onEdit, onDelete, colors }: ProductGridCardProps) {
+function ProductGridCard({
+  product,
+  onEdit,
+  onDelete,
+  colors,
+}: ProductGridCardProps) {
   const src = product.localImageUri
     ? { uri: product.localImageUri }
     : PRODUCT_IMAGES[product.id];
@@ -341,7 +395,11 @@ function ProductGridCard({ product, onEdit, onDelete, colors }: ProductGridCardP
       onPress={onEdit}
       onLongPress={onDelete}
       activeOpacity={0.8}
-      style={[styles.gridCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      style={[
+        styles.gridCard,
+        { backgroundColor: colors.card, borderColor: colors.border },
+      ]}
+    >
       {src ? (
         <Image source={src} style={styles.gridCardImage} resizeMode="cover" />
       ) : (
@@ -362,18 +420,20 @@ export default function ProductsScreen() {
   const [filter, setFilter] = useState<FilterTab>("all");
   const [search, setSearch] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
 
   const sections = useMemo(() => {
-    const filtered = state.products.filter((p) => {
-      const matchCat =
-        filter === "all" ||
-        p.category === filter ||
-        (!p.category && filter === "other");
-      const matchSearch =
-        !search || p.name.toLowerCase().includes(search.toLowerCase());
-      return matchCat && matchSearch;
-    }).sort((a, b) => a.name.localeCompare(b.name));
+    const filtered = state.products
+      .filter((p) => {
+        const matchCat =
+          filter === "all" ||
+          p.category === filter ||
+          (!p.category && filter === "other");
+        const matchSearch =
+          !search || p.name.toLowerCase().includes(search.toLowerCase());
+        return matchCat && matchSearch;
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
 
     if (filter !== "all") {
       return [
@@ -401,10 +461,15 @@ export default function ProductsScreen() {
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.text }]}>Products</Text>
         <TouchableOpacity
-          style={[styles.headerAddBtn, { borderColor: accent, backgroundColor: colors.card }]}
+          style={[
+            styles.headerAddBtn,
+            { borderColor: accent, backgroundColor: colors.card },
+          ]}
           onPress={() => setShowAdd(true)}
         >
-          <Text style={[styles.headerAddBtnText, { color: accent }]}>+ Add</Text>
+          <Text style={[styles.headerAddBtnText, { color: accent }]}>
+            + Add
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -416,7 +481,10 @@ export default function ProductsScreen() {
       <View
         style={[
           styles.searchWrap,
-          { borderColor: searchFocused ? accent : colors.border, backgroundColor: colors.card },
+          {
+            borderColor: searchFocused ? accent : colors.border,
+            backgroundColor: colors.card,
+          },
         ]}
       >
         <Text style={{ color: colors.subtext, fontSize: 16 }}>🔍</Text>
@@ -463,24 +531,69 @@ export default function ProductsScreen() {
       </View>
 
       {/* View toggle */}
-      <View style={[styles.toggleBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <View
+        style={[
+          styles.toggleBar,
+          { backgroundColor: colors.card, borderColor: colors.border },
+        ]}
+      >
         <TouchableOpacity
-          onPress={() => setViewMode('grid')}
-          style={styles.toggleBtn}>
-          {viewMode === 'grid' && <GradView colors={settings.accentColor} style={StyleSheet.absoluteFill} />}
-          <Text style={[styles.toggleIcon, { color: viewMode === 'grid' ? '#fff' : colors.subtext }]}>⊞</Text>
-          <Text style={[styles.toggleLabel, { color: viewMode === 'grid' ? '#fff' : colors.subtext }]}>Grid</Text>
+          onPress={() => setViewMode("grid")}
+          style={styles.toggleBtn}
+        >
+          {viewMode === "grid" && (
+            <GradView
+              colors={settings.accentColor}
+              style={StyleSheet.absoluteFill}
+            />
+          )}
+          <Text
+            style={[
+              styles.toggleIcon,
+              { color: viewMode === "grid" ? "#fff" : colors.subtext },
+            ]}
+          >
+            ⊞
+          </Text>
+          <Text
+            style={[
+              styles.toggleLabel,
+              { color: viewMode === "grid" ? "#fff" : colors.subtext },
+            ]}
+          >
+            Grid
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          onPress={() => setViewMode('list')}
-          style={styles.toggleBtn}>
-          {viewMode === 'list' && <GradView colors={settings.accentColor} style={StyleSheet.absoluteFill} />}
-          <Text style={[styles.toggleIcon, { color: viewMode === 'list' ? '#fff' : colors.subtext }]}>≡</Text>
-          <Text style={[styles.toggleLabel, { color: viewMode === 'list' ? '#fff' : colors.subtext }]}>List</Text>
+          onPress={() => setViewMode("list")}
+          style={styles.toggleBtn}
+        >
+          {viewMode === "list" && (
+            <GradView
+              colors={settings.accentColor}
+              style={StyleSheet.absoluteFill}
+            />
+          )}
+          <Text
+            style={[
+              styles.toggleIcon,
+              { color: viewMode === "list" ? "#fff" : colors.subtext },
+            ]}
+          >
+            ≡
+          </Text>
+          <Text
+            style={[
+              styles.toggleLabel,
+              { color: viewMode === "list" ? "#fff" : colors.subtext },
+            ]}
+          >
+            List
+          </Text>
         </TouchableOpacity>
       </View>
 
-      {viewMode === 'grid' ? (
+      {viewMode === "grid" ? (
         <FlatList
           data={sections.flatMap((s) => s.data)}
           keyExtractor={(p) => p.id}
@@ -492,16 +605,21 @@ export default function ProductsScreen() {
               product={item}
               onEdit={() => setEditingProduct(item)}
               onDelete={() => {
-                if (Platform.OS === 'web') {
-                  if (window.confirm(`Remove "${item.name}" from the catalog?`)) deleteProduct(item.id);
+                if (Platform.OS === "web") {
+                  if (window.confirm(`Remove "${item.name}" from the catalog?`))
+                    deleteProduct(item.id);
                 } else {
                   Alert.alert(
-                    'Delete Product',
+                    "Delete Product",
                     `Remove "${item.name}" from the catalog?`,
                     [
-                      { text: 'Cancel', style: 'cancel' },
-                      { text: 'Delete', style: 'destructive', onPress: () => deleteProduct(item.id) },
-                    ]
+                      { text: "Cancel", style: "cancel" },
+                      {
+                        text: "Delete",
+                        style: "destructive",
+                        onPress: () => deleteProduct(item.id),
+                      },
+                    ],
                   );
                 }
               }}
@@ -511,9 +629,13 @@ export default function ProductsScreen() {
           ListEmptyComponent={
             <View style={styles.emptyWrap}>
               <Text style={styles.emptyEmoji}>📦</Text>
-              <Text style={[styles.emptyTitle, { color: colors.text }]}>No products found</Text>
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>
+                No products found
+              </Text>
               <Text style={[styles.emptyNote, { color: colors.subtext }]}>
-                {state.products.length === 0 ? 'Tap + to add products to your catalog.' : 'Try a different search or filter.'}
+                {state.products.length === 0
+                  ? "Tap + to add products to your catalog."
+                  : "Try a different search or filter."}
               </Text>
             </View>
           }
@@ -693,7 +815,7 @@ const styles = StyleSheet.create({
   },
   imageClearText: { fontSize: 12, fontWeight: "600" },
   toggleBar: {
-    flexDirection: 'row',
+    flexDirection: "row",
     borderRadius: 10,
     borderWidth: 1,
     padding: 3,
@@ -703,28 +825,28 @@ const styles = StyleSheet.create({
   },
   toggleBtn: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     borderRadius: 7,
     paddingVertical: 6,
     gap: 5,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   toggleIcon: { fontSize: 15, lineHeight: 15, includeFontPadding: false },
-  toggleLabel: { fontSize: 12, fontWeight: '600' },
+  toggleLabel: { fontSize: 12, fontWeight: "600" },
   gridList: { paddingHorizontal: 20, paddingBottom: 40 },
   gridRow: { gap: 10, marginBottom: 10 },
   gridCard: {
     flex: 1,
     borderRadius: 10,
     borderWidth: 1,
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
+    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
     aspectRatio: 300 / 479,
   },
-  gridCardImage: { width: '100%', height: '100%' },
+  gridCardImage: { width: "100%", height: "100%" },
   gridCardEmoji: { fontSize: 36 },
   rowName: { flex: 1, fontSize: 15, fontWeight: "500" },
   deleteBtn: { padding: 4 },
