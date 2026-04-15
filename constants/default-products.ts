@@ -36,7 +36,6 @@ export const DEFAULT_PRODUCTS: Product[] = [
   p("tubz-rainbow-belts", "Rainbow Belts", "🌈", "sweet"),
   p("tubz-rainbow-pencils", "Rainbow Assorted Pencils", "🖊️", "sweet"),
   p("tubz-tutti-frutti-bottles", "Tutti Frutti Bottles", "🍹", "sweet"),
-  p("tubz-candy-crush-tutti", "Candy Crush Tutti Frutti", "🫙", "sweet"),
   p("tubz-candy-crush-fizzy", "Candy Crush Fizzy Mix", "💫", "sweet"),
   p("tubz-candy-crush-jelly", "Candy Crush Jelly Mix", "🫙", "sweet"),
   p("tubz-candy-necklaces", "Candy Necklaces", "📿", "sweet"),

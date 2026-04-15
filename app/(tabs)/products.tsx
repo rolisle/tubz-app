@@ -66,7 +66,7 @@ function ProductFormModal({
   colors,
   editProduct,
 }: ProductFormModalProps) {
-  const { addProduct, updateProduct } = useApp();
+  const { addProduct, updateProduct, deleteProduct } = useApp();
   const { settings } = useSettings();
   const accent = primaryColor(settings.accentColor);
   const isEdit = !!editProduct;
@@ -111,6 +111,26 @@ function ProductFormModal({
     if (!result.canceled) setImageUri(result.assets[0].uri);
   };
 
+  const handleDelete = () => {
+    if (!editProduct) return;
+    const doDelete = () => {
+      deleteProduct(editProduct.id);
+      onClose();
+    };
+    if (Platform.OS === "web") {
+      if (window.confirm(`Delete "${editProduct.name}" from the catalog?`)) doDelete();
+    } else {
+      Alert.alert(
+        "Delete Product",
+        `Remove "${editProduct.name}" from the catalog? This won't affect existing machine slots.`,
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Delete", style: "destructive", onPress: doDelete },
+        ],
+      );
+    }
+  };
+
   const handleSave = () => {
     const trimmed = name.trim();
     if (!trimmed) {
@@ -152,9 +172,11 @@ function ProductFormModal({
           <Text style={[styles.sheetTitle, { color: colors.text }]}>
             {isEdit ? "Edit Product" : "New Product"}
           </Text>
-          <TouchableOpacity onPress={onClose} hitSlop={8}>
-            <Text style={[styles.sheetDoneText, { color: accent }]}>Done</Text>
-          </TouchableOpacity>
+          {isEdit && (
+            <TouchableOpacity onPress={handleDelete} hitSlop={8}>
+              <Text style={styles.sheetDeleteText}>Delete</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Category selector */}
@@ -187,7 +209,7 @@ function ProductFormModal({
         </View>
 
         <Text style={[styles.fieldLabel, { color: colors.subtext }]}>
-          Name *
+          Name <Text style={{ color: "#ef4444" }}>*</Text>
         </Text>
         <TextInput
           style={[
@@ -907,9 +929,10 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "700",
   },
-  sheetDoneText: {
+  sheetDeleteText: {
     fontSize: 15,
     fontWeight: "600",
+    color: "#ef4444",
   },
   fieldLabel: {
     fontSize: 12,

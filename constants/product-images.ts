@@ -22,7 +22,6 @@ export const PRODUCT_IMAGES: Record<string, ImageSourcePropType> = {
   "tubz-rainbow-belts": require("../assets/products/tubz-rainbow-belts.webp"),
   "tubz-rainbow-pencils": require("../assets/products/tubz-rainbow-pencils.webp"),
   "tubz-tutti-frutti-bottles": require("../assets/products/tubz-tutti-frutti-bottles.webp"),
-  "tubz-candy-crush-tutti": require("../assets/products/tubz-candy-crush-tutti.webp"),
   "tubz-candy-crush-fizzy": require("../assets/products/tubz-candy-crush-fizzy.webp"),
   "tubz-candy-crush-jelly": require("../assets/products/tubz-candy-crush-jelly.webp"),
   "tubz-candy-necklaces": require("../assets/products/tubz-candy-necklaces.webp"),
