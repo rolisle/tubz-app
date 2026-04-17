@@ -3,7 +3,9 @@ import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import {
   FlatList,
   Image,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   SectionList,
   StyleSheet,
@@ -123,91 +125,98 @@ function ProductPicker({
 
   return (
     <Modal transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.overlay} onPress={onClose} />
-      <View
-        style={[
-          styles.sheet,
-          { backgroundColor: colors.card, borderColor: colors.border },
-        ]}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        <View style={styles.sheetHeader}>
-          <Text style={[styles.sheetTitle, { color: colors.text }]}>
-            Add product
-          </Text>
-          <TouchableOpacity onPress={onClose} hitSlop={8}>
-            <Text style={[styles.sheetClose, { color: colors.subtext }]}>
-              Done
-            </Text>
-          </TouchableOpacity>
-        </View>
-
+        <Pressable style={styles.overlay} onPress={onClose} />
         <View
           style={[
-            styles.searchWrap,
-            {
-              backgroundColor: colors.background,
-              borderColor: searchFocused ? accent : colors.border,
-            },
+            styles.sheet,
+            { backgroundColor: colors.card, borderColor: colors.border },
           ]}
         >
-          <Text style={[styles.searchIcon, { color: colors.subtext }]}>🔍</Text>
-          <TextInput
-            style={[styles.searchInput, { color: colors.text }]}
-            value={search}
-            onChangeText={setSearch}
-            onFocus={() => setSearchFocused(true)}
-            onBlur={() => setSearchFocused(false)}
-            placeholder="Search products…"
-            placeholderTextColor={colors.subtext}
-            autoFocus
-            returnKeyType="search"
-            clearButtonMode="while-editing"
+          <View style={styles.sheetHeader}>
+            <Text style={[styles.sheetTitle, { color: colors.text }]}>
+              Add product
+            </Text>
+            <TouchableOpacity onPress={onClose} hitSlop={8}>
+              <Text style={[styles.sheetClose, { color: colors.subtext }]}>
+                Done
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View
+            style={[
+              styles.searchWrap,
+              {
+                backgroundColor: colors.background,
+                borderColor: searchFocused ? accent : colors.border,
+              },
+            ]}
+          >
+            <Text style={[styles.searchIcon, { color: colors.subtext }]}>🔍</Text>
+            <TextInput
+              style={[styles.searchInput, { color: colors.text }]}
+              value={search}
+              onChangeText={setSearch}
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => setSearchFocused(false)}
+              placeholder="Search products…"
+              placeholderTextColor={colors.subtext}
+              autoFocus
+              returnKeyType="search"
+              clearButtonMode="while-editing"
+              selectionColor={`${accent}44`}
+              cursorColor={accent}
+            />
+          </View>
+
+          <FlatList
+            data={filtered}
+            keyExtractor={(p) => p.id}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ paddingBottom: 24 }}
+            renderItem={({ item }) => {
+              const added = alreadyAdded.includes(item.id);
+              return (
+                <TouchableOpacity
+                  style={[
+                    styles.pickerRow,
+                    {
+                      borderBottomColor: colors.border,
+                      opacity: added ? 0.4 : 1,
+                    },
+                  ]}
+                  disabled={added}
+                  onPress={() => {
+                    onSelect(item.id);
+                    onClose();
+                  }}
+                >
+                  <ProductThumb product={item} size={40} />
+                  <Text style={[styles.pickerName, { color: colors.text }]}>
+                    {item.name}
+                  </Text>
+                  {added && (
+                    <Text style={[styles.pickerAdded, { color: colors.subtext }]}>
+                      Added
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              );
+            }}
+            ListEmptyComponent={
+              <Text style={[styles.pickerEmpty, { color: colors.subtext }]}>
+                {search
+                  ? `No results for "${search}"`
+                  : "No products in this category."}
+              </Text>
+            }
           />
         </View>
-
-        <FlatList
-          data={filtered}
-          keyExtractor={(p) => p.id}
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ paddingBottom: 24 }}
-          renderItem={({ item }) => {
-            const added = alreadyAdded.includes(item.id);
-            return (
-              <TouchableOpacity
-                style={[
-                  styles.pickerRow,
-                  {
-                    borderBottomColor: colors.border,
-                    opacity: added ? 0.4 : 1,
-                  },
-                ]}
-                disabled={added}
-                onPress={() => {
-                  onSelect(item.id);
-                  onClose();
-                }}
-              >
-                <ProductThumb product={item} size={40} />
-                <Text style={[styles.pickerName, { color: colors.text }]}>
-                  {item.name}
-                </Text>
-                {added && (
-                  <Text style={[styles.pickerAdded, { color: colors.subtext }]}>
-                    Added
-                  </Text>
-                )}
-              </TouchableOpacity>
-            );
-          }}
-          ListEmptyComponent={
-            <Text style={[styles.pickerEmpty, { color: colors.subtext }]}>
-              {search
-                ? `No results for "${search}"`
-                : "No products in this category."}
-            </Text>
-          }
-        />
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -1110,7 +1119,7 @@ const styles = StyleSheet.create({
   // Picker modal
   overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)" },
   sheet: {
-    maxHeight: "75%",
+    maxHeight: "80%",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     borderWidth: 1,
