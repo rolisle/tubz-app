@@ -91,6 +91,34 @@ function ProductThumb({
   );
 }
 
+/* ─── Picker row (memoized to avoid FlatList re-renders) ────── */
+
+const StockPickerRow = memo(function StockPickerRow({
+  product,
+  added,
+  onPress,
+  colors,
+}: {
+  product: Product;
+  added: boolean;
+  onPress: () => void;
+  colors: (typeof Colors)["light"];
+}) {
+  return (
+    <TouchableOpacity
+      style={[styles.pickerRow, { borderBottomColor: colors.border, opacity: added ? 0.4 : 1 }]}
+      disabled={added}
+      onPress={onPress}
+    >
+      <ProductThumb product={product} size={40} />
+      <Text style={[styles.pickerName, { color: colors.text }]}>{product.name}</Text>
+      {added && (
+        <Text style={[styles.pickerAdded, { color: colors.subtext }]}>Added</Text>
+      )}
+    </TouchableOpacity>
+  );
+});
+
 /* ─── Product picker modal ───────────────────────────────────── */
 
 interface ProductPickerProps {
@@ -122,6 +150,15 @@ function ProductPicker({
       .filter((p) => !q || p.name.toLowerCase().includes(q))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [products, category, search]);
+
+  const renderItem = useCallback(({ item }: { item: Product }) => (
+    <StockPickerRow
+      product={item}
+      added={alreadyAdded.includes(item.id)}
+      onPress={() => { onSelect(item.id); onClose(); }}
+      colors={colors}
+    />
+  ), [alreadyAdded, colors, onSelect, onClose]);
 
   return (
     <Modal transparent animationType="slide" onRequestClose={onClose}>
@@ -178,35 +215,7 @@ function ProductPicker({
             keyExtractor={(p) => p.id}
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={{ paddingBottom: 24 }}
-            renderItem={({ item }) => {
-              const added = alreadyAdded.includes(item.id);
-              return (
-                <TouchableOpacity
-                  style={[
-                    styles.pickerRow,
-                    {
-                      borderBottomColor: colors.border,
-                      opacity: added ? 0.4 : 1,
-                    },
-                  ]}
-                  disabled={added}
-                  onPress={() => {
-                    onSelect(item.id);
-                    onClose();
-                  }}
-                >
-                  <ProductThumb product={item} size={40} />
-                  <Text style={[styles.pickerName, { color: colors.text }]}>
-                    {item.name}
-                  </Text>
-                  {added && (
-                    <Text style={[styles.pickerAdded, { color: colors.subtext }]}>
-                      Added
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              );
-            }}
+            renderItem={renderItem}
             ListEmptyComponent={
               <Text style={[styles.pickerEmpty, { color: colors.subtext }]}>
                 {search

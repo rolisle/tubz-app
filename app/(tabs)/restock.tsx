@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -68,6 +68,26 @@ function ProductThumb({ product, size }: { product: Product | undefined; size: n
   );
 }
 
+/* ─── Picker row (memoized to avoid FlatList re-renders) ────── */
+
+interface PickerRowProps {
+  product: Product;
+  onPress: () => void;
+  colors: (typeof Colors)['light'];
+}
+
+const PickerRow = memo(function PickerRow({ product, onPress, colors }: PickerRowProps) {
+  return (
+    <TouchableOpacity
+      style={[styles.pickerRow, { borderBottomColor: colors.border }]}
+      onPress={onPress}
+    >
+      <ProductThumb product={product} size={36} />
+      <Text style={[styles.pickerRowName, { color: colors.text }]}>{product.name}</Text>
+    </TouchableOpacity>
+  );
+});
+
 /* ─── Product picker modal ───────────────────────────────────── */
 
 interface ProductPickerProps {
@@ -92,6 +112,14 @@ function ProductPicker({ machineType, products, onSelect, onClose }: ProductPick
       .filter((p) => !q || p.name.toLowerCase().includes(q))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [products, machineType, search]);
+
+  const renderItem = useCallback(({ item }: { item: Product }) => (
+    <PickerRow
+      product={item}
+      onPress={() => { onSelect(item.id); onClose(); }}
+      colors={colors}
+    />
+  ), [colors, onSelect, onClose]);
 
   return (
     <Modal transparent animationType="slide" onRequestClose={onClose}>
@@ -132,14 +160,7 @@ function ProductPicker({ machineType, products, onSelect, onClose }: ProductPick
             keyExtractor={(p) => p.id}
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={{ paddingBottom: 20 }}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={[styles.pickerRow, { borderBottomColor: colors.border }]}
-                onPress={() => { onSelect(item.id); onClose(); }}>
-                <ProductThumb product={item} size={36} />
-                <Text style={[styles.pickerRowName, { color: colors.text }]}>{item.name}</Text>
-              </TouchableOpacity>
-            )}
+            renderItem={renderItem}
             ListEmptyComponent={
               <Text style={[styles.pickerEmpty, { color: colors.subtext }]}>
                 {search ? `No results for "${search}"` : 'No products match this machine type.'}

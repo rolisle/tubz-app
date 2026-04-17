@@ -1,5 +1,5 @@
 import * as ImagePicker from "expo-image-picker";
-import { useMemo, useState } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
 import {
   Alert,
   Dimensions,
@@ -316,7 +316,7 @@ interface ProductRowProps {
   colors: (typeof Colors)["light"];
 }
 
-function ProductRow({ product, onEdit, onDelete, colors }: ProductRowProps) {
+const ProductRow = memo(function ProductRow({ product, onEdit, onDelete, colors }: ProductRowProps) {
   const [zoomed, setZoomed] = useState(false);
   const src = product.localImageUri
     ? { uri: product.localImageUri }
@@ -391,7 +391,7 @@ function ProductRow({ product, onEdit, onDelete, colors }: ProductRowProps) {
       )}
     </TouchableOpacity>
   );
-}
+});
 
 type ViewMode = "grid" | "list";
 
@@ -402,7 +402,7 @@ interface ProductGridCardProps {
   colors: (typeof Colors)["light"];
 }
 
-function ProductGridCard({
+const ProductGridCard = memo(function ProductGridCard({
   product,
   onEdit,
   onDelete,
@@ -429,7 +429,7 @@ function ProductGridCard({
       )}
     </TouchableOpacity>
   );
-}
+});
 
 export default function ProductsScreen() {
   const { state, deleteProduct } = useApp();
@@ -474,6 +474,41 @@ export default function ProductsScreen() {
       data: filtered.filter((p) => (p.category ?? "other") === cat),
     })).filter((s) => s.data.length > 0);
   }, [state.products, filter, search]);
+
+  const gridData = useMemo(() => sections.flatMap((s) => s.data), [sections]);
+
+  const renderGridItem = useCallback(({ item }: { item: Product }) => (
+    <ProductGridCard
+      product={item}
+      onEdit={() => setEditingProduct(item)}
+      onDelete={() => {
+        if (Platform.OS === "web") {
+          if (window.confirm(`Remove "${item.name}" from the catalog?`)) deleteProduct(item.id);
+        } else {
+          Alert.alert("Delete Product", `Remove "${item.name}" from the catalog?`, [
+            { text: "Cancel", style: "cancel" },
+            { text: "Delete", style: "destructive", onPress: () => deleteProduct(item.id) },
+          ]);
+        }
+      }}
+      colors={colors}
+    />
+  ), [colors, deleteProduct]);
+
+  const renderListItem = useCallback(({ item }: { item: Product }) => (
+    <ProductRow
+      product={item}
+      onEdit={() => setEditingProduct(item)}
+      onDelete={() => deleteProduct(item.id)}
+      colors={colors}
+    />
+  ), [colors, deleteProduct]);
+
+  const renderSectionHeader = useCallback(({ section }: { section: { title: string } }) => (
+    <Text style={[styles.sectionHeader, { color: colors.subtext, backgroundColor: colors.background }]}>
+      {section.title}
+    </Text>
+  ), [colors]);
 
   return (
     <SafeAreaView
@@ -617,37 +652,12 @@ export default function ProductsScreen() {
 
       {viewMode === "grid" ? (
         <FlatList
-          data={sections.flatMap((s) => s.data)}
+          data={gridData}
           keyExtractor={(p) => p.id}
           numColumns={3}
           contentContainerStyle={styles.gridList}
           columnWrapperStyle={styles.gridRow}
-          renderItem={({ item }) => (
-            <ProductGridCard
-              product={item}
-              onEdit={() => setEditingProduct(item)}
-              onDelete={() => {
-                if (Platform.OS === "web") {
-                  if (window.confirm(`Remove "${item.name}" from the catalog?`))
-                    deleteProduct(item.id);
-                } else {
-                  Alert.alert(
-                    "Delete Product",
-                    `Remove "${item.name}" from the catalog?`,
-                    [
-                      { text: "Cancel", style: "cancel" },
-                      {
-                        text: "Delete",
-                        style: "destructive",
-                        onPress: () => deleteProduct(item.id),
-                      },
-                    ],
-                  );
-                }
-              }}
-              colors={colors}
-            />
-          )}
+          renderItem={renderGridItem}
           ListEmptyComponent={
             <View style={styles.emptyWrap}>
               <Text style={styles.emptyEmoji}>📦</Text>
@@ -668,24 +678,8 @@ export default function ProductsScreen() {
           keyExtractor={(p) => p.id}
           contentContainerStyle={styles.list}
           stickySectionHeadersEnabled={false}
-          renderSectionHeader={({ section }) => (
-            <Text
-              style={[
-                styles.sectionHeader,
-                { color: colors.subtext, backgroundColor: colors.background },
-              ]}
-            >
-              {section.title}
-            </Text>
-          )}
-          renderItem={({ item }) => (
-            <ProductRow
-              product={item}
-              onEdit={() => setEditingProduct(item)}
-              onDelete={() => deleteProduct(item.id)}
-              colors={colors}
-            />
-          )}
+          renderSectionHeader={renderSectionHeader}
+          renderItem={renderListItem}
           ListEmptyComponent={
             <View style={styles.emptyWrap}>
               <Text style={styles.emptyEmoji}>📦</Text>
