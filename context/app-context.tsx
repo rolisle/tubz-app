@@ -159,6 +159,7 @@ function reducer(state: AppState, action: Action): AppState {
 interface AppContextValue {
   state: AppState;
   dispatch: React.Dispatch<Action>;
+  replaceState: (next: AppState) => void;
   addLocation: (location: Omit<Location, 'id' | 'createdAt'>) => void;
   updateLocation: (location: Location) => void;
   deleteLocation: (id: string) => void;
@@ -242,6 +243,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Convenience helpers
   // ---------------------------------------------------------------------------
 
+  const replaceState = (next: AppState) =>
+    dispatch({ type: 'LOAD_STATE', payload: next });
+
   const addLocation = (data: Omit<Location, 'id' | 'createdAt'>) => {
     const location: Location = {
       restockPeriodWeeks: 4,
@@ -296,6 +300,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       value={{
         state,
         dispatch,
+        replaceState,
         addLocation,
         updateLocation,
         deleteLocation,

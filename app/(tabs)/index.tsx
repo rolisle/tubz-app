@@ -2,7 +2,9 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { memo, useMemo, useState } from "react";
 import {
+  Alert,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -26,6 +28,7 @@ import {
   useSettings,
 } from "@/context/settings-context";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { exportData, importData } from "@/utils/data-transfer";
 
 function todayLabel() {
   return new Date().toLocaleDateString("en-GB", {
@@ -132,6 +135,7 @@ interface SettingsModalProps {
 
 function SettingsModal({ visible, onClose, colors }: SettingsModalProps) {
   const { settings, setSetting } = useSettings();
+  const { state, replaceState } = useApp();
 
   const sections: {
     label: string;
@@ -241,6 +245,88 @@ function SettingsModal({ visible, onClose, colors }: SettingsModalProps) {
               🪀 Toy Machine
             </Text>
           </View>
+        </View>
+
+        {/* Data transfer */}
+        <Text
+          style={[styles.sheetSection, { color: colors.text, marginTop: 8 }]}
+        >
+          Data
+        </Text>
+        <View style={[styles.dataRow, { borderTopColor: colors.border }]}>
+          <TouchableOpacity
+            style={[styles.dataBtn, { backgroundColor: colors.border }]}
+            onPress={async () => {
+              try {
+                await exportData(state);
+              } catch (e: unknown) {
+                const msg = e instanceof Error ? e.message : String(e);
+                if (Platform.OS === "web") {
+                  window.alert("Export failed: " + msg);
+                } else {
+                  Alert.alert("Export failed", msg);
+                }
+              }
+            }}
+          >
+            <Text style={[styles.dataBtnText, { color: colors.text }]}>
+              ⬆ Export data
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.dataBtn, { backgroundColor: colors.border }]}
+            onPress={async () => {
+              try {
+                const payload = await importData();
+                const confirm =
+                  Platform.OS === "web"
+                    ? window.confirm(
+                        `Replace all data with this export?\n` +
+                          `(${payload.locations.length} locations, ${payload.products.length} products)\n\n` +
+                          `This cannot be undone.`,
+                      )
+                    : await new Promise<boolean>((res) =>
+                        Alert.alert(
+                          "Replace all data?",
+                          `This will replace all locations and products with the imported data.\n\n` +
+                            `${payload.locations.length} locations · ${payload.products.length} products\n\nThis cannot be undone.`,
+                          [
+                            {
+                              text: "Cancel",
+                              style: "cancel",
+                              onPress: () => res(false),
+                            },
+                            {
+                              text: "Import",
+                              style: "destructive",
+                              onPress: () => res(true),
+                            },
+                          ],
+                        ),
+                      );
+                if (confirm) {
+                  replaceState({
+                    locations: payload.locations,
+                    products: payload.products,
+                  });
+                  onClose();
+                }
+              } catch (e: unknown) {
+                const msg = e instanceof Error ? e.message : String(e);
+                if (msg === "Cancelled") return;
+                if (Platform.OS === "web") {
+                  window.alert("Import failed: " + msg);
+                } else {
+                  Alert.alert("Import failed", msg);
+                }
+              }
+            }}
+          >
+            <Text style={[styles.dataBtnText, { color: colors.text }]}>
+              ⬇ Import data
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
     </Modal>
@@ -659,4 +745,18 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   previewChipText: { fontSize: 13, fontWeight: "600" },
+  dataRow: {
+    flexDirection: "row",
+    gap: 10,
+    paddingTop: 10,
+    paddingBottom: 4,
+    paddingHorizontal: 20,
+  },
+  dataBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  dataBtnText: { fontSize: 14, fontWeight: "600" },
 });
