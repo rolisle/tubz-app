@@ -4,7 +4,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { ProductThumb } from "@/components/ui/product-thumb";
 import { Colors } from "@/constants/theme";
 import type { Product } from "@/types";
-import type { StockItem } from "@/app/(tabs)/stock-types";
+import type { StockItem } from "@/types/stock";
 
 export interface SimpleRowProps {
   item: StockItem;

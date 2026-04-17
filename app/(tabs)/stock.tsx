@@ -25,7 +25,7 @@ import {
   type StockItem,
   type StockLevel,
   type StockState,
-} from "./stock-types";
+} from "@/types/stock";
 
 /* ─── Main screen ────────────────────────────────────────────── */
 

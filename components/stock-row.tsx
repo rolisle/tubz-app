@@ -4,7 +4,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { ProductThumb } from "@/components/ui/product-thumb";
 import { Colors } from "@/constants/theme";
 import type { Product, ProductCategory } from "@/types";
-import type { StockItem, StockLevel } from "@/app/(tabs)/stock-types";
+import type { StockItem, StockLevel } from "@/types/stock";
 
 /* ─── StockPickerRow ─────────────────────────────────────────── */
 
