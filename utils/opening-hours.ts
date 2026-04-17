@@ -96,10 +96,12 @@ export function getOpenStatus(
     const closeMins = timeToMinutes(todayHours.close);
 
     if (currentMins >= openMins && currentMins < closeMins) {
+      const minsUntilClose = closeMins - currentMins;
+      const color = minsUntilClose <= 60 ? "#f59e0b" : "#22c55e";
       return {
         isOpen: true,
         label: `Closes ${fmt12(todayHours.close)}`,
-        color: "#22c55e",
+        color,
       };
     }
     if (currentMins < openMins) {
