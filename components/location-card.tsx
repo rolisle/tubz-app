@@ -1,5 +1,5 @@
+import { useMemo } from "react";
 import {
-  Linking,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -11,6 +11,8 @@ import { Colors } from "@/constants/theme";
 import { primaryColor, useSettings } from "@/context/settings-context";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import type { Location } from "@/types";
+import { OpenStatusBadge } from "@/components/ui/open-status-badge";
+import { openLocationInMaps } from "@/utils/maps";
 import { getOpenStatus } from "@/utils/opening-hours";
 
 interface LocationCardProps {
@@ -37,24 +39,23 @@ const MACHINE_ICONS: Record<string, string> = {
   toy: "🪀",
 };
 
-function openMaps(location: Location) {
-  const query = [location.address, location.postcode]
-    .filter(Boolean)
-    .join(", ");
-  if (!query) return;
-  const encoded = encodeURIComponent(query);
-  // Opens in Google Maps app if installed, falls back to maps.google.com in browser
-  Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encoded}`);
-}
 
 export function LocationCard({ location, onPress }: LocationCardProps) {
   const colorScheme = useColorScheme() ?? "light";
   const colors = Colors[colorScheme];
   const { settings } = useSettings();
-  const MACHINE_COLORS: Record<string, string[]> = {
+  const machineColors = useMemo<Record<string, string[]>>(() => ({
     sweet: settings.sweetColor,
-    toy:   settings.toyColor,
-  };
+    toy: settings.toyColor,
+  }), [settings.sweetColor, settings.toyColor]);
+
+  const openStatus = useMemo(() => getOpenStatus(location.openingHours), [location.openingHours]);
+
+  const machineCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const m of location.machines) counts[m.type] = (counts[m.type] ?? 0) + 1;
+    return counts;
+  }, [location.machines]);
 
   const hasAddress = !!(location.address || location.postcode);
 
@@ -82,20 +83,7 @@ export function LocationCard({ location, onPress }: LocationCardProps) {
                 .join(", ")}
             </Text>
           ) : null}
-          {(() => {
-            const status = getOpenStatus(location.openingHours);
-            if (!status) return null;
-            return (
-              <View style={[styles.statusBadge, { backgroundColor: status.color + '18', borderColor: status.color + '44' }]}>
-                <View style={[styles.statusDot, { backgroundColor: status.color }]} />
-                <Text style={[styles.statusText, { color: status.color }]}>
-                  {status.isOpen ? 'Open' : 'Closed'}
-                  {'  '}
-                  <Text style={[styles.statusSub, { color: status.color + 'bb' }]}>{status.label}</Text>
-                </Text>
-              </View>
-            );
-          })()}
+          {openStatus && <OpenStatusBadge status={openStatus} />}
           <Text style={[styles.restock, { color: colors.subtext }]}>
             {formatLastRestock(location.lastRestockedAt)}
           </Text>
@@ -103,7 +91,7 @@ export function LocationCard({ location, onPress }: LocationCardProps) {
 
         {hasAddress && (
           <TouchableOpacity
-            onPress={() => openMaps(location)}
+            onPress={() => openLocationInMaps(location)}
             hitSlop={8}
             style={[
               styles.mapBtn,
@@ -121,13 +109,10 @@ export function LocationCard({ location, onPress }: LocationCardProps) {
       {location.machines.length > 0 && (
         <View style={[styles.machines, { borderTopColor: colors.border }]}>
           {(["sweet", "toy"] as const)
-            .map((type) => ({
-              type,
-              count: location.machines.filter((m) => m.type === type).length,
-            }))
+            .map((type) => ({ type, count: machineCounts[type] ?? 0 }))
             .filter(({ count }) => count > 0)
             .map(({ type, count }) => {
-              const chipColor = MACHINE_COLORS[type];
+              const chipColor = machineColors[type];
               const chipPrimary = primaryColor(chipColor);
               return (
                 <View
@@ -174,20 +159,6 @@ const styles = StyleSheet.create({
   },
   name: { fontSize: 16, fontWeight: "600" },
   address: { fontSize: 13 },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: 5,
-    borderWidth: 1,
-    borderRadius: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    marginTop: 2,
-  },
-  statusDot: { width: 6, height: 6, borderRadius: 3 },
-  statusText: { fontSize: 12, fontWeight: '600' },
-  statusSub: { fontWeight: '400' },
   restock: { fontSize: 12, marginTop: 2 },
   mapBtn: {
     width: 36,

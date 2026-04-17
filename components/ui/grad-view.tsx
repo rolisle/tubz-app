@@ -1,11 +1,11 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import React from 'react';
-import { StyleProp, View, ViewStyle } from 'react-native';
+import { type ReactNode, type StyleProp, type ViewStyle } from 'react';
+import { View } from 'react-native';
 
 interface GradViewProps {
   colors: string[];
   style?: StyleProp<ViewStyle>;
-  children?: React.ReactNode;
+  children?: ReactNode;
   /** Gradient direction – defaults to left→right */
   start?: { x: number; y: number };
   end?: { x: number; y: number };
@@ -24,7 +24,7 @@ export function GradView({
 }: GradViewProps) {
   if (colors.length <= 1) {
     return (
-      <View style={[style, { backgroundColor: colors[0] }]}>
+      <View style={[style, { backgroundColor: colors[0] ?? 'transparent' }]}>
         {children}
       </View>
     );

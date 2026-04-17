@@ -1,29 +1,25 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
-  FlatList,
-  Image,
-  KeyboardAvoidingView,
-  Modal,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { PRODUCT_IMAGES } from '@/constants/product-images';
 import { Colors } from '@/constants/theme';
 import { useApp } from '@/context/app-context';
 import { AppColor, primaryColor, useSettings } from '@/context/settings-context';
 import { GradView } from '@/components/ui/grad-view';
+import { ProductPickerModal } from '@/components/ui/product-picker-modal';
+import { ProductThumb } from '@/components/ui/product-thumb';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import type { MachineType, Product } from '@/types';
+import type { MachineType, Product, ProductCategory } from '@/types';
+import { uid } from '@/utils/id';
 
 /* ─── Constants ─────────────────────────────────────────────── */
 
@@ -48,133 +44,6 @@ interface RestockMachine {
   items: RestockItem[];
 }
 
-function uid() {
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
-}
-
-/* ─── ProductThumb ────────────────────────────────────────────── */
-
-function ProductThumb({ product, size }: { product: Product | undefined; size: number }) {
-  const src = product?.localImageUri
-    ? { uri: product.localImageUri }
-    : product ? PRODUCT_IMAGES[product.id] : undefined;
-  if (src) {
-    return <Image source={src} style={{ width: size, height: size, borderRadius: 6 }} resizeMode="cover" />;
-  }
-  return (
-    <Text style={{ fontSize: size * 0.7, width: size, textAlign: 'center', lineHeight: size, includeFontPadding: false }}>
-      {product?.emoji ?? '📦'}
-    </Text>
-  );
-}
-
-/* ─── Picker row (memoized to avoid FlatList re-renders) ────── */
-
-interface PickerRowProps {
-  product: Product;
-  onPress: () => void;
-  colors: (typeof Colors)['light'];
-}
-
-const PickerRow = memo(function PickerRow({ product, onPress, colors }: PickerRowProps) {
-  return (
-    <TouchableOpacity
-      style={[styles.pickerRow, { borderBottomColor: colors.border }]}
-      onPress={onPress}
-    >
-      <ProductThumb product={product} size={36} />
-      <Text style={[styles.pickerRowName, { color: colors.text }]}>{product.name}</Text>
-    </TouchableOpacity>
-  );
-});
-
-/* ─── Product picker modal ───────────────────────────────────── */
-
-interface ProductPickerProps {
-  machineType: MachineType;
-  products: Product[];
-  onSelect: (productId: string) => void;
-  onClose: () => void;
-}
-
-function ProductPicker({ machineType, products, onSelect, onClose }: ProductPickerProps) {
-  const colorScheme = useColorScheme() ?? 'light';
-  const colors = Colors[colorScheme];
-  const { settings } = useSettings();
-  const accent = primaryColor(settings.accentColor);
-  const [search, setSearch] = useState('');
-  const [searchFocused, setSearchFocused] = useState(false);
-
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return products
-      .filter((p) => !p.category || p.category === machineType)
-      .filter((p) => !q || p.name.toLowerCase().includes(q))
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [products, machineType, search]);
-
-  const renderItem = useCallback(({ item }: { item: Product }) => (
-    <PickerRow
-      product={item}
-      onPress={() => { onSelect(item.id); onClose(); }}
-      colors={colors}
-    />
-  ), [colors, onSelect, onClose]);
-
-  return (
-    <Modal transparent animationType="slide" onRequestClose={onClose}>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <Pressable style={styles.overlay} onPress={onClose} />
-        <View style={[styles.sheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={styles.sheetHeader}>
-            <Text style={[styles.sheetTitle, { color: colors.text }]}>Add product</Text>
-            <TouchableOpacity onPress={onClose} hitSlop={8}>
-              <Text style={[styles.sheetClose, { color: colors.subtext }]}>Done</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Search */}
-          <View style={[styles.searchWrap, { backgroundColor: colors.background, borderColor: searchFocused ? accent : colors.border }]}>
-            <Text style={[styles.searchIcon, { color: colors.subtext }]}>🔍</Text>
-            <TextInput
-              style={[styles.searchInput, { color: colors.text }]}
-              value={search}
-              onChangeText={setSearch}
-              onFocus={() => setSearchFocused(true)}
-              onBlur={() => setSearchFocused(false)}
-              placeholder="Search products…"
-              placeholderTextColor={colors.subtext}
-              autoFocus
-              returnKeyType="search"
-              clearButtonMode="while-editing"
-              autoCorrect={false}
-              autoCapitalize="none"
-              autoComplete="off"
-              selectionColor={`${accent}44`}
-              cursorColor={accent}
-            />
-          </View>
-
-          <FlatList
-            data={filtered}
-            keyExtractor={(p) => p.id}
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={{ paddingBottom: 20 }}
-            renderItem={renderItem}
-            ListEmptyComponent={
-              <Text style={[styles.pickerEmpty, { color: colors.subtext }]}>
-                {search ? `No results for "${search}"` : 'No products match this machine type.'}
-              </Text>
-            }
-          />
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
-  );
-}
 
 /* ─── Machine card ───────────────────────────────────────────── */
 
@@ -303,11 +172,20 @@ function MachineCard({ machine, products, colors, accent, machineColor, onChange
       </TouchableOpacity>
 
       {showPicker && (
-        <ProductPicker
-          machineType={machine.type}
+        <ProductPickerModal
+          category={machine.type as ProductCategory}
           products={products}
-          onSelect={handleAddProduct}
           onClose={() => setShowPicker(false)}
+          renderRow={(product, _accent, rowColors) => (
+            <TouchableOpacity
+              style={[styles.pickerRow, { borderBottomColor: rowColors.border }]}
+              onPress={() => { handleAddProduct(product.id); setShowPicker(false); }}
+            >
+              <ProductThumb product={product} size={36} />
+              <Text style={[styles.pickerRowName, { color: rowColors.text }]}>{product.name}</Text>
+            </TouchableOpacity>
+          )}
+          emptyMessage="No products match this machine type."
         />
       )}
     </View>
@@ -548,35 +426,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   addProductText: { fontSize: 13, fontWeight: '600' },
-  // Product picker modal
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
-  sheet: {
-    maxHeight: '80%',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    borderWidth: 1,
-  },
-  sheetHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-  },
-  sheetTitle: { fontSize: 17, fontWeight: '700' },
-  sheetClose: { fontSize: 15 },
-  searchWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: 16,
-    marginBottom: 8,
-    borderRadius: 10,
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    gap: 6,
-  },
-  searchIcon: { fontSize: 14 },
-  searchInput: { flex: 1, fontSize: 15 },
   pickerRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -586,7 +435,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   pickerRowName: { flex: 1, fontSize: 14, fontWeight: '500' },
-  pickerAdded: { fontSize: 12 },
   pickerEmpty: { padding: 20, textAlign: 'center', fontSize: 13 },
   // Empty state
   emptyWrap: { alignItems: 'center', paddingTop: 60, gap: 8 },

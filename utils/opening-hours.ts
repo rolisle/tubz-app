@@ -20,16 +20,6 @@ export const DAY_LABELS: Record<WeekDay, string> = {
   sun: "Sun",
 };
 
-export const DAY_FULL: Record<WeekDay, string> = {
-  mon: "Monday",
-  tue: "Tuesday",
-  wed: "Wednesday",
-  thu: "Thursday",
-  fri: "Friday",
-  sat: "Saturday",
-  sun: "Sunday",
-};
-
 /** JS getDay() (0 = Sunday) → WeekDay */
 const JS_TO_WEEKDAY: WeekDay[] = [
   "sun",

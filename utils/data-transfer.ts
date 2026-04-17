@@ -8,13 +8,12 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import type { AppState } from '../types';
+import { parseExport } from './parse-export';
 
-export interface TubzExport {
-  version: 1;
-  exportedAt: string;
-  locations: AppState['locations'];
-  products: AppState['products'];
-}
+export type { TubzExport } from './parse-export';
+export { parseExport } from './parse-export';
+
+import type { TubzExport } from './parse-export';
 
 /** Serialise state to JSON, write to cache, share via OS sheet. */
 export async function exportData(state: AppState): Promise<void> {
@@ -54,22 +53,4 @@ export async function importData(): Promise<TubzExport> {
   const uri = result.assets[0].uri;
   const raw = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.UTF8 });
   return parseExport(raw);
-}
-
-export function parseExport(raw: string): TubzExport {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    throw new Error('The file is not valid JSON.');
-  }
-  if (
-    typeof parsed !== 'object' || parsed === null ||
-    (parsed as TubzExport).version !== 1 ||
-    !Array.isArray((parsed as TubzExport).locations) ||
-    !Array.isArray((parsed as TubzExport).products)
-  ) {
-    throw new Error('The file does not look like a Tubz export.');
-  }
-  return parsed as TubzExport;
 }

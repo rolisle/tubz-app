@@ -4,6 +4,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
 } from 'react';
 
@@ -134,8 +135,10 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
+  const value = useMemo(() => ({ settings, setSetting }), [settings, setSetting]);
+
   return (
-    <SettingsContext.Provider value={{ settings, setSetting }}>
+    <SettingsContext.Provider value={value}>
       {children}
     </SettingsContext.Provider>
   );

@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   FlatList,
   Modal,
@@ -266,8 +266,8 @@ export default function LocationsScreen() {
   const [showAdd, setShowAdd] = useState(false);
   const [tab, setTab] = useState<TabId>("all");
 
-  const navigate = (loc: Location) =>
-    router.push({ pathname: "/location/[id]", params: { id: loc.id } });
+  const navigate = useCallback((loc: Location) =>
+    router.push({ pathname: "/location/[id]", params: { id: loc.id } }), [router]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();

@@ -14,36 +14,9 @@ import { PRODUCT_IMAGES } from '@/constants/product-images';
 import { Colors } from '@/constants/theme';
 import { primaryColor, useSettings } from '@/context/settings-context';
 import { GradView } from '@/components/ui/grad-view';
+import { ProductThumb } from '@/components/ui/product-thumb';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import type { Machine, Product } from '@/types';
-
-function ProductThumb({
-  product,
-  size,
-  fallback,
-}: {
-  product: Product | null | undefined;
-  size: number;
-  fallback?: string;
-}) {
-  const source = product
-    ? (product.localImageUri ? { uri: product.localImageUri } : PRODUCT_IMAGES[product.id])
-    : undefined;
-  if (source) {
-    return (
-      <Image
-        source={source}
-        style={{ width: size, height: size, borderRadius: 4 }}
-        resizeMode="cover"
-      />
-    );
-  }
-  return (
-    <Text style={{ fontSize: size * 0.7, width: size, textAlign: 'center' }}>
-      {product?.emoji ?? fallback ?? '📦'}
-    </Text>
-  );
-}
 
 type ViewMode = 'grid' | 'list';
 
@@ -213,6 +186,7 @@ function ListView({ machine, products, onSlotPress, onSlotCountChange, readonly,
               <TouchableOpacity
                 onPress={(e) => { e.stopPropagation(); onSlotCountChange(item.productId!, -1); }}
                 hitSlop={6}
+                disabled={readonly}
                 style={[styles.stockBtn, { borderColor: colors.border, backgroundColor: colors.card }]}>
                 <Text style={[styles.stockBtnText, { color: colors.text }]}>−</Text>
               </TouchableOpacity>
@@ -222,8 +196,8 @@ function ListView({ machine, products, onSlotPress, onSlotCountChange, readonly,
               <TouchableOpacity
                 onPress={(e) => { e.stopPropagation(); onSlotCountChange(item.productId!, +1); }}
                 hitSlop={6}
-                disabled={!canAddMore}
-                style={[styles.stockBtn, { borderColor: colors.border, backgroundColor: colors.card, opacity: canAddMore ? 1 : 0.3 }]}>
+                disabled={readonly || !canAddMore}
+                style={[styles.stockBtn, { borderColor: colors.border, backgroundColor: colors.card, opacity: (!readonly && canAddMore) ? 1 : 0.3 }]}>
                 <Text style={[styles.stockBtnText, { color: colors.text }]}>＋</Text>
               </TouchableOpacity>
             </View>

@@ -2,31 +2,12 @@
  * Web implementation of export/import — no native modules needed.
  */
 import type { AppState } from '../types';
+import { parseExport } from './parse-export';
 
-export interface TubzExport {
-  version: 1;
-  exportedAt: string;
-  locations: AppState['locations'];
-  products: AppState['products'];
-}
+export type { TubzExport } from './parse-export';
+export { parseExport } from './parse-export';
 
-export function parseExport(raw: string): TubzExport {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    throw new Error('The file is not valid JSON.');
-  }
-  if (
-    typeof parsed !== 'object' || parsed === null ||
-    (parsed as TubzExport).version !== 1 ||
-    !Array.isArray((parsed as TubzExport).locations) ||
-    !Array.isArray((parsed as TubzExport).products)
-  ) {
-    throw new Error('The file does not look like a Tubz export.');
-  }
-  return parsed as TubzExport;
-}
+import type { TubzExport } from './parse-export';
 
 /** Triggers a JSON file download in the browser. */
 export async function exportData(state: AppState): Promise<void> {
@@ -55,20 +36,36 @@ export async function importData(): Promise<TubzExport> {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'application/json,.json';
+    let settled = false;
+
+    const settle = (fn: () => void) => {
+      if (settled) return;
+      settled = true;
+      fn();
+    };
 
     input.onchange = async () => {
       const file = input.files?.[0];
-      if (!file) { reject(new Error('Cancelled')); return; }
-
+      if (!file) { settle(() => reject(new Error('Cancelled'))); return; }
       const text = await file.text();
       try {
-        resolve(parseExport(text));
+        settle(() => resolve(parseExport(text)));
       } catch (e) {
-        reject(e);
+        settle(() => reject(e));
       }
     };
 
-    input.oncancel = () => reject(new Error('Cancelled'));
+    // oncancel is spec'd but not universally supported; use focus-return as fallback
+    input.oncancel = () => settle(() => reject(new Error('Cancelled')));
+
+    // When the browser returns focus to the window after the picker closes without
+    // a selection, resolve as cancelled after a short delay
+    const onWindowFocus = () => {
+      setTimeout(() => settle(() => reject(new Error('Cancelled'))), 300);
+      window.removeEventListener('focus', onWindowFocus);
+    };
+    window.addEventListener('focus', onWindowFocus);
+
     input.click();
   });
 }

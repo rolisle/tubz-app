@@ -1,8 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { createContext, useContext, useEffect, useReducer } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef } from 'react';
+import type { Dispatch, ReactNode } from 'react';
 
 import { DEFAULT_PRODUCTS } from '@/constants/default-products';
 import type { AppState, Location, Machine, MachineType, Product, ProductCategory, RestockEntry, RestockMachineEntry } from '@/types';
+import { uid } from '@/utils/id';
 import { rescheduleAllNotifications } from '@/utils/notifications';
 
 const STORAGE_KEY = '@tubz:appState';
@@ -193,7 +195,7 @@ function reducer(state: AppState, action: Action): AppState {
 
 interface AppContextValue {
   state: AppState;
-  dispatch: React.Dispatch<Action>;
+  dispatch: Dispatch<Action>;
   replaceState: (next: AppState) => void;
   addLocation: (location: Omit<Location, 'id' | 'createdAt'>) => void;
   updateLocation: (location: Location) => void;
@@ -212,12 +214,11 @@ interface AppContextValue {
 
 const AppContext = createContext<AppContextValue | null>(null);
 
-function uid(): string {
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
-}
 
-export function AppProvider({ children }: { children: React.ReactNode }) {
+export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
+  // Prevent persisting the blank initial state before hydration completes
+  const hasHydrated = useRef(false);
 
   // Load persisted state on mount; seed default products on first run
   useEffect(() => {
@@ -273,11 +274,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       } else {
         dispatch({ type: 'LOAD_STATE', payload: { ...initialState, products: DEFAULT_PRODUCTS } });
       }
+      hasHydrated.current = true;
     });
   }, []);
 
-  // Persist on every state change
+  // Persist on every state change — but only after initial hydration
   useEffect(() => {
+    if (!hasHydrated.current) return;
     AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [state]);
 
@@ -290,10 +293,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Convenience helpers
   // ---------------------------------------------------------------------------
 
-  const replaceState = (next: AppState) =>
-    dispatch({ type: 'LOAD_STATE', payload: next });
+  const replaceState = useCallback((next: AppState) =>
+    dispatch({ type: 'LOAD_STATE', payload: next }), []);
 
-  const addLocation = (data: Omit<Location, 'id' | 'createdAt'>) => {
+  const addLocation = useCallback((data: Omit<Location, 'id' | 'createdAt'>) => {
     const location: Location = {
       restockPeriodWeeks: 4,
       ...data,
@@ -301,24 +304,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       createdAt: new Date().toISOString(),
     };
     dispatch({ type: 'ADD_LOCATION', payload: location });
-  };
+  }, []);
 
-  const updateLocation = (location: Location) =>
-    dispatch({ type: 'UPDATE_LOCATION', payload: location });
+  const updateLocation = useCallback((location: Location) =>
+    dispatch({ type: 'UPDATE_LOCATION', payload: location }), []);
 
-  const deleteLocation = (id: string) =>
-    dispatch({ type: 'DELETE_LOCATION', payload: { id } });
+  const deleteLocation = useCallback((id: string) =>
+    dispatch({ type: 'DELETE_LOCATION', payload: { id } }), []);
 
-  const restockLocation = (id: string, machines: RestockMachineEntry[] = []) =>
-    dispatch({ type: 'RESTOCK_LOCATION', payload: { id, timestamp: new Date().toISOString(), machines } });
+  const restockLocation = useCallback((id: string, machines: RestockMachineEntry[] = []) =>
+    dispatch({ type: 'RESTOCK_LOCATION', payload: { id, timestamp: new Date().toISOString(), machines } }), []);
 
-  const editRestockEntry = (locationId: string, index: number, entry: RestockEntry) =>
-    dispatch({ type: 'EDIT_RESTOCK_ENTRY', payload: { locationId, index, entry } });
+  const editRestockEntry = useCallback((locationId: string, index: number, entry: RestockEntry) =>
+    dispatch({ type: 'EDIT_RESTOCK_ENTRY', payload: { locationId, index, entry } }), []);
 
-  const deleteRestockEntry = (locationId: string, index: number) =>
-    dispatch({ type: 'DELETE_RESTOCK_ENTRY', payload: { locationId, index } });
+  const deleteRestockEntry = useCallback((locationId: string, index: number) =>
+    dispatch({ type: 'DELETE_RESTOCK_ENTRY', payload: { locationId, index } }), []);
 
-  const addMachine = (locationId: string, type: MachineType) => {
+  const addMachine = useCallback((locationId: string, type: MachineType) => {
     const machine: Machine = {
       id: uid(),
       type,
@@ -326,48 +329,51 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       stockCounts: {},
     };
     dispatch({ type: 'ADD_MACHINE', payload: { locationId, machine } });
-  };
+  }, []);
 
-  const updateMachine = (locationId: string, machine: Machine) =>
-    dispatch({ type: 'UPDATE_MACHINE', payload: { locationId, machine } });
+  const updateMachine = useCallback((locationId: string, machine: Machine) =>
+    dispatch({ type: 'UPDATE_MACHINE', payload: { locationId, machine } }), []);
 
-  const deleteMachine = (locationId: string, machineId: string) =>
-    dispatch({ type: 'DELETE_MACHINE', payload: { locationId, machineId } });
+  const deleteMachine = useCallback((locationId: string, machineId: string) =>
+    dispatch({ type: 'DELETE_MACHINE', payload: { locationId, machineId } }), []);
 
-  const updateStockCount = (locationId: string, machineId: string, productId: string, delta: number) =>
-    dispatch({ type: 'UPDATE_STOCK_COUNT', payload: { locationId, machineId, productId, delta } });
+  const updateStockCount = useCallback((locationId: string, machineId: string, productId: string, delta: number) =>
+    dispatch({ type: 'UPDATE_STOCK_COUNT', payload: { locationId, machineId, productId, delta } }), []);
 
-  const addProduct = (name: string, emoji?: string, category?: ProductCategory, localImageUri?: string) => {
+  const addProduct = useCallback((name: string, emoji?: string, category?: ProductCategory, localImageUri?: string) => {
     const product: Product = { id: uid(), name, emoji, category, localImageUri };
     dispatch({ type: 'ADD_PRODUCT', payload: product });
-  };
+  }, []);
 
-  const updateProduct = (product: Product) =>
-    dispatch({ type: 'UPDATE_PRODUCT', payload: product });
+  const updateProduct = useCallback((product: Product) =>
+    dispatch({ type: 'UPDATE_PRODUCT', payload: product }), []);
 
-  const deleteProduct = (id: string) =>
-    dispatch({ type: 'DELETE_PRODUCT', payload: { id } });
+  const deleteProduct = useCallback((id: string) =>
+    dispatch({ type: 'DELETE_PRODUCT', payload: { id } }), []);
+
+  const value = useMemo(() => ({
+    state,
+    dispatch,
+    replaceState,
+    addLocation,
+    updateLocation,
+    deleteLocation,
+    restockLocation,
+    editRestockEntry,
+    deleteRestockEntry,
+    addMachine,
+    updateMachine,
+    deleteMachine,
+    updateStockCount,
+    addProduct,
+    updateProduct,
+    deleteProduct,
+  }), [state, dispatch, replaceState, addLocation, updateLocation, deleteLocation,
+    restockLocation, editRestockEntry, deleteRestockEntry, addMachine, updateMachine,
+    deleteMachine, updateStockCount, addProduct, updateProduct, deleteProduct]);
 
   return (
-    <AppContext.Provider
-      value={{
-        state,
-        dispatch,
-        replaceState,
-        addLocation,
-        updateLocation,
-        deleteLocation,
-        restockLocation,
-        editRestockEntry,
-        deleteRestockEntry,
-        addMachine,
-        updateMachine,
-        deleteMachine,
-        updateStockCount,
-        addProduct,
-        updateProduct,
-        deleteProduct,
-      }}>
+    <AppContext.Provider value={value}>
       {children}
     </AppContext.Provider>
   );

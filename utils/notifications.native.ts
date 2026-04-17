@@ -96,12 +96,17 @@ export async function scheduleLocationNotification(location: Location): Promise<
   });
 }
 
-/** Cancel all restock notifications and reschedule from scratch. */
+/** Cancel all restock-* notifications and reschedule from scratch. */
 export async function rescheduleAllNotifications(locations: Location[]): Promise<void> {
   if (Platform.OS === 'web') return;
 
-  // Cancel everything in one shot
-  await Notifications.cancelAllScheduledNotificationsAsync();
+  // Cancel only restock-* identifiers so other notification types are unaffected
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  await Promise.all(
+    scheduled
+      .filter((n) => n.identifier.startsWith('restock-'))
+      .map((n) => Notifications.cancelScheduledNotificationAsync(n.identifier).catch(() => {}))
+  );
 
   // Re-schedule each location that has a restock period
   await Promise.all(

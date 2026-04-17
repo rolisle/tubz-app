@@ -758,13 +758,6 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     letterSpacing: -0.5,
   },
-  fab: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   headerAddBtn: {
     borderWidth: 1,
     borderRadius: 8,
@@ -772,12 +765,6 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   headerAddBtnText: { fontSize: 13, fontWeight: "600" },
-  fabIcon: {
-    color: "#fff",
-    fontSize: 22,
-    fontWeight: "400",
-    lineHeight: 24,
-  },
   subtitle: {
     paddingHorizontal: 20,
     fontSize: 13,

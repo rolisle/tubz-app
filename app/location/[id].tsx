@@ -1,11 +1,9 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   FlatList,
-  Image,
   KeyboardAvoidingView,
-  Linking,
   Modal,
   Platform,
   Pressable,
@@ -22,14 +20,17 @@ import { DatePickerModal } from "@/components/ui/date-picker-modal";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { GradView } from "@/components/ui/grad-view";
-import { PRODUCT_IMAGES } from "@/constants/product-images";
+import { HistoryEntryEditorModal } from "@/components/history-entry-editor-modal";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { MachineGrid } from "@/components/ui/machine-grid";
+import { RestockSessionModal } from "@/components/restock-session-modal";
 import { Colors } from "@/constants/theme";
 import { useApp } from "@/context/app-context";
 import { primaryColor, useSettings } from "@/context/settings-context";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-import type { Machine, MachineType, RestockMachineEntry, WeekDay } from "@/types";
+import type { Machine, MachineType, RestockEntry, RestockMachineEntry, WeekDay } from "@/types";
+import { OpenStatusBadge } from "@/components/ui/open-status-badge";
+import { openLocationInMaps } from "@/utils/maps";
 import {
   DAY_LABELS,
   getOpenStatus,
@@ -67,10 +68,10 @@ export default function LocationDetailScreen() {
   const colorScheme = useColorScheme() ?? "light";
   const colors = Colors[colorScheme];
   const { settings } = useSettings();
-  const MACHINE_COLORS: Record<MachineType, string> = {
+  const MACHINE_COLORS = useMemo<Record<MachineType, string>>(() => ({
     sweet: primaryColor(settings.sweetColor),
     toy: primaryColor(settings.toyColor),
-  };
+  }), [settings.sweetColor, settings.toyColor]);
   const router = useRouter();
 
   const location = useMemo(
@@ -84,7 +85,7 @@ export default function LocationDetailScreen() {
   const [postcode, setPostcode] = useState(location?.postcode ?? "");
   const [notes, setNotes] = useState(location?.notes ?? "");
   const [focusedField, setFocusedField] = useState<string | null>(null);
-  const accent = primaryColor(settings.accentColor);
+  const accent = useMemo(() => primaryColor(settings.accentColor), [settings.accentColor]);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [pickerDate, setPickerDate] = useState<Date>(
     location?.lastRestockedAt ? new Date(location.lastRestockedAt) : new Date(),
@@ -98,7 +99,7 @@ export default function LocationDetailScreen() {
   const [restockQtys, setRestockQtys] = useState<Record<string, Record<string, number>>>({});
 
   // Restock history editor
-  const [editingEntry, setEditingEntry] = useState<{ index: number; entry: import("@/types").RestockEntry } | null>(null);
+  const [editingEntry, setEditingEntry] = useState<{ index: number; entry: RestockEntry } | null>(null);
   const [editEntryDate, setEditEntryDate] = useState<Date>(new Date());
   const [editEntryQtys, setEditEntryQtys] = useState<Record<string, Record<string, number>>>({});
   const [showEditEntryDatePicker, setShowEditEntryDatePicker] = useState(false);
@@ -117,6 +118,24 @@ export default function LocationDetailScreen() {
     return result;
   });
   const [editErrors, setEditErrors] = useState<Record<string, string>>({});
+
+  // Reset local form fields whenever the location being viewed changes (e.g. after import)
+  useEffect(() => {
+    if (!location) return;
+    setName(location.name ?? "");
+    setAddress(location.address ?? "");
+    setCity(location.city ?? "");
+    setPostcode(location.postcode ?? "");
+    setNotes(location.notes ?? "");
+    const inputs: Record<string, { open: string; close: string }> = {};
+    WEEK_DAYS.forEach((day) => {
+      inputs[day] = {
+        open: location.openingHours?.[day]?.open ?? "09:00",
+        close: location.openingHours?.[day]?.close ?? "17:00",
+      };
+    });
+    setTimeInputs(inputs);
+  }, [location?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // UK postcode: AN NAA / ANN NAA / AAN NAA / AANN NAA / ANA NAA / AANA NAA
   const UK_POSTCODE = /^[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2}$/i;
@@ -231,6 +250,16 @@ export default function LocationDetailScreen() {
     );
   }
 
+  // Derived memos (safe to compute after the early-return guard above)
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const openStatus = useMemo(() => getOpenStatus(location.openingHours), [location.openingHours]);
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const historyListData = useMemo(
+    () => [...(location.restockHistory ?? [])].map((e, i) => ({ entry: e, originalIndex: i })).reverse(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [location.restockHistory?.length, location.restockHistory?.[location.restockHistory.length - 1]?.timestamp]
+  );
+
   const openRestockSession = () => {
     // Initialise all product quantities to 0
     const qtys: Record<string, Record<string, number>> = {};
@@ -273,15 +302,16 @@ export default function LocationDetailScreen() {
 
   const saveEditEntry = () => {
     if (!editingEntry) return;
-    const updated: import("@/types").RestockEntry = {
+    const updated: RestockEntry = {
       timestamp: editEntryDate.toISOString(),
-      machines: editingEntry.entry.machines.map((me) => ({
-        ...me,
-        products: me.products.map((p) => ({
-          ...p,
-          qty: editEntryQtys[me.machineId]?.[p.productId] ?? p.qty,
-        })),
-      })),
+      machines: editingEntry.entry.machines
+        .map((me) => ({
+          ...me,
+          products: me.products
+            .map((p) => ({ ...p, qty: editEntryQtys[me.machineId]?.[p.productId] ?? p.qty }))
+            .filter((p) => p.qty > 0),
+        }))
+        .filter((me) => me.products.length > 0),
     };
     editRestockEntry(location.id, editingEntry.index, updated);
     setEditingEntry(null);
@@ -410,7 +440,7 @@ export default function LocationDetailScreen() {
         >
           {/* Name + address header */}
           {(() => {
-            const status = getOpenStatus(location.openingHours);
+            const status = openStatus;
             return (
               <View style={styles.locationHeader}>
                 <Text
@@ -421,15 +451,7 @@ export default function LocationDetailScreen() {
                 </Text>
                 {location.address || location.city || location.postcode ? (
                   <TouchableOpacity
-                    onPress={() => {
-                      const q = [location.address, location.postcode]
-                        .filter(Boolean)
-                        .join(", ");
-                      if (q)
-                        Linking.openURL(
-                          `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`,
-                        );
-                    }}
+                    onPress={() => openLocationInMaps(location)}
                     activeOpacity={0.6}
                   >
                     <Text
@@ -448,36 +470,7 @@ export default function LocationDetailScreen() {
                     No address set
                   </Text>
                 )}
-                {status && (
-                  <View
-                    style={[
-                      styles.statusBadge,
-                      {
-                        backgroundColor: status.color + "18",
-                        borderColor: status.color + "44",
-                      },
-                    ]}
-                  >
-                    <View
-                      style={[
-                        styles.statusDot,
-                        { backgroundColor: status.color },
-                      ]}
-                    />
-                    <Text style={[styles.statusText, { color: status.color }]}>
-                      {status.isOpen ? "Open" : "Closed"}
-                      <Text
-                        style={[
-                          styles.statusSub,
-                          { color: status.color + "cc" },
-                        ]}
-                      >
-                        {" "}
-                        · {status.label}
-                      </Text>
-                    </Text>
-                  </View>
-                )}
+                {status && <OpenStatusBadge status={status} />}
               </View>
             );
           })()}
@@ -486,94 +479,6 @@ export default function LocationDetailScreen() {
 
           {/* Last restock row */}
           <View style={styles.restockRow}>
-            {/* Restock history modal */}
-            <Modal
-              visible={showHistory}
-              transparent
-              animationType="slide"
-              onRequestClose={() => setShowHistory(false)}
-            >
-              <Pressable
-                style={styles.historyOverlay}
-                onPress={() => setShowHistory(false)}
-              />
-              <View
-                style={[
-                  styles.historySheet,
-                  { backgroundColor: colors.card, borderColor: colors.border },
-                ]}
-              >
-                <View style={styles.historyHeader}>
-                  <Text style={[styles.historyTitle, { color: colors.text }]}>
-                    Restock History
-                  </Text>
-                  <TouchableOpacity
-                    onPress={() => setShowHistory(false)}
-                    hitSlop={8}
-                  >
-                    <Text style={[styles.historyClose, { color: accent }]}>
-                      Done
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-                <FlatList
-                  data={[...(location.restockHistory ?? [])].map((e, i) => ({ entry: e, originalIndex: i })).reverse()}
-                  keyExtractor={({ entry, originalIndex }) => `${entry.timestamp}-${originalIndex}`}
-                  contentContainerStyle={styles.historyList}
-                  renderItem={({ item: { entry, originalIndex }, index }) => {
-                    const total = location.restockHistory?.length ?? 0;
-                    const hasProducts = entry.machines?.some((m) => m.products.length > 0);
-                    return (
-                      <TouchableOpacity
-                        activeOpacity={0.75}
-                        style={[styles.historyRow, { borderBottomColor: colors.border }]}
-                        onPress={() => {
-                          setShowHistory(false);
-                          openEditEntry(originalIndex);
-                        }}
-                      >
-                        <Text style={[styles.historyIndex, { color: colors.subtext }]}>
-                          #{total - index}
-                        </Text>
-                        <View style={{ flex: 1 }}>
-                          <Text style={[styles.historyDate, { color: colors.text }]}>
-                            {new Date(entry.timestamp).toLocaleDateString("en-GB", {
-                              weekday: "short",
-                              day: "numeric",
-                              month: "short",
-                              year: "numeric",
-                            })}
-                          </Text>
-                          {hasProducts && entry.machines.map((me) => (
-                            me.products.length > 0 && (
-                              <View key={me.machineId} style={{ marginTop: 4 }}>
-                                <Text style={[styles.historyMachineLabel, { color: colors.subtext }]}>
-                                  {MACHINE_LABELS[me.machineType]}
-                                </Text>
-                                {me.products.map((p) => {
-                                  const product = state.products.find((pr) => pr.id === p.productId);
-                                  return (
-                                    <Text key={p.productId} style={[styles.historyProductLine, { color: colors.text }]}>
-                                      · {product?.name ?? p.productId} ×{p.qty}
-                                    </Text>
-                                  );
-                                })}
-                              </View>
-                            )
-                          ))}
-                        </View>
-                        <Text style={[styles.historyEditChevron, { color: colors.subtext }]}>›</Text>
-                      </TouchableOpacity>
-                    );
-                  }}
-                  ListEmptyComponent={
-                    <Text style={[styles.historyEmpty, { color: colors.subtext }]}>
-                      No history yet.
-                    </Text>
-                  }
-                />
-              </View>
-            </Modal>
             <TouchableOpacity
               style={styles.restockInfo}
               onPress={() => {
@@ -716,408 +621,6 @@ export default function LocationDetailScreen() {
             onCancel={() => setShowDatePicker(false)}
           />
 
-          {/* Edit location modal */}
-          <Modal
-            visible={showEditModal}
-            transparent
-            animationType="slide"
-            onRequestClose={cancelEdit}
-          >
-            <Pressable style={styles.editOverlay} onPress={cancelEdit} />
-            <KeyboardAvoidingView
-              style={styles.editSheetWrap}
-              behavior={Platform.OS === "ios" ? "padding" : "height"}
-            >
-              <View
-                style={[
-                  styles.editSheet,
-                  { backgroundColor: colors.card, borderColor: colors.border },
-                ]}
-              >
-                {/* Header */}
-                <View
-                  style={[
-                    styles.editSheetHeader,
-                    { borderBottomColor: colors.border },
-                  ]}
-                >
-                  <TouchableOpacity onPress={cancelEdit} hitSlop={8}>
-                    <Text
-                      style={[styles.editSheetCancel, { color: colors.danger }]}
-                    >
-                      Cancel
-                    </Text>
-                  </TouchableOpacity>
-                  <Text style={[styles.editSheetTitle, { color: colors.text }]}>
-                    Edit Location
-                  </Text>
-                  <TouchableOpacity onPress={saveEdit} hitSlop={8}>
-                    <Text style={[styles.editSheetSave, { color: accent }]}>
-                      Save
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-
-                <ScrollView
-                  contentContainerStyle={styles.editSheetContent}
-                  keyboardShouldPersistTaps="handled"
-                  showsVerticalScrollIndicator={false}
-                >
-                  {/* Name */}
-                  <Text
-                    style={[styles.editFieldLabel, { color: colors.subtext }]}
-                  >
-                    Name <Text style={{ color: "#ef4444" }}>*</Text>
-                  </Text>
-                  <TextInput
-                    style={[
-                      styles.editField,
-                      {
-                        color: colors.text,
-                        borderColor: editErrors.name
-                          ? "#ef4444"
-                          : focusedField === "eName"
-                            ? accent
-                            : colors.border,
-                        backgroundColor: colors.background,
-                      },
-                    ]}
-                    value={name}
-                    onChangeText={(v) => {
-                      setName(v);
-                      setEditErrors((e) => ({ ...e, name: "" }));
-                    }}
-                    onFocus={() => setFocusedField("eName")}
-                    onBlur={() => setFocusedField(null)}
-                    placeholder="Location name"
-                    placeholderTextColor={colors.subtext}
-                    selectionColor={`${accent}44`}
-                    cursorColor={accent}
-                    returnKeyType="next"
-                  />
-                  {editErrors.name ? (
-                    <Text style={styles.editFieldError}>{editErrors.name}</Text>
-                  ) : null}
-
-                  {/* Address */}
-                  <Text
-                    style={[styles.editFieldLabel, { color: colors.subtext }]}
-                  >
-                    Address <Text style={{ color: "#ef4444" }}>*</Text>
-                  </Text>
-                  <TextInput
-                    style={[
-                      styles.editField,
-                      {
-                        color: colors.text,
-                        borderColor: editErrors.address
-                          ? "#ef4444"
-                          : focusedField === "eAddress"
-                            ? accent
-                            : colors.border,
-                        backgroundColor: colors.background,
-                      },
-                    ]}
-                    value={address}
-                    onChangeText={(v) => {
-                      setAddress(v);
-                      setEditErrors((e) => ({ ...e, address: "" }));
-                    }}
-                    onFocus={() => setFocusedField("eAddress")}
-                    onBlur={() => setFocusedField(null)}
-                    placeholder="1st line of address"
-                    placeholderTextColor={colors.subtext}
-                    selectionColor={`${accent}44`}
-                    cursorColor={accent}
-                    returnKeyType="next"
-                  />
-                  {editErrors.address ? (
-                    <Text style={styles.editFieldError}>
-                      {editErrors.address}
-                    </Text>
-                  ) : null}
-
-                  {/* City + Postcode */}
-                  <View style={styles.editFieldRow}>
-                    <View style={{ flex: 1 }}>
-                      <TextInput
-                        style={[
-                          styles.editFieldHalf,
-                          {
-                            color: colors.text,
-                            borderColor: editErrors.city
-                              ? "#ef4444"
-                              : focusedField === "eCity"
-                                ? accent
-                                : colors.border,
-                            backgroundColor: colors.background,
-                          },
-                        ]}
-                        value={city}
-                        onChangeText={(v) => {
-                          setCity(v);
-                          setEditErrors((e) => ({ ...e, city: "" }));
-                        }}
-                        onFocus={() => setFocusedField("eCity")}
-                        onBlur={() => setFocusedField(null)}
-                        placeholder="City *"
-                        placeholderTextColor={colors.subtext}
-                        selectionColor={`${accent}44`}
-                        cursorColor={accent}
-                        returnKeyType="next"
-                      />
-                      {editErrors.city ? (
-                        <Text style={styles.editFieldError}>
-                          {editErrors.city}
-                        </Text>
-                      ) : null}
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <TextInput
-                        style={[
-                          styles.editFieldHalf,
-                          {
-                            color: colors.text,
-                            borderColor: editErrors.postcode
-                              ? "#ef4444"
-                              : focusedField === "ePostcode"
-                                ? accent
-                                : colors.border,
-                            backgroundColor: colors.background,
-                          },
-                        ]}
-                        value={postcode}
-                        onChangeText={(v) => {
-                          setPostcode(v);
-                          setEditErrors((e) => ({ ...e, postcode: "" }));
-                        }}
-                        onFocus={() => setFocusedField("ePostcode")}
-                        onBlur={() => setFocusedField(null)}
-                        placeholder="Postcode *"
-                        placeholderTextColor={colors.subtext}
-                        selectionColor={`${accent}44`}
-                        cursorColor={accent}
-                        returnKeyType="done"
-                        autoCapitalize="characters"
-                        autoCorrect={false}
-                      />
-                      {editErrors.postcode ? (
-                        <Text style={styles.editFieldError}>
-                          {editErrors.postcode}
-                        </Text>
-                      ) : null}
-                    </View>
-                  </View>
-                </ScrollView>
-              </View>
-            </KeyboardAvoidingView>
-          </Modal>
-
-          {/* Location menu (⋯) */}
-          <Modal
-            visible={showMenu}
-            transparent
-            animationType="slide"
-            onRequestClose={() => setShowMenu(false)}
-          >
-            <Pressable
-              style={styles.menuOverlay}
-              onPress={() => setShowMenu(false)}
-            />
-            <View
-              style={[
-                styles.menuSheet,
-                { backgroundColor: colors.card, borderColor: colors.border },
-              ]}
-            >
-              <View
-                style={[styles.menuHandle, { backgroundColor: colors.border }]}
-              />
-              {/* Edit address */}
-              <TouchableOpacity
-                style={[styles.menuItem, { borderBottomColor: colors.border }]}
-                onPress={() => {
-                  setShowMenu(false);
-                  openEdit();
-                }}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.menuItemIcon, { color: colors.subtext }]}>
-                  ✏️
-                </Text>
-                <Text style={[styles.menuItemLabel, { color: colors.text }]}>
-                  Edit address
-                </Text>
-              </TouchableOpacity>
-              {/* Edit opening hours */}
-              <TouchableOpacity
-                style={[styles.menuItem, { borderBottomColor: colors.border }]}
-                onPress={() => {
-                  setShowMenu(false);
-                  setShowOpeningHours(true);
-                }}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.menuItemIcon, { color: colors.subtext }]}>
-                  ⏰
-                </Text>
-                <Text style={[styles.menuItemLabel, { color: colors.text }]}>
-                  Edit opening hours
-                </Text>
-              </TouchableOpacity>
-              {/* Restock history */}
-              {(location.restockHistory?.length ?? 0) > 0 && (
-                <TouchableOpacity
-                  style={[
-                    styles.menuItem,
-                    { borderBottomColor: colors.border },
-                  ]}
-                  onPress={() => {
-                    setShowMenu(false);
-                    setShowHistory(true);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text
-                    style={[styles.menuItemIcon, { color: colors.subtext }]}
-                  >
-                    🕓
-                  </Text>
-                  <Text style={[styles.menuItemLabel, { color: colors.text }]}>
-                    Restock history
-                  </Text>
-                  <Text
-                    style={[styles.menuItemMeta, { color: colors.subtext }]}
-                  >
-                    {location.restockHistory?.length} entries
-                  </Text>
-                </TouchableOpacity>
-              )}
-              {/* Delete location */}
-              <TouchableOpacity
-                style={styles.menuItem}
-                onPress={() => {
-                  setShowMenu(false);
-                  handleDeleteLocation();
-                }}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.menuItemIcon, { color: "#ef4444" }]}>
-                  🗑️
-                </Text>
-                <Text style={[styles.menuItemLabel, { color: "#ef4444" }]}>
-                  Delete location
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.menuCancel,
-                  {
-                    backgroundColor: colors.background,
-                    borderColor: colors.border,
-                  },
-                ]}
-                onPress={() => setShowMenu(false)}
-                activeOpacity={0.7}
-              >
-                <Text
-                  style={[styles.menuCancelText, { color: colors.subtext }]}
-                >
-                  Cancel
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </Modal>
-
-          {/* Opening hours modal */}
-          <Modal
-            visible={showOpeningHours}
-            transparent
-            animationType="slide"
-            onRequestClose={() => setShowOpeningHours(false)}
-          >
-            <Pressable style={styles.menuOverlay} onPress={() => setShowOpeningHours(false)} />
-            <KeyboardAvoidingView
-              style={styles.editSheetWrap}
-              behavior={Platform.OS === "ios" ? "padding" : "height"}
-            >
-              <View style={[styles.editSheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <View style={[styles.editSheetHeader, { borderBottomColor: colors.border }]}>
-                  <Text style={[styles.editSheetTitle, { color: colors.text }]}>Opening Hours</Text>
-                  <TouchableOpacity onPress={() => setShowOpeningHours(false)} hitSlop={8}>
-                    <Text style={[styles.editSheetSave, { color: accent }]}>Done</Text>
-                  </TouchableOpacity>
-                </View>
-                <ScrollView
-                  contentContainerStyle={styles.hoursModalContent}
-                  keyboardShouldPersistTaps="handled"
-                  showsVerticalScrollIndicator={false}
-                >
-                  {WEEK_DAYS.map((day) => {
-                    const isEnabled = !!location.openingHours?.[day];
-                    return (
-                      <View key={day} style={[styles.hoursRow, { borderBottomColor: colors.border }]}>
-                        <Text style={[styles.hoursDay, { color: colors.text }]}>{DAY_LABELS[day]}</Text>
-                        <Switch
-                          value={isEnabled}
-                          onValueChange={(v) => toggleDay(day, v)}
-                          trackColor={{ true: accent, false: colors.border }}
-                          thumbColor="#fff"
-                        />
-                        {isEnabled ? (
-                          <View style={styles.hoursTimes}>
-                            <TextInput
-                              style={[styles.hoursTimeInput, {
-                                color: colors.text,
-                                borderColor: focusedField === `${day}_open` ? accent : colors.border,
-                                backgroundColor: colors.background,
-                              }]}
-                              value={timeInputs[day].open}
-                              onChangeText={(v) => setTimeInputs((p) => ({ ...p, [day]: { ...p[day], open: v } }))}
-                              onFocus={() => setFocusedField(`${day}_open`)}
-                              onBlur={() => { setFocusedField(null); handleTimeBlur(day, 'open'); }}
-                              placeholder="09:00"
-                              placeholderTextColor={colors.subtext}
-                              keyboardType="numbers-and-punctuation"
-                              maxLength={5}
-                              returnKeyType="next"
-                              selectionColor={`${accent}44`}
-                              cursorColor={accent}
-                              autoCorrect={false}
-                            />
-                            <Text style={[styles.hoursDash, { color: colors.subtext }]}>–</Text>
-                            <TextInput
-                              style={[styles.hoursTimeInput, {
-                                color: colors.text,
-                                borderColor: focusedField === `${day}_close` ? accent : colors.border,
-                                backgroundColor: colors.background,
-                              }]}
-                              value={timeInputs[day].close}
-                              onChangeText={(v) => setTimeInputs((p) => ({ ...p, [day]: { ...p[day], close: v } }))}
-                              onFocus={() => setFocusedField(`${day}_close`)}
-                              onBlur={() => { setFocusedField(null); handleTimeBlur(day, 'close'); }}
-                              placeholder="17:00"
-                              placeholderTextColor={colors.subtext}
-                              keyboardType="numbers-and-punctuation"
-                              maxLength={5}
-                              returnKeyType="done"
-                              selectionColor={`${accent}44`}
-                              cursorColor={accent}
-                              autoCorrect={false}
-                            />
-                          </View>
-                        ) : (
-                          <Text style={[styles.hoursClosed, { color: colors.subtext }]}>Closed</Text>
-                        )}
-                      </View>
-                    );
-                  })}
-                </ScrollView>
-              </View>
-            </KeyboardAvoidingView>
-          </Modal>
-
           {/* Divider */}
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
@@ -1254,365 +757,477 @@ export default function LocationDetailScreen() {
 
         </ScrollView>
 
-      {/* ── History Entry Editor (full-screen) ──────────────────── */}
+      {/* ── History modal ──────────────────────────────────────── */}
       <Modal
-        visible={!!editingEntry}
+        visible={showHistory}
+        transparent
         animationType="slide"
-        onRequestClose={() => { setEditingEntry(null); setShowHistory(true); }}
+        onRequestClose={() => setShowHistory(false)}
       >
-        <SafeAreaView style={[styles.rssSafe, { backgroundColor: colors.background }]}>
-          {/* Navbar */}
-          <View style={[styles.rssNavbar, { borderBottomColor: colors.border }]}>
-            <TouchableOpacity onPress={() => { setEditingEntry(null); setShowHistory(true); }} hitSlop={8}>
-              <Text style={[styles.rssCancel, { color: colors.subtext }]}>‹ Back</Text>
-            </TouchableOpacity>
-            <View>
-              <Text style={[styles.rssNavTitle, { color: colors.text }]}>Edit Entry</Text>
-              {editingEntry && (
-                <Text style={[styles.rssNavSub, { color: colors.subtext }]}>
-                  #{editingEntry.index + 1}
-                </Text>
-              )}
-            </View>
+        <Pressable
+          style={styles.historyOverlay}
+          onPress={() => setShowHistory(false)}
+        />
+        <View
+          style={[
+            styles.historySheet,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
+          <View style={styles.historyHeader}>
+            <Text style={[styles.historyTitle, { color: colors.text }]}>
+              Restock History
+            </Text>
             <TouchableOpacity
-              style={[styles.rssConfirmBtn, { backgroundColor: accent }]}
-              onPress={saveEditEntry}
+              onPress={() => setShowHistory(false)}
+              hitSlop={8}
             >
-              <Text style={styles.rssConfirmBtnText}>Save</Text>
+              <Text style={[styles.historyClose, { color: accent }]}>
+                Done
+              </Text>
             </TouchableOpacity>
           </View>
-
-          <ScrollView contentContainerStyle={styles.rssContent}>
-            {/* Date row */}
-            <TouchableOpacity
-              style={[styles.heDateRow, { backgroundColor: colors.card, borderColor: colors.border }]}
-              onPress={() => setShowEditEntryDatePicker(true)}
-            >
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.heDateLabel, { color: colors.subtext }]}>Date</Text>
-                <Text style={[styles.heDateValue, { color: colors.text }]}>
-                  {editEntryDate.toLocaleDateString("en-GB", {
-                    weekday: "long",
-                    day: "numeric",
-                    month: "long",
-                    year: "numeric",
-                  })}
-                </Text>
-              </View>
-              <Text style={[styles.historyEditChevron, { color: colors.subtext, fontSize: 22 }]}>›</Text>
-            </TouchableOpacity>
-
-            {/* Machine entries */}
-            {editingEntry && editingEntry.entry.machines.length === 0 && (
-              <Text style={[styles.rssEmptyNote, { color: colors.subtext, textAlign: "left", marginTop: 16 }]}>
-                No product data recorded for this session.
-              </Text>
-            )}
-            {editingEntry?.entry.machines.map((me) => {
-              const machineColorStr = MACHINE_COLORS[me.machineType];
-              const machineColorSetting = me.machineType === "sweet"
-                ? settings.sweetColor
-                : settings.toyColor;
-              const max = me.machineType === "toy" ? 12 : 9;
-
+          <FlatList
+            data={historyListData}
+            keyExtractor={({ entry, originalIndex }) => `${entry.timestamp}-${originalIndex}`}
+            contentContainerStyle={styles.historyList}
+            renderItem={({ item: { entry, originalIndex }, index }) => {
+              const total = location.restockHistory?.length ?? 0;
+              const hasProducts = entry.machines?.some((m) => m.products.length > 0);
               return (
-                <View
-                  key={me.machineId}
-                  style={[
-                    styles.rssMachineCard,
-                    {
-                      backgroundColor: colors.card,
-                      borderColor: machineColorStr + "55",
-                      borderLeftColor: machineColorStr,
-                      marginTop: 12,
-                    },
-                  ]}
+                <TouchableOpacity
+                  activeOpacity={0.75}
+                  style={[styles.historyRow, { borderBottomColor: colors.border }]}
+                  onPress={() => {
+                    setShowHistory(false);
+                    openEditEntry(originalIndex);
+                  }}
                 >
-                  <View style={[styles.rssMachineHeader, { overflow: "hidden" }]}>
-                    <GradView
-                      colors={machineColorSetting}
-                      style={[StyleSheet.absoluteFill, { opacity: 0.07 }]}
-                    />
-                    <Text style={[styles.rssMachineTitle, { color: machineColorStr }]}>
-                      {MACHINE_LABELS[me.machineType]}
+                  <Text style={[styles.historyIndex, { color: colors.subtext }]}>
+                    #{total - index}
+                  </Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.historyDate, { color: colors.text }]}>
+                      {new Date(entry.timestamp).toLocaleDateString("en-GB", {
+                        weekday: "short",
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })}
                     </Text>
+                    {hasProducts && entry.machines.map((me) => (
+                      me.products.length > 0 && (
+                        <View key={me.machineId} style={{ marginTop: 4 }}>
+                          <Text style={[styles.historyMachineLabel, { color: colors.subtext }]}>
+                            {MACHINE_LABELS[me.machineType]}
+                          </Text>
+                          {me.products.map((p) => {
+                            const product = state.products.find((pr) => pr.id === p.productId);
+                            return (
+                              <Text key={p.productId} style={[styles.historyProductLine, { color: colors.text }]}>
+                                · {product?.name ?? p.productId} ×{p.qty}
+                              </Text>
+                            );
+                          })}
+                        </View>
+                      )
+                    ))}
                   </View>
-
-                  {me.products.map((p) => {
-                    const product = state.products.find((pr) => pr.id === p.productId);
-                    const qty = editEntryQtys[me.machineId]?.[p.productId] ?? p.qty;
-                    const pct = qty / max;
-                    const barColor =
-                      pct === 0 ? colors.border :
-                      pct < 0.4 ? "#ef4444" :
-                      pct < 0.75 ? "#f59e0b" : "#22c55e";
-                    const imgSrc = product?.localImageUri
-                      ? { uri: product.localImageUri }
-                      : product ? PRODUCT_IMAGES[product.id] : undefined;
-
-                    return (
-                      <View
-                        key={p.productId}
-                        style={[styles.rssItemRow, { borderTopColor: colors.border }]}
-                      >
-                        {imgSrc ? (
-                          <Image source={imgSrc} style={styles.rssThumb} resizeMode="cover" />
-                        ) : (
-                          <Text style={styles.rssThumbEmoji}>
-                            {product?.emoji ?? (me.machineType === "sweet" ? "🍬" : "🪀")}
-                          </Text>
-                        )}
-                        <View style={styles.rssItemInfo}>
-                          <Text style={[styles.rssItemName, { color: colors.text }]} numberOfLines={1}>
-                            {product?.name ?? p.productId}
-                          </Text>
-                          <View style={[styles.rssBarTrack, { backgroundColor: colors.border }]}>
-                            <View style={[styles.rssBarFill, { width: `${pct * 100}%`, backgroundColor: barColor }]} />
-                          </View>
-                        </View>
-                        <View style={styles.rssCounter}>
-                          <TouchableOpacity
-                            onPress={() => setEditEntryQtys((prev) => ({
-                              ...prev,
-                              [me.machineId]: {
-                                ...prev[me.machineId],
-                                [p.productId]: Math.max(0, (prev[me.machineId]?.[p.productId] ?? p.qty) - 1),
-                              },
-                            }))}
-                            hitSlop={6}
-                            disabled={qty === 0}
-                            style={[styles.rssCounterBtn, { borderColor: colors.border, backgroundColor: colors.background, opacity: qty === 0 ? 0.3 : 1 }]}
-                          >
-                            <Text style={[styles.rssCounterBtnText, { color: colors.text }]}>−</Text>
-                          </TouchableOpacity>
-                          <Text style={[styles.rssCounterVal, { color: colors.text }]}>
-                            {qty}
-                            <Text style={[styles.rssCounterMax, { color: colors.subtext }]}>/{max}</Text>
-                          </Text>
-                          <TouchableOpacity
-                            onPress={() => setEditEntryQtys((prev) => ({
-                              ...prev,
-                              [me.machineId]: {
-                                ...prev[me.machineId],
-                                [p.productId]: Math.min(max, (prev[me.machineId]?.[p.productId] ?? p.qty) + 1),
-                              },
-                            }))}
-                            hitSlop={6}
-                            disabled={qty >= max}
-                            style={[styles.rssCounterBtn, { borderColor: colors.border, backgroundColor: colors.background, opacity: qty >= max ? 0.3 : 1 }]}
-                          >
-                            <Text style={[styles.rssCounterBtnText, { color: colors.text }]}>＋</Text>
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    );
-                  })}
-                </View>
+                  <Text style={[styles.historyEditChevron, { color: colors.subtext }]}>›</Text>
+                </TouchableOpacity>
               );
-            })}
-
-            {/* Delete entry */}
-            {editingEntry && (
-              <TouchableOpacity
-                style={[styles.heDeleteBtn, { borderColor: "#ef4444" }]}
-                onPress={() => handleDeleteEntry(editingEntry.index)}
-              >
-                <Text style={styles.heDeleteBtnText}>🗑 Delete this entry</Text>
-              </TouchableOpacity>
-            )}
-          </ScrollView>
-
-          {/* Inline date picker */}
-          <DatePickerModal
-            visible={showEditEntryDatePicker}
-            value={editEntryDate}
-            onConfirm={(d) => { setEditEntryDate(d); setShowEditEntryDatePicker(false); }}
-            onCancel={() => setShowEditEntryDatePicker(false)}
+            }}
+            ListEmptyComponent={
+              <Text style={[styles.historyEmpty, { color: colors.subtext }]}>
+                No history yet.
+              </Text>
+            }
           />
-        </SafeAreaView>
+        </View>
       </Modal>
 
-      {/* ── Restock Session Modal (full-screen) ─────────────────── */}
+      {/* ── Edit location modal ─────────────────────────────────── */}
       <Modal
-        visible={showRestockSession}
+        visible={showEditModal}
+        transparent
         animationType="slide"
-        onRequestClose={() => setShowRestockSession(false)}
+        onRequestClose={cancelEdit}
       >
-        <SafeAreaView style={[styles.rssSafe, { backgroundColor: colors.background }]}>
-          {/* Navbar */}
-          <View style={[styles.rssNavbar, { borderBottomColor: colors.border }]}>
-            <TouchableOpacity onPress={() => setShowRestockSession(false)} hitSlop={8}>
-              <Text style={[styles.rssCancel, { color: colors.subtext }]}>Cancel</Text>
-            </TouchableOpacity>
-            <View>
-              <Text style={[styles.rssNavTitle, { color: colors.text }]}>Restock</Text>
-              <Text style={[styles.rssNavSub, { color: colors.subtext }]}>{location.name}</Text>
-            </View>
-            <TouchableOpacity
-              style={[styles.rssConfirmBtn, { backgroundColor: accent }]}
-              onPress={completeRestockSession}
+        <Pressable style={styles.editOverlay} onPress={cancelEdit} />
+        <KeyboardAvoidingView
+          style={styles.editSheetWrap}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
+          <View
+            style={[
+              styles.editSheet,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <View
+              style={[
+                styles.editSheetHeader,
+                { borderBottomColor: colors.border },
+              ]}
             >
-              <Text style={styles.rssConfirmBtnText}>Done</Text>
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView contentContainerStyle={styles.rssContent}>
-            {location.machines.length === 0 ? (
-              <View style={styles.rssEmptyWrap}>
-                <Text style={styles.rssEmptyEmoji}>📦</Text>
-                <Text style={[styles.rssEmptyTitle, { color: colors.text }]}>No machines yet</Text>
-                <Text style={[styles.rssEmptyNote, { color: colors.subtext }]}>
-                  Add machines to this location first.
+              <TouchableOpacity onPress={cancelEdit} hitSlop={8}>
+                <Text
+                  style={[styles.editSheetCancel, { color: colors.danger }]}
+                >
+                  Cancel
                 </Text>
-              </View>
-            ) : (
-              location.machines.map((machine) => {
-                const productIds = Array.from(
-                  new Set(machine.slots.filter(Boolean) as string[])
-                );
-                const machineColorStr = MACHINE_COLORS[machine.type];
-                const machineColorSetting = machine.type === "sweet"
-                  ? settings.sweetColor
-                  : settings.toyColor;
-                const max = machine.type === "toy" ? 12 : 9;
-                const totalQty = productIds.reduce(
-                  (s, pid) => s + (restockQtys[machine.id]?.[pid] ?? 0), 0
-                );
+              </TouchableOpacity>
+              <Text style={[styles.editSheetTitle, { color: colors.text }]}>
+                Edit Location
+              </Text>
+              <TouchableOpacity onPress={saveEdit} hitSlop={8}>
+                <Text style={[styles.editSheetSave, { color: accent }]}>
+                  Save
+                </Text>
+              </TouchableOpacity>
+            </View>
 
-                return (
-                  <View
-                    key={machine.id}
+            <ScrollView
+              contentContainerStyle={styles.editSheetContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              <Text style={[styles.editFieldLabel, { color: colors.subtext }]}>
+                Name <Text style={{ color: "#ef4444" }}>*</Text>
+              </Text>
+              <TextInput
+                style={[
+                  styles.editField,
+                  {
+                    color: colors.text,
+                    borderColor: editErrors.name
+                      ? "#ef4444"
+                      : focusedField === "eName"
+                        ? accent
+                        : colors.border,
+                    backgroundColor: colors.background,
+                  },
+                ]}
+                value={name}
+                onChangeText={(v) => {
+                  setName(v);
+                  setEditErrors((e) => ({ ...e, name: "" }));
+                }}
+                onFocus={() => setFocusedField("eName")}
+                onBlur={() => setFocusedField(null)}
+                placeholder="Location name"
+                placeholderTextColor={colors.subtext}
+                selectionColor={`${accent}44`}
+                cursorColor={accent}
+                returnKeyType="next"
+              />
+              {editErrors.name ? (
+                <Text style={styles.editFieldError}>{editErrors.name}</Text>
+              ) : null}
+
+              <Text style={[styles.editFieldLabel, { color: colors.subtext }]}>
+                Address <Text style={{ color: "#ef4444" }}>*</Text>
+              </Text>
+              <TextInput
+                style={[
+                  styles.editField,
+                  {
+                    color: colors.text,
+                    borderColor: editErrors.address
+                      ? "#ef4444"
+                      : focusedField === "eAddress"
+                        ? accent
+                        : colors.border,
+                    backgroundColor: colors.background,
+                  },
+                ]}
+                value={address}
+                onChangeText={(v) => {
+                  setAddress(v);
+                  setEditErrors((e) => ({ ...e, address: "" }));
+                }}
+                onFocus={() => setFocusedField("eAddress")}
+                onBlur={() => setFocusedField(null)}
+                placeholder="1st line of address"
+                placeholderTextColor={colors.subtext}
+                selectionColor={`${accent}44`}
+                cursorColor={accent}
+                returnKeyType="next"
+              />
+              {editErrors.address ? (
+                <Text style={styles.editFieldError}>{editErrors.address}</Text>
+              ) : null}
+
+              <View style={styles.editFieldRow}>
+                <View style={{ flex: 1 }}>
+                  <TextInput
                     style={[
-                      styles.rssMachineCard,
+                      styles.editFieldHalf,
                       {
-                        backgroundColor: colors.card,
-                        borderColor: machineColorStr + "55",
-                        borderLeftColor: machineColorStr,
+                        color: colors.text,
+                        borderColor: editErrors.city
+                          ? "#ef4444"
+                          : focusedField === "eCity"
+                            ? accent
+                            : colors.border,
+                        backgroundColor: colors.background,
                       },
                     ]}
-                  >
-                    {/* Machine header */}
-                    <View style={[styles.rssMachineHeader, { overflow: "hidden" }]}>
-                      <GradView
-                        colors={machineColorSetting}
-                        style={[StyleSheet.absoluteFill, { opacity: 0.07 }]}
-                      />
-                      <View style={styles.rssMachineTitleRow}>
-                        <Text style={[styles.rssMachineTitle, { color: machineColorStr }]}>
-                          {MACHINE_LABELS[machine.type]}
-                        </Text>
-                        {totalQty > 0 && (
-                          <View style={[styles.rssTotalBadge, { backgroundColor: machineColorStr + "22" }]}>
-                            <Text style={[styles.rssTotalBadgeText, { color: machineColorStr }]}>
-                              {totalQty} total
-                            </Text>
-                          </View>
-                        )}
+                    value={city}
+                    onChangeText={(v) => {
+                      setCity(v);
+                      setEditErrors((e) => ({ ...e, city: "" }));
+                    }}
+                    onFocus={() => setFocusedField("eCity")}
+                    onBlur={() => setFocusedField(null)}
+                    placeholder="City *"
+                    placeholderTextColor={colors.subtext}
+                    selectionColor={`${accent}44`}
+                    cursorColor={accent}
+                    returnKeyType="next"
+                  />
+                  {editErrors.city ? (
+                    <Text style={styles.editFieldError}>{editErrors.city}</Text>
+                  ) : null}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <TextInput
+                    style={[
+                      styles.editFieldHalf,
+                      {
+                        color: colors.text,
+                        borderColor: editErrors.postcode
+                          ? "#ef4444"
+                          : focusedField === "ePostcode"
+                            ? accent
+                            : colors.border,
+                        backgroundColor: colors.background,
+                      },
+                    ]}
+                    value={postcode}
+                    onChangeText={(v) => {
+                      setPostcode(v);
+                      setEditErrors((e) => ({ ...e, postcode: "" }));
+                    }}
+                    onFocus={() => setFocusedField("ePostcode")}
+                    onBlur={() => setFocusedField(null)}
+                    placeholder="Postcode *"
+                    placeholderTextColor={colors.subtext}
+                    selectionColor={`${accent}44`}
+                    cursorColor={accent}
+                    returnKeyType="done"
+                    autoCapitalize="characters"
+                    autoCorrect={false}
+                  />
+                  {editErrors.postcode ? (
+                    <Text style={styles.editFieldError}>{editErrors.postcode}</Text>
+                  ) : null}
+                </View>
+              </View>
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* ── Location menu (⋯) ──────────────────────────────────── */}
+      <Modal
+        visible={showMenu}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowMenu(false)}
+      >
+        <Pressable
+          style={styles.menuOverlay}
+          onPress={() => setShowMenu(false)}
+        />
+        <View
+          style={[
+            styles.menuSheet,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
+          <View style={[styles.menuHandle, { backgroundColor: colors.border }]} />
+          <TouchableOpacity
+            style={[styles.menuItem, { borderBottomColor: colors.border }]}
+            onPress={() => { setShowMenu(false); openEdit(); }}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.menuItemIcon, { color: colors.subtext }]}>✏️</Text>
+            <Text style={[styles.menuItemLabel, { color: colors.text }]}>Edit address</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.menuItem, { borderBottomColor: colors.border }]}
+            onPress={() => { setShowMenu(false); setShowOpeningHours(true); }}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.menuItemIcon, { color: colors.subtext }]}>⏰</Text>
+            <Text style={[styles.menuItemLabel, { color: colors.text }]}>Edit opening hours</Text>
+          </TouchableOpacity>
+          {(location.restockHistory?.length ?? 0) > 0 && (
+            <TouchableOpacity
+              style={[styles.menuItem, { borderBottomColor: colors.border }]}
+              onPress={() => { setShowMenu(false); setShowHistory(true); }}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.menuItemIcon, { color: colors.subtext }]}>🕓</Text>
+              <Text style={[styles.menuItemLabel, { color: colors.text }]}>Restock history</Text>
+              <Text style={[styles.menuItemMeta, { color: colors.subtext }]}>
+                {location.restockHistory?.length} entries
+              </Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => { setShowMenu(false); handleDeleteLocation(); }}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.menuItemIcon, { color: "#ef4444" }]}>🗑️</Text>
+            <Text style={[styles.menuItemLabel, { color: "#ef4444" }]}>Delete location</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.menuCancel, { backgroundColor: colors.background, borderColor: colors.border }]}
+            onPress={() => setShowMenu(false)}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.menuCancelText, { color: colors.subtext }]}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
+
+      {/* ── Opening hours modal ─────────────────────────────────── */}
+      <Modal
+        visible={showOpeningHours}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowOpeningHours(false)}
+      >
+        <Pressable style={styles.menuOverlay} onPress={() => setShowOpeningHours(false)} />
+        <KeyboardAvoidingView
+          style={styles.editSheetWrap}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
+          <View style={[styles.editSheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={[styles.editSheetHeader, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.editSheetTitle, { color: colors.text }]}>Opening Hours</Text>
+              <TouchableOpacity onPress={() => setShowOpeningHours(false)} hitSlop={8}>
+                <Text style={[styles.editSheetSave, { color: accent }]}>Done</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView
+              contentContainerStyle={styles.hoursModalContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              {WEEK_DAYS.map((day) => {
+                const isEnabled = !!location.openingHours?.[day];
+                return (
+                  <View key={day} style={[styles.hoursRow, { borderBottomColor: colors.border }]}>
+                    <Text style={[styles.hoursDay, { color: colors.text }]}>{DAY_LABELS[day]}</Text>
+                    <Switch
+                      value={isEnabled}
+                      onValueChange={(v) => toggleDay(day, v)}
+                      trackColor={{ true: accent, false: colors.border }}
+                      thumbColor="#fff"
+                    />
+                    {isEnabled ? (
+                      <View style={styles.hoursTimes}>
+                        <TextInput
+                          style={[styles.hoursTimeInput, {
+                            color: colors.text,
+                            borderColor: focusedField === `${day}_open` ? accent : colors.border,
+                            backgroundColor: colors.background,
+                          }]}
+                          value={timeInputs[day].open}
+                          onChangeText={(v) => setTimeInputs((p) => ({ ...p, [day]: { ...p[day], open: v } }))}
+                          onFocus={() => setFocusedField(`${day}_open`)}
+                          onBlur={() => { setFocusedField(null); handleTimeBlur(day, 'open'); }}
+                          placeholder="09:00"
+                          placeholderTextColor={colors.subtext}
+                          keyboardType="numbers-and-punctuation"
+                          maxLength={5}
+                          returnKeyType="next"
+                          selectionColor={`${accent}44`}
+                          cursorColor={accent}
+                          autoCorrect={false}
+                        />
+                        <Text style={[styles.hoursDash, { color: colors.subtext }]}>–</Text>
+                        <TextInput
+                          style={[styles.hoursTimeInput, {
+                            color: colors.text,
+                            borderColor: focusedField === `${day}_close` ? accent : colors.border,
+                            backgroundColor: colors.background,
+                          }]}
+                          value={timeInputs[day].close}
+                          onChangeText={(v) => setTimeInputs((p) => ({ ...p, [day]: { ...p[day], close: v } }))}
+                          onFocus={() => setFocusedField(`${day}_close`)}
+                          onBlur={() => { setFocusedField(null); handleTimeBlur(day, 'close'); }}
+                          placeholder="17:00"
+                          placeholderTextColor={colors.subtext}
+                          keyboardType="numbers-and-punctuation"
+                          maxLength={5}
+                          returnKeyType="done"
+                          selectionColor={`${accent}44`}
+                          cursorColor={accent}
+                          autoCorrect={false}
+                        />
                       </View>
-                    </View>
-
-                    {/* Product rows */}
-                    {productIds.length === 0 ? (
-                      <Text style={[styles.rssEmptyMachine, { color: colors.subtext }]}>
-                        No products in this machine.
-                      </Text>
                     ) : (
-                      productIds.map((pid) => {
-                        const product = state.products.find((p) => p.id === pid);
-                        const qty = restockQtys[machine.id]?.[pid] ?? 0;
-                        const pct = qty / max;
-                        const barColor =
-                          pct === 0 ? colors.border :
-                          pct < 0.4 ? "#ef4444" :
-                          pct < 0.75 ? "#f59e0b" : "#22c55e";
-
-                        const imgSrc = product?.localImageUri
-                          ? { uri: product.localImageUri }
-                          : product ? PRODUCT_IMAGES[product.id] : undefined;
-
-                        return (
-                          <View
-                            key={pid}
-                            style={[
-                              styles.rssItemRow,
-                              { borderTopColor: colors.border },
-                            ]}
-                          >
-                            {/* Thumbnail */}
-                            {imgSrc ? (
-                              <Image source={imgSrc} style={styles.rssThumb} resizeMode="cover" />
-                            ) : (
-                              <Text style={styles.rssThumbEmoji}>
-                                {product?.emoji ?? (machine.type === "sweet" ? "🍬" : "🪀")}
-                              </Text>
-                            )}
-
-                            {/* Name + bar */}
-                            <View style={styles.rssItemInfo}>
-                              <Text style={[styles.rssItemName, { color: colors.text }]} numberOfLines={1}>
-                                {product?.name ?? pid}
-                              </Text>
-                              <View style={[styles.rssBarTrack, { backgroundColor: colors.border }]}>
-                                <View style={[styles.rssBarFill, { width: `${pct * 100}%`, backgroundColor: barColor }]} />
-                              </View>
-                            </View>
-
-                            {/* Counter */}
-                            <View style={styles.rssCounter}>
-                              <TouchableOpacity
-                                onPress={() =>
-                                  setRestockQtys((prev) => ({
-                                    ...prev,
-                                    [machine.id]: {
-                                      ...prev[machine.id],
-                                      [pid]: Math.max(0, (prev[machine.id]?.[pid] ?? 0) - 1),
-                                    },
-                                  }))
-                                }
-                                hitSlop={6}
-                                disabled={qty === 0}
-                                style={[
-                                  styles.rssCounterBtn,
-                                  { borderColor: colors.border, backgroundColor: colors.background, opacity: qty === 0 ? 0.3 : 1 },
-                                ]}
-                              >
-                                <Text style={[styles.rssCounterBtnText, { color: colors.text }]}>−</Text>
-                              </TouchableOpacity>
-                              <Text style={[styles.rssCounterVal, { color: colors.text }]}>
-                                {qty}
-                                <Text style={[styles.rssCounterMax, { color: colors.subtext }]}>/{max}</Text>
-                              </Text>
-                              <TouchableOpacity
-                                onPress={() =>
-                                  setRestockQtys((prev) => ({
-                                    ...prev,
-                                    [machine.id]: {
-                                      ...prev[machine.id],
-                                      [pid]: Math.min(max, (prev[machine.id]?.[pid] ?? 0) + 1),
-                                    },
-                                  }))
-                                }
-                                hitSlop={6}
-                                disabled={qty >= max}
-                                style={[
-                                  styles.rssCounterBtn,
-                                  { borderColor: colors.border, backgroundColor: colors.background, opacity: qty >= max ? 0.3 : 1 },
-                                ]}
-                              >
-                                <Text style={[styles.rssCounterBtnText, { color: colors.text }]}>＋</Text>
-                              </TouchableOpacity>
-                            </View>
-                          </View>
-                        );
-                      })
+                      <Text style={[styles.hoursClosed, { color: colors.subtext }]}>Closed</Text>
                     )}
                   </View>
                 );
-              })
-            )}
-          </ScrollView>
-        </SafeAreaView>
+              })}
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
       </Modal>
+
+      {/* ── History Entry Editor (full-screen) ──────────────────── */}
+      <HistoryEntryEditorModal
+        editingEntry={editingEntry}
+        onClose={() => { setEditingEntry(null); setShowHistory(true); }}
+        onSave={saveEditEntry}
+        onDelete={handleDeleteEntry}
+        editEntryDate={editEntryDate}
+        onDateChange={setEditEntryDate}
+        editEntryQtys={editEntryQtys}
+        onChangeQty={(machineId, productId, delta) => {
+          setEditEntryQtys((prev) => {
+            const current = prev[machineId]?.[productId] ?? (editingEntry?.entry.machines.find(m => m.machineId === machineId)?.products.find(p => p.productId === productId)?.qty ?? 0);
+            const max = editingEntry?.entry.machines.find(m => m.machineId === machineId)?.machineType === "toy" ? 12 : 9;
+            return { ...prev, [machineId]: { ...prev[machineId], [productId]: Math.min(max, Math.max(0, current + delta)) } };
+          });
+        }}
+        showDatePicker={showEditEntryDatePicker}
+        onShowDatePicker={setShowEditEntryDatePicker}
+        machineColors={MACHINE_COLORS}
+        machineColorSettings={{ sweet: settings.sweetColor, toy: settings.toyColor }}
+        products={state.products}
+        accent={accent}
+        colors={colors}
+      />
+
+      {/* ── Restock Session Modal (full-screen) ─────────────────── */}
+      <RestockSessionModal
+        visible={showRestockSession}
+        onClose={() => setShowRestockSession(false)}
+        onComplete={completeRestockSession}
+        locationName={location.name}
+        machines={location.machines}
+        products={state.products}
+        machineColors={MACHINE_COLORS}
+        machineColorSettings={{ sweet: settings.sweetColor, toy: settings.toyColor }}
+        restockQtys={restockQtys}
+        onChangeQty={(machineId, productId, delta) => {
+          setRestockQtys((prev) => {
+            const max = location.machines.find(m => m.id === machineId)?.type === "toy" ? 12 : 9;
+            const current = prev[machineId]?.[productId] ?? 0;
+            return { ...prev, [machineId]: { ...prev[machineId], [productId]: Math.min(max, Math.max(0, current + delta)) } };
+          });
+        }}
+        accent={accent}
+        colors={colors}
+      />
 
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -1708,21 +1323,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     minHeight: 96,
   },
-  // Status badge
-  statusBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    alignSelf: "flex-start",
-    gap: 6,
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    marginTop: 4,
-  },
-  statusDot: { width: 7, height: 7, borderRadius: 4 },
-  statusText: { fontSize: 13, fontWeight: "600" },
-  statusSub: { fontWeight: "400" },
   // Opening hours editor
   hoursModalContent: { paddingHorizontal: 20, paddingBottom: 40 },
   hoursRow: {
@@ -1892,96 +1492,7 @@ const styles = StyleSheet.create({
   historyProductLine: { fontSize: 13, paddingLeft: 4 },
   historyEmpty: { textAlign: "center", paddingTop: 32, fontSize: 14 },
   historyEditChevron: { fontSize: 20, fontWeight: "300" },
-  // History entry editor
-  heDateRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  heDateLabel: { fontSize: 11, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 2 },
-  heDateValue: { fontSize: 16, fontWeight: "600" },
-  heDeleteBtn: {
-    marginTop: 24,
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: "center",
-  },
-  heDeleteBtnText: { fontSize: 15, fontWeight: "600", color: "#ef4444" },
-  // ── Restock session (full-screen modal) ───────────────────────
-  rssSafe: { flex: 1 },
-  rssNavbar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  rssCancel: { fontSize: 15, fontWeight: "500" },
-  rssNavTitle: { fontSize: 17, fontWeight: "700", textAlign: "center" },
-  rssNavSub: { fontSize: 12, textAlign: "center" },
-  rssConfirmBtn: { borderRadius: 10, paddingHorizontal: 16, paddingVertical: 8 },
-  rssConfirmBtnText: { fontSize: 14, fontWeight: "700", color: "#000" },
-  rssContent: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 60 },
-  // Empty state
-  rssEmptyWrap: { alignItems: "center", paddingTop: 60, gap: 8 },
-  rssEmptyEmoji: { fontSize: 48, marginBottom: 4 },
-  rssEmptyTitle: { fontSize: 18, fontWeight: "700" },
-  rssEmptyNote: { fontSize: 14, textAlign: "center", lineHeight: 20, maxWidth: 280 },
-  // Machine card (mirrors restock tab)
-  rssMachineCard: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderLeftWidth: 3,
-    marginBottom: 12,
-    overflow: "hidden",
-  },
-  rssMachineHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  rssMachineTitleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  rssMachineTitle: { fontSize: 15, fontWeight: "700" },
-  rssTotalBadge: { borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 },
-  rssTotalBadgeText: { fontSize: 11, fontWeight: "700" },
-  rssEmptyMachine: { fontSize: 13, paddingHorizontal: 14, paddingBottom: 10 },
-  // Item row
-  rssItemRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderTopWidth: StyleSheet.hairlineWidth,
-  },
-  rssThumb: { width: 50, height: 50, borderRadius: 6 },
-  rssThumbEmoji: { fontSize: 34, width: 50, textAlign: "center", lineHeight: 50 },
-  rssItemInfo: { flex: 1, gap: 5 },
-  rssItemName: { fontSize: 13, fontWeight: "500" },
-  rssBarTrack: { height: 4, borderRadius: 2, overflow: "hidden" },
-  rssBarFill: { height: 4, borderRadius: 2 },
-  // Counter
-  rssCounter: { flexDirection: "row", alignItems: "center", gap: 6 },
-  rssCounterBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 7,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  rssCounterBtnText: { fontSize: 16, lineHeight: 16, includeFontPadding: false, fontWeight: "500" },
-  rssCounterVal: { fontSize: 15, fontWeight: "700", minWidth: 32, textAlign: "center" },
-  rssCounterMax: { fontSize: 11, fontWeight: "400" },
   divider: { height: StyleSheet.hairlineWidth, marginVertical: 20 },
-  sectionLabel: { fontSize: 17, fontWeight: "700", marginBottom: 4 },
   sectionNote: { fontSize: 13, marginBottom: 12, lineHeight: 18 },
   machineCard: {
     borderRadius: 14,

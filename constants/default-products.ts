@@ -56,11 +56,6 @@ export const DEFAULT_PRODUCTS: Product[] = [
   p("slush-puppie-chewbies", "Slush Puppie Chewbies", "🧊", "sweet"),
   p("slush-puppie-shock-rocks", "Slush Puppie Shock Rocks", "⚡", "sweet"),
   p("minions-stickers-candy", "Minions Stickers & Candy", "💛", "sweet"),
-  p("pringles-original", "Pringles Original", "🥫", "sweet"),
-  p("pringles-salt-vinegar", "Pringles Salt & Vinegar", "🥫", "sweet"),
-  p("pringles-texas-bbq", "Pringles Texas BBQ", "🥫", "sweet"),
-  p("pringles-paprika", "Pringles Paprika", "🥫", "sweet"),
-  p("pringles-sour-cream", "Pringles Sour Cream", "🥫", "sweet"),
 
   // ─── Toys ──────────────────────────────────────────────────────────────────
   p("animal-fidget-poppers", "Animal Fidget Poppers", "🐾", "toy"),
@@ -107,7 +102,6 @@ export const DEFAULT_PRODUCTS: Product[] = [
   p("stretchy-pets", "Stretchy Pets", "🐾", "toy"),
   p("superthings-rescue-force", "SuperThings Rescue Force", "🦸", "toy"),
   p("topps-slam-attax", "Topps Slam Attax Trading Cards", "🃏", "toy"),
-  p("trolls-puzzle-palz", "Trolls World Tour Puzzle Palz", "🎵", "toy"),
   p("tubz-electric-string", "Electric String", "⚡", "toy"),
   p("tubz-flashing-emoji-balls", "Flashing Emoji Balls", "😊", "toy"),
   p("tubz-flashing-monsters", "Flashing Monsters", "👾", "toy"),
