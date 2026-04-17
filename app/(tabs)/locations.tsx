@@ -90,11 +90,14 @@ function AddLocationModal({ visible, onClose, colors }: AddLocationModalProps) {
   const [postcode, setPostcode] = useState("");
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
+  const UK_POSTCODE = /^[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2}$/i;
+  const postcodeValid = UK_POSTCODE.test(postcode.trim());
+
   const isValid =
     name.trim().length > 0 &&
     address.trim().length > 0 &&
     city.trim().length > 0 &&
-    postcode.trim().length > 0;
+    postcodeValid;
 
   const [submitted, setSubmitted] = useState(false);
 
@@ -105,7 +108,7 @@ function AddLocationModal({ visible, onClose, colors }: AddLocationModalProps) {
       name: name.trim(),
       address: address.trim(),
       city: city.trim(),
-      postcode: postcode.trim(),
+      postcode: postcode.trim().toUpperCase(),
       lastRestockedAt: null,
       machines: [],
       notes: undefined,
@@ -118,14 +121,14 @@ function AddLocationModal({ visible, onClose, colors }: AddLocationModalProps) {
     onClose();
   };
 
-  const inputStyle = (value: string, field: string) => [
+  const inputStyle = (value: string, field: string, invalid = false) => [
     styles.input,
     {
       color: colors.text,
       backgroundColor: colors.background,
       borderColor:
-        submitted && !value.trim()
-          ? "#ef4444"
+        submitted && invalid
+          ? colors.danger
           : focusedField === field
             ? accent
             : colors.border,
@@ -152,10 +155,10 @@ function AddLocationModal({ visible, onClose, colors }: AddLocationModalProps) {
         </Text>
 
         <Text style={[styles.fieldLabel, { color: colors.subtext }]}>
-          Name <Text style={{ color: "#ef4444" }}>*</Text>
+          Name <Text style={{ color: colors.danger }}>*</Text>
         </Text>
         <TextInput
-          style={inputStyle(name, "name")}
+          style={inputStyle(name, "name", !name.trim())}
           placeholder="e.g. Westfield Food Court"
           placeholderTextColor={colors.subtext}
           value={name}
@@ -172,10 +175,10 @@ function AddLocationModal({ visible, onClose, colors }: AddLocationModalProps) {
         )}
 
         <Text style={[styles.fieldLabel, { color: colors.subtext }]}>
-          Address <Text style={{ color: "#ef4444" }}>*</Text>
+          Address <Text style={{ color: colors.danger }}>*</Text>
         </Text>
         <TextInput
-          style={inputStyle(address, "address")}
+          style={inputStyle(address, "address", !address.trim())}
           placeholder="1st line of address"
           placeholderTextColor={colors.subtext}
           value={address}
@@ -193,7 +196,7 @@ function AddLocationModal({ visible, onClose, colors }: AddLocationModalProps) {
         <View style={styles.inputRow}>
           <View style={styles.inputFlex}>
             <TextInput
-              style={inputStyle(city, "city")}
+              style={inputStyle(city, "city", !city.trim())}
               placeholder="City"
               placeholderTextColor={colors.subtext}
               value={city}
@@ -210,7 +213,7 @@ function AddLocationModal({ visible, onClose, colors }: AddLocationModalProps) {
           </View>
           <View style={styles.inputPostcode}>
             <TextInput
-              style={inputStyle(postcode, "postcode")}
+              style={inputStyle(postcode, "postcode", !postcodeValid)}
               placeholder="Postcode"
               placeholderTextColor={colors.subtext}
               value={postcode}
@@ -225,6 +228,9 @@ function AddLocationModal({ visible, onClose, colors }: AddLocationModalProps) {
             />
             {submitted && !postcode.trim() && (
               <Text style={styles.errorText}>Required</Text>
+            )}
+            {submitted && postcode.trim() && !postcodeValid && (
+              <Text style={styles.errorText}>Invalid UK postcode</Text>
             )}
           </View>
         </View>

@@ -4,6 +4,7 @@ import {
   Alert,
   FlatList,
   KeyboardAvoidingView,
+  Linking,
   Modal,
   Platform,
   Pressable,
@@ -34,7 +35,7 @@ const MACHINE_LABELS: Record<MachineType, string> = {
 
 function formatDate(iso: string | null): string {
   if (!iso) return "Never";
-  return new Date(iso).toLocaleDateString("en-AU", {
+  return new Date(iso).toLocaleDateString("en-GB", {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -78,6 +79,49 @@ export default function LocationDetailScreen() {
     location?.lastRestockedAt ? new Date(location.lastRestockedAt) : new Date(),
   );
   const [showHistory, setShowHistory] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [editErrors, setEditErrors] = useState<Record<string, string>>({});
+
+  // UK postcode: AN NAA / ANN NAA / AAN NAA / AANN NAA / ANA NAA / AANA NAA
+  const UK_POSTCODE = /^[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2}$/i;
+
+  const openEdit = () => {
+    setName(location?.name ?? "");
+    setAddress(location?.address ?? "");
+    setCity(location?.city ?? "");
+    setPostcode(location?.postcode ?? "");
+    setNotes(location?.notes ?? "");
+    setEditErrors({});
+    setShowEditModal(true);
+  };
+
+  const saveEdit = () => {
+    if (!location) return;
+    const errs: Record<string, string> = {};
+    if (!name.trim()) errs.name = "Name is required.";
+    if (!address.trim()) errs.address = "Address is required.";
+    if (!city.trim()) errs.city = "City is required.";
+    if (!postcode.trim()) {
+      errs.postcode = "Postcode is required.";
+    } else if (!UK_POSTCODE.test(postcode.trim())) {
+      errs.postcode = "Enter a valid UK postcode.";
+    }
+    if (Object.keys(errs).length) { setEditErrors(errs); return; }
+    updateLocation({
+      ...location,
+      name: name.trim(),
+      address: address.trim(),
+      city: city.trim(),
+      postcode: postcode.trim().toUpperCase(),
+    });
+    setShowEditModal(false);
+  };
+
+  const cancelEdit = () => {
+    setEditErrors({});
+    setShowEditModal(false);
+  };
 
   const handleMachineUpdate = useCallback(
     (machine: Machine) => updateMachine(location?.id ?? "", machine),
@@ -116,15 +160,6 @@ export default function LocationDetailScreen() {
       </SafeAreaView>
     );
   }
-
-  const saveField = (
-    field: "name" | "address" | "city" | "postcode" | "notes",
-    value: string,
-  ) => {
-    const trimmed = value.trim();
-    if (field === "name" && !trimmed) return;
-    updateLocation({ ...location, [field]: trimmed || undefined });
-  };
 
   const handleRestock = () => {
     restockLocation(location.id);
@@ -212,9 +247,21 @@ export default function LocationDetailScreen() {
               Back
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={handleDeleteLocation} hitSlop={8}>
-            <Text style={{ color: "#ef4444", fontSize: 14, fontWeight: "500" }}>
-              Delete
+          <TouchableOpacity
+            onPress={() => setShowMenu(true)}
+            hitSlop={8}
+            style={[
+              styles.menuBtn,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <Text
+              style={[
+                styles.menuBtnIcon,
+                { color: primaryColor(settings.accentColor) },
+              ]}
+            >
+              ⚙️
             </Text>
           </TouchableOpacity>
         </View>
@@ -224,118 +271,42 @@ export default function LocationDetailScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Name */}
-          <TextInput
-            style={[
-              styles.nameInput,
-              {
-                color: colors.text,
-                borderBottomColor:
-                  focusedField === "name" ? accent : "transparent",
-              },
-            ]}
-            value={name}
-            onChangeText={setName}
-            onFocus={() => setFocusedField("name")}
-            onBlur={() => {
-              setFocusedField(null);
-              saveField("name", name);
-            }}
-            placeholder="Location name"
-            placeholderTextColor={colors.subtext}
-            selectionColor={`${accent}44`}
-            cursorColor={accent}
-            returnKeyType="done"
-          />
-
-          {/* Address */}
-          <TextInput
-            style={[
-              styles.addressInput,
-              {
-                color: colors.text,
-                borderBottomColor:
-                  focusedField === "address" ? accent : "transparent",
-              },
-            ]}
-            value={address}
-            onChangeText={setAddress}
-            onFocus={() => setFocusedField("address")}
-            onBlur={() => {
-              setFocusedField(null);
-              saveField("address", address);
-            }}
-            placeholder="1st line of address"
-            placeholderTextColor={colors.subtext}
-            selectionColor={`${accent}44`}
-            cursorColor={accent}
-            returnKeyType="next"
-          />
-          <View style={styles.addressRow}>
-            <TextInput
-              style={[
-                styles.addressInputHalf,
-                {
-                  color: colors.text,
-                  borderBottomColor:
-                    focusedField === "city" ? accent : "transparent",
-                },
-              ]}
-              value={city}
-              onChangeText={setCity}
-              onFocus={() => setFocusedField("city")}
-              onBlur={() => {
-                setFocusedField(null);
-                saveField("city", city);
-              }}
-              placeholder="City"
-              placeholderTextColor={colors.subtext}
-              selectionColor={`${accent}44`}
-              cursorColor={accent}
-              returnKeyType="next"
-            />
-            <TextInput
-              style={[
-                styles.addressInputHalf,
-                {
-                  color: colors.text,
-                  borderBottomColor:
-                    focusedField === "postcode" ? accent : "transparent",
-                },
-              ]}
-              value={postcode}
-              onChangeText={setPostcode}
-              onFocus={() => setFocusedField("postcode")}
-              onBlur={() => {
-                setFocusedField(null);
-                saveField("postcode", postcode);
-              }}
-              placeholder="Postcode"
-              placeholderTextColor={colors.subtext}
-              selectionColor={`${accent}44`}
-              cursorColor={accent}
-              returnKeyType="done"
-              autoCapitalize="characters"
-            />
+          {/* Name + address header */}
+          <View style={styles.locationHeader}>
+            <Text
+              style={[styles.locationName, { color: colors.text }]}
+              numberOfLines={2}
+            >
+              {location.name}
+            </Text>
+            {location.address || location.city || location.postcode ? (
+              <TouchableOpacity
+                onPress={() => {
+                  const q = [location.address, location.postcode].filter(Boolean).join(", ");
+                  if (q) Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`);
+                }}
+                activeOpacity={0.6}
+              >
+                <Text
+                  style={[styles.addressLine, { color: colors.subtext }]}
+                  numberOfLines={1}
+                >
+                  {[location.address, location.city, location.postcode]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <Text style={[styles.addressEmpty, { color: colors.subtext }]}>
+                No address set
+              </Text>
+            )}
           </View>
+
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
           {/* Last restock row */}
           <View style={styles.restockRow}>
-            {(location.restockHistory?.length ?? 0) > 0 && (
-              <TouchableOpacity
-                onPress={() => setShowHistory(true)}
-                style={[
-                  styles.historyBtn,
-                  { backgroundColor: colors.card, borderColor: colors.border },
-                ]}
-              >
-                <Text
-                  style={[styles.historyBtnText, { color: colors.subtext }]}
-                >
-                  🕓
-                </Text>
-              </TouchableOpacity>
-            )}
             {/* Restock history modal */}
             <Modal
               visible={showHistory}
@@ -361,9 +332,7 @@ export default function LocationDetailScreen() {
                     onPress={() => setShowHistory(false)}
                     hitSlop={8}
                   >
-                    <Text
-                      style={[styles.historyClose, { color: accent }]}
-                    >
+                    <Text style={[styles.historyClose, { color: accent }]}>
                       Done
                     </Text>
                   </TouchableOpacity>
@@ -387,7 +356,7 @@ export default function LocationDetailScreen() {
                       <Text
                         style={[styles.historyDate, { color: colors.text }]}
                       >
-                        {new Date(item).toLocaleDateString("en-AU", {
+                        {new Date(item).toLocaleDateString("en-GB", {
                           weekday: "short",
                           day: "numeric",
                           month: "short",
@@ -406,16 +375,49 @@ export default function LocationDetailScreen() {
                 />
               </View>
             </Modal>
-            <View style={styles.restockInfo}>
-              <Text style={[styles.restockMeta, { color: colors.subtext }]}>
+            <TouchableOpacity
+              style={styles.restockInfo}
+              onPress={() => {
+                setShowMenu(false);
+                setShowHistory(true);
+              }}
+            >
+              <Text style={[styles.restockMeta, { color: colors.text }]}>
                 Last restocked
               </Text>
-              <Text style={[styles.restockDate, { color: colors.text }]}>
+              <Text
+                style={[
+                  styles.restockDate,
+                  { color: primaryColor(settings.accentColor) },
+                ]}
+              >
                 {location.lastRestockedAt
                   ? formatDate(location.lastRestockedAt)
                   : "Never"}
               </Text>
-            </View>
+            </TouchableOpacity>
+            {/* Restock button */}
+            <TouchableOpacity
+              style={[
+                styles.restockBtn,
+                {
+                  backgroundColor: colors.card,
+                  borderColor: primaryColor(settings.accentColor),
+                },
+              ]}
+              onPress={handleRestock}
+            >
+              <Text
+                style={[
+                  styles.restockBtnText,
+                  { color: primaryColor(settings.accentColor) },
+                ]}
+              >
+                ✓ Mark Restocked Now
+              </Text>
+            </TouchableOpacity>
+
+            {/* Edit date button */}
             <TouchableOpacity
               onPress={() => {
                 setPickerDate(
@@ -439,7 +441,7 @@ export default function LocationDetailScreen() {
           {/* Restock period */}
           <View style={styles.periodSection}>
             <View style={styles.periodLabelRow}>
-              <Text style={[styles.periodLabel, { color: colors.subtext }]}>
+              <Text style={[styles.periodLabel, { color: colors.text }]}>
                 Restock every
               </Text>
               {location.restockPeriodWeeks && (
@@ -452,7 +454,7 @@ export default function LocationDetailScreen() {
                     })
                   }
                 >
-                  <Text style={[styles.periodClear, { color: colors.subtext }]}>
+                  <Text style={[styles.periodClear, { color: colors.danger }]}>
                     Clear
                   </Text>
                 </TouchableOpacity>
@@ -508,36 +510,264 @@ export default function LocationDetailScreen() {
             </ScrollView>
           </View>
 
-          {/* Restock button row */}
-          <View style={styles.restockBtnRow}>
-            <TouchableOpacity
-              style={[
-                styles.restockBtn,
-                {
-                  flex: 1,
-                  backgroundColor: colors.card,
-                  borderColor: primaryColor(settings.accentColor),
-                },
-              ]}
-              onPress={handleRestock}
-            >
-              <Text
-                style={[
-                  styles.restockBtnText,
-                  { color: primaryColor(settings.accentColor) },
-                ]}
-              >
-                ✓ Mark Restocked Now
-              </Text>
-            </TouchableOpacity>
-          </View>
-
           <DatePickerModal
             visible={showDatePicker}
             value={pickerDate}
             onConfirm={handleConfirmDate}
             onCancel={() => setShowDatePicker(false)}
           />
+
+          {/* Edit location modal */}
+          <Modal
+            visible={showEditModal}
+            transparent
+            animationType="slide"
+            onRequestClose={cancelEdit}
+          >
+            <Pressable style={styles.editOverlay} onPress={cancelEdit} />
+            <KeyboardAvoidingView
+              style={styles.editSheetWrap}
+              behavior={Platform.OS === "ios" ? "padding" : "height"}
+            >
+              <View
+                style={[
+                  styles.editSheet,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
+              >
+                {/* Header */}
+                <View
+                  style={[
+                    styles.editSheetHeader,
+                    { borderBottomColor: colors.border },
+                  ]}
+                >
+                  <TouchableOpacity onPress={cancelEdit} hitSlop={8}>
+                    <Text
+                      style={[styles.editSheetCancel, { color: colors.danger }]}
+                    >
+                      Cancel
+                    </Text>
+                  </TouchableOpacity>
+                  <Text style={[styles.editSheetTitle, { color: colors.text }]}>
+                    Edit Location
+                  </Text>
+                  <TouchableOpacity onPress={saveEdit} hitSlop={8}>
+                    <Text style={[styles.editSheetSave, { color: accent }]}>
+                      Save
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                <ScrollView
+                  contentContainerStyle={styles.editSheetContent}
+                  keyboardShouldPersistTaps="handled"
+                  showsVerticalScrollIndicator={false}
+                >
+                  {/* Name */}
+                  <Text style={[styles.editFieldLabel, { color: colors.subtext }]}>
+                    Name <Text style={{ color: '#ef4444' }}>*</Text>
+                  </Text>
+                  <TextInput
+                    style={[
+                      styles.editField,
+                      {
+                        color: colors.text,
+                        borderColor: editErrors.name ? '#ef4444' : focusedField === "eName" ? accent : colors.border,
+                        backgroundColor: colors.background,
+                      },
+                    ]}
+                    value={name}
+                    onChangeText={(v) => { setName(v); setEditErrors((e) => ({ ...e, name: "" })); }}
+                    onFocus={() => setFocusedField("eName")}
+                    onBlur={() => setFocusedField(null)}
+                    placeholder="Location name"
+                    placeholderTextColor={colors.subtext}
+                    selectionColor={`${accent}44`}
+                    cursorColor={accent}
+                    returnKeyType="next"
+                  />
+                  {editErrors.name ? <Text style={styles.editFieldError}>{editErrors.name}</Text> : null}
+
+                  {/* Address */}
+                  <Text style={[styles.editFieldLabel, { color: colors.subtext }]}>
+                    Address <Text style={{ color: '#ef4444' }}>*</Text>
+                  </Text>
+                  <TextInput
+                    style={[
+                      styles.editField,
+                      {
+                        color: colors.text,
+                        borderColor: editErrors.address ? '#ef4444' : focusedField === "eAddress" ? accent : colors.border,
+                        backgroundColor: colors.background,
+                      },
+                    ]}
+                    value={address}
+                    onChangeText={(v) => { setAddress(v); setEditErrors((e) => ({ ...e, address: "" })); }}
+                    onFocus={() => setFocusedField("eAddress")}
+                    onBlur={() => setFocusedField(null)}
+                    placeholder="1st line of address"
+                    placeholderTextColor={colors.subtext}
+                    selectionColor={`${accent}44`}
+                    cursorColor={accent}
+                    returnKeyType="next"
+                  />
+                  {editErrors.address ? <Text style={styles.editFieldError}>{editErrors.address}</Text> : null}
+
+                  {/* City + Postcode */}
+                  <View style={styles.editFieldRow}>
+                    <View style={{ flex: 1 }}>
+                      <TextInput
+                        style={[
+                          styles.editFieldHalf,
+                          {
+                            color: colors.text,
+                            borderColor: editErrors.city ? '#ef4444' : focusedField === "eCity" ? accent : colors.border,
+                            backgroundColor: colors.background,
+                          },
+                        ]}
+                        value={city}
+                        onChangeText={(v) => { setCity(v); setEditErrors((e) => ({ ...e, city: "" })); }}
+                        onFocus={() => setFocusedField("eCity")}
+                        onBlur={() => setFocusedField(null)}
+                        placeholder="City *"
+                        placeholderTextColor={colors.subtext}
+                        selectionColor={`${accent}44`}
+                        cursorColor={accent}
+                        returnKeyType="next"
+                      />
+                      {editErrors.city ? <Text style={styles.editFieldError}>{editErrors.city}</Text> : null}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <TextInput
+                        style={[
+                          styles.editFieldHalf,
+                          {
+                            color: colors.text,
+                            borderColor: editErrors.postcode ? '#ef4444' : focusedField === "ePostcode" ? accent : colors.border,
+                            backgroundColor: colors.background,
+                          },
+                        ]}
+                        value={postcode}
+                        onChangeText={(v) => { setPostcode(v); setEditErrors((e) => ({ ...e, postcode: "" })); }}
+                        onFocus={() => setFocusedField("ePostcode")}
+                        onBlur={() => setFocusedField(null)}
+                        placeholder="Postcode *"
+                        placeholderTextColor={colors.subtext}
+                        selectionColor={`${accent}44`}
+                        cursorColor={accent}
+                        returnKeyType="done"
+                        autoCapitalize="characters"
+                        autoCorrect={false}
+                      />
+                      {editErrors.postcode ? <Text style={styles.editFieldError}>{editErrors.postcode}</Text> : null}
+                    </View>
+                  </View>
+                </ScrollView>
+              </View>
+            </KeyboardAvoidingView>
+          </Modal>
+
+          {/* Location menu (⋯) */}
+          <Modal
+            visible={showMenu}
+            transparent
+            animationType="slide"
+            onRequestClose={() => setShowMenu(false)}
+          >
+            <Pressable
+              style={styles.menuOverlay}
+              onPress={() => setShowMenu(false)}
+            />
+            <View
+              style={[
+                styles.menuSheet,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+            >
+              <View
+                style={[styles.menuHandle, { backgroundColor: colors.border }]}
+              />
+
+              <TouchableOpacity
+                style={[styles.menuItem, { borderBottomColor: colors.border }]}
+                onPress={() => {
+                  setShowMenu(false);
+                  openEdit();
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.menuItemIcon, { color: colors.subtext }]}>
+                  ✏️
+                </Text>
+                <Text style={[styles.menuItemLabel, { color: colors.text }]}>
+                  Edit address
+                </Text>
+              </TouchableOpacity>
+
+              {(location.restockHistory?.length ?? 0) > 0 && (
+                <TouchableOpacity
+                  style={[
+                    styles.menuItem,
+                    { borderBottomColor: colors.border },
+                  ]}
+                  onPress={() => {
+                    setShowMenu(false);
+                    setShowHistory(true);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[styles.menuItemIcon, { color: colors.subtext }]}
+                  >
+                    🕓
+                  </Text>
+                  <Text style={[styles.menuItemLabel, { color: colors.text }]}>
+                    Restock history
+                  </Text>
+                  <Text
+                    style={[styles.menuItemMeta, { color: colors.subtext }]}
+                  >
+                    {location.restockHistory?.length} entries
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  setShowMenu(false);
+                  handleDeleteLocation();
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.menuItemIcon, { color: "#ef4444" }]}>
+                  🗑️
+                </Text>
+                <Text style={[styles.menuItemLabel, { color: "#ef4444" }]}>
+                  Delete location
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.menuCancel,
+                  {
+                    backgroundColor: colors.background,
+                    borderColor: colors.border,
+                  },
+                ]}
+                onPress={() => setShowMenu(false)}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[styles.menuCancelText, { color: colors.subtext }]}
+                >
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </Modal>
 
           {/* Divider */}
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
@@ -615,7 +845,7 @@ export default function LocationDetailScreen() {
                             {
                               color:
                                 machine.slots.filter(Boolean).length === 9
-                                  ? "#ef4444"
+                                  ? colors.danger
                                   : colors.subtext,
                             },
                           ]}
@@ -643,11 +873,9 @@ export default function LocationDetailScreen() {
             );
           })}
 
-          {/* Divider */}
-          <View style={[styles.divider, { backgroundColor: colors.border }]} />
-
           {/* Notes */}
-          <Text style={[styles.sectionLabel, { color: colors.text }]}>
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <Text style={[styles.notesLabel, { color: colors.subtext }]}>
             Notes
           </Text>
           <TextInput
@@ -664,7 +892,7 @@ export default function LocationDetailScreen() {
             onFocus={() => setFocusedField("notes")}
             onBlur={() => {
               setFocusedField(null);
-              saveField("notes", notes);
+              updateLocation({ ...location, notes: notes.trim() || undefined });
             }}
             placeholder="Add notes about this location…"
             placeholderTextColor={colors.subtext}
@@ -691,39 +919,150 @@ const styles = StyleSheet.create({
   },
   backBtn: { flexDirection: "row", alignItems: "center", gap: 4 },
   backText: { fontSize: 16, fontWeight: "500" },
+  menuBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 9,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  menuBtnIcon: { fontSize: 18, lineHeight: 22 },
   content: { paddingHorizontal: 20, paddingBottom: 60 },
-  nameInput: {
+  // Location header (read-only)
+  locationHeader: {
+    marginBottom: 2,
+    gap: 4,
+  },
+  locationName: {
     fontSize: 26,
     fontWeight: "800",
     letterSpacing: -0.5,
-    marginBottom: 4,
-    padding: 0,
-    borderBottomWidth: 2,
+    marginBottom: 2,
   },
-  addressInput: {
-    fontSize: 14,
-    marginBottom: 6,
-    padding: 0,
-    borderBottomWidth: 1.5,
+  addressLine: { fontSize: 14 },
+  addressEmpty: { fontSize: 13, fontStyle: "italic" },
+  // Location menu sheet
+  menuOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)" },
+  menuSheet: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderTopWidth: 1,
+    paddingBottom: 36,
+    paddingTop: 10,
   },
-  addressRow: { flexDirection: "row", gap: 10, marginBottom: 8 },
-  addressInputHalf: {
+  menuHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: "center",
+    marginBottom: 12,
+  },
+  menuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  menuItemIcon: { fontSize: 20, width: 26, textAlign: "center" },
+  menuItemLabel: { flex: 1, fontSize: 16 },
+  menuItemMeta: { fontSize: 13 },
+  menuCancel: {
+    marginHorizontal: 16,
+    marginTop: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingVertical: 14,
+    alignItems: "center",
+  },
+  menuCancelText: { fontSize: 16, fontWeight: "600" },
+  // Notes (inline at bottom)
+  notesLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+    marginBottom: 8,
+  },
+  notesInput: {
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 15,
+    minHeight: 96,
+  },
+  // Edit location modal
+  editOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)" },
+  editSheetWrap: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+  },
+  editSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderTopWidth: 1,
+    maxHeight: "85%",
+  },
+  editSheetHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  editSheetTitle: { fontSize: 17, fontWeight: "700" },
+  editSheetCancel: { fontSize: 15 },
+  editSheetSave: { fontSize: 15, fontWeight: "700" },
+  editSheetContent: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 48,
+    gap: 6,
+  },
+  editFieldError: { fontSize: 12, color: '#ef4444', marginTop: 3 },
+  editFieldLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+    marginTop: 8,
+  },
+  editField: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+  },
+  editFieldRow: { flexDirection: "row", gap: 10 },
+  editFieldHalf: {
     flex: 1,
-    fontSize: 14,
-    padding: 0,
-    borderBottomWidth: 1.5,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
   },
   restockRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 10,
+    marginBottom: 14,
     gap: 10,
   },
   restockInfo: { flex: 1, gap: 1 },
   restockMeta: {
     fontSize: 11,
-    fontWeight: "500",
+    fontWeight: "600",
     textTransform: "uppercase",
     letterSpacing: 0.4,
   },
@@ -735,7 +1074,15 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   editDateBtnText: { fontSize: 12, fontWeight: "500" },
-  periodSection: { marginBottom: 14 },
+  restockBtn: {
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    alignItems: "center",
+  },
+  restockBtnText: { fontSize: 12, fontWeight: "500" },
+  periodSection: { marginBottom: 4 },
   periodLabelRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -744,7 +1091,7 @@ const styles = StyleSheet.create({
   },
   periodLabel: {
     fontSize: 11,
-    fontWeight: "500",
+    fontWeight: "600",
     textTransform: "uppercase",
     letterSpacing: 0.4,
   },
@@ -761,28 +1108,6 @@ const styles = StyleSheet.create({
   },
   periodPillNum: { fontSize: 15, fontWeight: "700", lineHeight: 18 },
   periodPillUnit: { fontSize: 10, fontWeight: "500", letterSpacing: 0.2 },
-  restockBtnRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 20,
-  },
-  restockBtn: {
-    borderRadius: 10,
-    borderWidth: 1.5,
-    paddingVertical: 11,
-    alignItems: "center",
-  },
-  restockBtnText: { fontSize: 15, fontWeight: "700" },
-  historyBtn: {
-    borderRadius: 10,
-    borderWidth: 1,
-    width: 42,
-    height: 42,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  historyBtnText: { fontSize: 18 },
   // History modal
   historyOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)" },
   historySheet: {
@@ -856,14 +1181,6 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   addMachineInlineBtnText: { fontSize: 13, fontWeight: "600" },
-  notesInput: {
-    borderWidth: 1,
-    borderRadius: 10,
-    padding: 12,
-    fontSize: 15,
-    minHeight: 96,
-    marginTop: 8,
-  },
   notFound: { flex: 1, alignItems: "center", justifyContent: "center" },
   notFoundText: { fontSize: 16 },
 });

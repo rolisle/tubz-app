@@ -118,7 +118,8 @@ function ProductFormModal({
       onClose();
     };
     if (Platform.OS === "web") {
-      if (window.confirm(`Delete "${editProduct.name}" from the catalog?`)) doDelete();
+      if (window.confirm(`Delete "${editProduct.name}" from the catalog?`))
+        doDelete();
     } else {
       Alert.alert(
         "Delete Product",
@@ -209,7 +210,7 @@ function ProductFormModal({
         </View>
 
         <Text style={[styles.fieldLabel, { color: colors.subtext }]}>
-          Name <Text style={{ color: "#ef4444" }}>*</Text>
+          Name <Text style={{ color: colors.danger }}>*</Text>
         </Text>
         <TextInput
           style={[
@@ -316,7 +317,12 @@ interface ProductRowProps {
   colors: (typeof Colors)["light"];
 }
 
-const ProductRow = memo(function ProductRow({ product, onEdit, onDelete, colors }: ProductRowProps) {
+const ProductRow = memo(function ProductRow({
+  product,
+  onEdit,
+  onDelete,
+  colors,
+}: ProductRowProps) {
   const [zoomed, setZoomed] = useState(false);
   const src = product.localImageUri
     ? { uri: product.localImageUri }
@@ -477,38 +483,61 @@ export default function ProductsScreen() {
 
   const gridData = useMemo(() => sections.flatMap((s) => s.data), [sections]);
 
-  const renderGridItem = useCallback(({ item }: { item: Product }) => (
-    <ProductGridCard
-      product={item}
-      onEdit={() => setEditingProduct(item)}
-      onDelete={() => {
-        if (Platform.OS === "web") {
-          if (window.confirm(`Remove "${item.name}" from the catalog?`)) deleteProduct(item.id);
-        } else {
-          Alert.alert("Delete Product", `Remove "${item.name}" from the catalog?`, [
-            { text: "Cancel", style: "cancel" },
-            { text: "Delete", style: "destructive", onPress: () => deleteProduct(item.id) },
-          ]);
-        }
-      }}
-      colors={colors}
-    />
-  ), [colors, deleteProduct]);
+  const renderGridItem = useCallback(
+    ({ item }: { item: Product }) => (
+      <ProductGridCard
+        product={item}
+        onEdit={() => setEditingProduct(item)}
+        onDelete={() => {
+          if (Platform.OS === "web") {
+            if (window.confirm(`Remove "${item.name}" from the catalog?`))
+              deleteProduct(item.id);
+          } else {
+            Alert.alert(
+              "Delete Product",
+              `Remove "${item.name}" from the catalog?`,
+              [
+                { text: "Cancel", style: "cancel" },
+                {
+                  text: "Delete",
+                  style: "destructive",
+                  onPress: () => deleteProduct(item.id),
+                },
+              ],
+            );
+          }
+        }}
+        colors={colors}
+      />
+    ),
+    [colors, deleteProduct],
+  );
 
-  const renderListItem = useCallback(({ item }: { item: Product }) => (
-    <ProductRow
-      product={item}
-      onEdit={() => setEditingProduct(item)}
-      onDelete={() => deleteProduct(item.id)}
-      colors={colors}
-    />
-  ), [colors, deleteProduct]);
+  const renderListItem = useCallback(
+    ({ item }: { item: Product }) => (
+      <ProductRow
+        product={item}
+        onEdit={() => setEditingProduct(item)}
+        onDelete={() => deleteProduct(item.id)}
+        colors={colors}
+      />
+    ),
+    [colors, deleteProduct],
+  );
 
-  const renderSectionHeader = useCallback(({ section }: { section: { title: string } }) => (
-    <Text style={[styles.sectionHeader, { color: colors.subtext, backgroundColor: colors.background }]}>
-      {section.title}
-    </Text>
-  ), [colors]);
+  const renderSectionHeader = useCallback(
+    ({ section }: { section: { title: string } }) => (
+      <Text
+        style={[
+          styles.sectionHeader,
+          { color: colors.subtext, backgroundColor: colors.background },
+        ]}
+      >
+        {section.title}
+      </Text>
+    ),
+    [colors],
+  );
 
   return (
     <SafeAreaView

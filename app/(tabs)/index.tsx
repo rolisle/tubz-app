@@ -1,6 +1,6 @@
-import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import { memo, useMemo, useState } from 'react';
+import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
+import { memo, useMemo, useState } from "react";
 import {
   Modal,
   Pressable,
@@ -9,13 +9,12 @@ import {
   Text,
   TouchableOpacity,
   View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { LocationCard } from '@/components/location-card';
-import { GradView } from '@/components/ui/grad-view';
-import { Colors } from '@/constants/theme';
-import { useApp } from '@/context/app-context';
+import { GradView } from "@/components/ui/grad-view";
+import { Colors } from "@/constants/theme";
+import { useApp } from "@/context/app-context";
 import {
   ACCENT_PRESETS,
   AppColor,
@@ -25,20 +24,22 @@ import {
   SWEET_PRESETS,
   TOY_PRESETS,
   useSettings,
-} from '@/context/settings-context';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import type { Location } from '@/types';
+} from "@/context/settings-context";
+import { useColorScheme } from "@/hooks/use-color-scheme";
 
 function todayLabel() {
-  return new Date().toLocaleDateString('en-AU', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
+  return new Date().toLocaleDateString("en-GB", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
   });
 }
 
 /** Returns { dueDate, daysUntil } for a location that has a restock period set */
-function restockDue(loc: { lastRestockedAt: string | null; restockPeriodWeeks?: number }) {
+function restockDue(loc: {
+  lastRestockedAt: string | null;
+  restockPeriodWeeks?: number;
+}) {
   if (!loc.restockPeriodWeeks) return null;
   if (!loc.lastRestockedAt) return { dueDate: null, daysUntil: null };
   const due = new Date(loc.lastRestockedAt);
@@ -46,15 +47,17 @@ function restockDue(loc: { lastRestockedAt: string | null; restockPeriodWeeks?: 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   due.setHours(0, 0, 0, 0);
-  const daysUntil = Math.round((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  const daysUntil = Math.round(
+    (due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
+  );
   return { dueDate: due, daysUntil };
 }
 
 function dueLabel(daysUntil: number | null): string {
-  if (daysUntil === null) return 'Never restocked';
+  if (daysUntil === null) return "Never restocked";
   if (daysUntil < 0) return `Overdue by ${Math.abs(daysUntil)}d`;
-  if (daysUntil === 0) return 'Due today';
-  if (daysUntil === 1) return 'Due tomorrow';
+  if (daysUntil === 0) return "Due today";
+  if (daysUntil === 1) return "Due tomorrow";
   if (daysUntil <= 7) return `Due in ${daysUntil}d`;
   const weeks = Math.floor(daysUntil / 7);
   const days = daysUntil % 7;
@@ -62,10 +65,10 @@ function dueLabel(daysUntil: number | null): string {
 }
 
 function dueColor(daysUntil: number | null): string {
-  if (daysUntil === null) return '#94a3b8';
-  if (daysUntil < 0) return '#ef4444';
-  if (daysUntil <= 3) return '#f59e0b';
-  return '#22c55e';
+  if (daysUntil === null) return "#94a3b8";
+  if (daysUntil < 0) return "#ef4444";
+  if (daysUntil <= 3) return "#f59e0b";
+  return "#22c55e";
 }
 
 /* ─── Settings modal ─────────────────────────────────────────── */
@@ -75,7 +78,7 @@ interface SwatchRowProps {
   presets: { label: string; value: AppColor }[];
   current: AppColor;
   onChange: (v: AppColor) => void;
-  colors: (typeof Colors)['light'];
+  colors: (typeof Colors)["light"];
 }
 
 const SwatchRow = memo(function SwatchRow({
@@ -87,7 +90,9 @@ const SwatchRow = memo(function SwatchRow({
 }: SwatchRowProps) {
   return (
     <View style={styles.swatchSection}>
-      <Text style={[styles.swatchLabel, { color: colors.subtext }]}>{label}</Text>
+      <Text style={[styles.swatchLabel, { color: colors.subtext }]}>
+        {label}
+      </Text>
       <View style={styles.swatchRow}>
         {presets.map((p) => {
           const isActive = colorEquals(current, p.value);
@@ -122,7 +127,7 @@ const SwatchRow = memo(function SwatchRow({
 interface SettingsModalProps {
   visible: boolean;
   onClose: () => void;
-  colors: (typeof Colors)['light'];
+  colors: (typeof Colors)["light"];
 }
 
 function SettingsModal({ visible, onClose, colors }: SettingsModalProps) {
@@ -133,9 +138,17 @@ function SettingsModal({ visible, onClose, colors }: SettingsModalProps) {
     key: keyof AppSettings;
     presets: { label: string; value: AppColor }[];
   }[] = [
-    { label: 'Accent / Tab Colour',      key: 'accentColor', presets: ACCENT_PRESETS },
-    { label: 'Sweet Machine Colour',      key: 'sweetColor',  presets: SWEET_PRESETS },
-    { label: 'Toy Machine Colour',        key: 'toyColor',    presets: TOY_PRESETS },
+    {
+      label: "Accent / Tab Colour",
+      key: "accentColor",
+      presets: ACCENT_PRESETS,
+    },
+    {
+      label: "Sweet Machine Colour",
+      key: "sweetColor",
+      presets: SWEET_PRESETS,
+    },
+    { label: "Toy Machine Colour", key: "toyColor", presets: TOY_PRESETS },
   ];
 
   return (
@@ -153,9 +166,13 @@ function SettingsModal({ visible, onClose, colors }: SettingsModalProps) {
         ]}
       >
         <View style={styles.sheetHeader}>
-          <Text style={[styles.sheetTitle, { color: colors.text }]}>⚙️  Settings</Text>
+          <Text style={[styles.sheetTitle, { color: colors.text }]}>
+            ⚙️ Settings
+          </Text>
           <TouchableOpacity onPress={onClose} hitSlop={8}>
-            <Text style={[styles.sheetClose, { color: colors.subtext }]}>Done</Text>
+            <Text style={[styles.sheetClose, { color: colors.subtext }]}>
+              Done
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -177,28 +194,50 @@ function SettingsModal({ visible, onClose, colors }: SettingsModalProps) {
           <View
             style={[
               styles.previewChip,
-              { backgroundColor: primaryColor(settings.sweetColor) + '22', borderColor: primaryColor(settings.sweetColor) },
+              {
+                backgroundColor: primaryColor(settings.sweetColor) + "22",
+                borderColor: primaryColor(settings.sweetColor),
+              },
             ]}
           >
             <GradView
               colors={settings.sweetColor}
-              style={[StyleSheet.absoluteFill, { borderRadius: 10, opacity: 0.12 }]}
+              style={[
+                StyleSheet.absoluteFill,
+                { borderRadius: 10, opacity: 0.12 },
+              ]}
             />
-            <Text style={[styles.previewChipText, { color: primaryColor(settings.sweetColor) }]}>
+            <Text
+              style={[
+                styles.previewChipText,
+                { color: primaryColor(settings.sweetColor) },
+              ]}
+            >
               🍬 Sweet Machine
             </Text>
           </View>
           <View
             style={[
               styles.previewChip,
-              { backgroundColor: primaryColor(settings.toyColor) + '22', borderColor: primaryColor(settings.toyColor) },
+              {
+                backgroundColor: primaryColor(settings.toyColor) + "22",
+                borderColor: primaryColor(settings.toyColor),
+              },
             ]}
           >
             <GradView
               colors={settings.toyColor}
-              style={[StyleSheet.absoluteFill, { borderRadius: 10, opacity: 0.12 }]}
+              style={[
+                StyleSheet.absoluteFill,
+                { borderRadius: 10, opacity: 0.12 },
+              ]}
             />
-            <Text style={[styles.previewChipText, { color: primaryColor(settings.toyColor) }]}>
+            <Text
+              style={[
+                styles.previewChipText,
+                { color: primaryColor(settings.toyColor) },
+              ]}
+            >
               🪀 Toy Machine
             </Text>
           </View>
@@ -213,12 +252,17 @@ function SettingsModal({ visible, onClose, colors }: SettingsModalProps) {
 interface StatCardProps {
   label: string;
   value: number | string;
-  colors: (typeof Colors)['light'];
+  colors: (typeof Colors)["light"];
 }
 
 function StatCard({ label, value, colors }: StatCardProps) {
   return (
-    <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+    <View
+      style={[
+        styles.statCard,
+        { backgroundColor: colors.card, borderColor: colors.border },
+      ]}
+    >
       <Text style={[styles.statValue, { color: colors.text }]}>{value}</Text>
       <Text style={[styles.statLabel, { color: colors.subtext }]}>{label}</Text>
     </View>
@@ -230,16 +274,19 @@ function StatCard({ label, value, colors }: StatCardProps) {
 export default function DashboardScreen() {
   const { state } = useApp();
   const { settings } = useSettings();
-  const colorScheme = useColorScheme() ?? 'light';
+  const colorScheme = useColorScheme() ?? "light";
   const colors = Colors[colorScheme];
   const router = useRouter();
   const [showSettings, setShowSettings] = useState(false);
 
-  const stats = useMemo(() => ({
-    totalLocations: state.locations.length,
-    totalMachines:  state.locations.reduce((s, l) => s + l.machines.length, 0),
-    totalProducts:  state.products.length,
-  }), [state.locations, state.products]);
+  const stats = useMemo(
+    () => ({
+      totalLocations: state.locations.length,
+      totalMachines: state.locations.reduce((s, l) => s + l.machines.length, 0),
+      totalProducts: state.products.length,
+    }),
+    [state.locations, state.products],
+  );
 
   const upcomingRestocks = useMemo(() => {
     // Only show locations that have a restock period set
@@ -255,18 +302,27 @@ export default function DashboardScreen() {
     return [...withDue, ...neverRestocked];
   }, [state.locations]);
 
-  const recentRestocks = useMemo(() =>
-    state.locations
-      .filter((l) => l.lastRestockedAt)
-      .sort((a, b) => new Date(b.lastRestockedAt!).getTime() - new Date(a.lastRestockedAt!).getTime())
-      .slice(0, 8),
-  [state.locations]);
+  const recentRestocks = useMemo(
+    () =>
+      state.locations
+        .filter((l) => l.lastRestockedAt)
+        .sort(
+          (a, b) =>
+            new Date(b.lastRestockedAt!).getTime() -
+            new Date(a.lastRestockedAt!).getTime(),
+        )
+        .slice(0, 8),
+    [state.locations],
+  );
 
   const navigateTo = (id: string) =>
-    router.push({ pathname: '/location/[id]', params: { id } });
+    router.push({ pathname: "/location/[id]", params: { id } });
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
+    <SafeAreaView
+      style={[styles.safe, { backgroundColor: colors.background }]}
+      edges={["top"]}
+    >
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={styles.content}
@@ -276,12 +332,17 @@ export default function DashboardScreen() {
         <View style={styles.header}>
           <View>
             <Text style={[styles.wordmark, { color: colors.text }]}>Tubz</Text>
-            <Text style={[styles.date, { color: colors.subtext }]}>{todayLabel()}</Text>
+            <Text style={[styles.date, { color: colors.subtext }]}>
+              {todayLabel()}
+            </Text>
           </View>
           <TouchableOpacity
             onPress={() => setShowSettings(true)}
             hitSlop={8}
-            style={[styles.settingsBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+            style={[
+              styles.settingsBtn,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
           >
             <Text style={styles.settingsIcon}>⚙️</Text>
           </TouchableOpacity>
@@ -289,15 +350,29 @@ export default function DashboardScreen() {
 
         {/* Stats row */}
         <View style={styles.statsRow}>
-          <StatCard label="Locations" value={stats.totalLocations} colors={colors} />
-          <StatCard label="Machines"  value={stats.totalMachines}  colors={colors} />
-          <StatCard label="Products"  value={stats.totalProducts}  colors={colors} />
+          <StatCard
+            label="Locations"
+            value={stats.totalLocations}
+            colors={colors}
+          />
+          <StatCard
+            label="Machines"
+            value={stats.totalMachines}
+            colors={colors}
+          />
+          <StatCard
+            label="Products"
+            value={stats.totalProducts}
+            colors={colors}
+          />
         </View>
 
         {/* Upcoming restocks */}
         {upcomingRestocks.length > 0 && (
           <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Upcoming Restocks</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              Upcoming Restocks
+            </Text>
             {upcomingRestocks.map(({ loc, info }) => {
               const color = dueColor(info.daysUntil);
               const label = dueLabel(info.daysUntil);
@@ -307,19 +382,45 @@ export default function DashboardScreen() {
                   onPress={() => navigateTo(loc.id)}
                   activeOpacity={0.75}
                 >
-                  <View style={[styles.upcomingCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                    <View style={[styles.upcomingStripe, { backgroundColor: color }]} />
+                  <View
+                    style={[
+                      styles.upcomingCard,
+                      {
+                        backgroundColor: colors.card,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.upcomingStripe,
+                        { backgroundColor: color },
+                      ]}
+                    />
                     <View style={styles.upcomingBody}>
-                      <Text style={[styles.upcomingName, { color: colors.text }]} numberOfLines={1}>
+                      <Text
+                        style={[styles.upcomingName, { color: colors.text }]}
+                        numberOfLines={1}
+                      >
                         {loc.name}
                       </Text>
-                      <Text style={[styles.upcomingAddr, { color: colors.subtext }]} numberOfLines={1}>
-                        {[loc.city, loc.postcode].filter(Boolean).join(' · ')}
+                      <Text
+                        style={[styles.upcomingAddr, { color: colors.subtext }]}
+                        numberOfLines={1}
+                      >
+                        {[loc.city, loc.postcode].filter(Boolean).join(" · ")}
                       </Text>
                     </View>
                     <View style={styles.upcomingRight}>
-                      <Text style={[styles.upcomingDue, { color }]}>{label}</Text>
-                      <Text style={[styles.upcomingPeriod, { color: colors.subtext }]}>
+                      <Text style={[styles.upcomingDue, { color }]}>
+                        {label}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.upcomingPeriod,
+                          { color: colors.subtext },
+                        ]}
+                      >
                         Every {loc.restockPeriodWeeks}w
                       </Text>
                     </View>
@@ -333,26 +434,50 @@ export default function DashboardScreen() {
         {/* Recent restocks */}
         {recentRestocks.length > 0 && (
           <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Recent Restocks</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              Recent Restocks
+            </Text>
             {recentRestocks.map((loc) => {
               const date = new Date(loc.lastRestockedAt!);
-              const dateStr = date.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
+              const dateStr = date.toLocaleDateString("en-GB", {
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+              });
               return (
                 <TouchableOpacity
                   key={loc.id}
                   onPress={() => navigateTo(loc.id)}
                   activeOpacity={0.75}
                 >
-                  <View style={[styles.recentCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                  <View
+                    style={[
+                      styles.recentCard,
+                      {
+                        backgroundColor: colors.card,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                  >
                     <View style={styles.upcomingBody}>
-                      <Text style={[styles.upcomingName, { color: colors.text }]} numberOfLines={1}>
+                      <Text
+                        style={[styles.upcomingName, { color: colors.text }]}
+                        numberOfLines={1}
+                      >
                         {loc.name}
                       </Text>
-                      <Text style={[styles.upcomingAddr, { color: colors.subtext }]} numberOfLines={1}>
-                        {[loc.city, loc.postcode].filter(Boolean).join(' · ')}
+                      <Text
+                        style={[styles.upcomingAddr, { color: colors.subtext }]}
+                        numberOfLines={1}
+                      >
+                        {[loc.city, loc.postcode].filter(Boolean).join(" · ")}
                       </Text>
                     </View>
-                    <Text style={[styles.recentDate, { color: colors.subtext }]}>{dateStr}</Text>
+                    <Text
+                      style={[styles.recentDate, { color: colors.subtext }]}
+                    >
+                      {dateStr}
+                    </Text>
                   </View>
                 </TouchableOpacity>
               );
@@ -364,11 +489,14 @@ export default function DashboardScreen() {
         {state.locations.length === 0 && (
           <View style={[styles.empty, { borderColor: colors.border }]}>
             <Text style={styles.emptyEmoji}>📍</Text>
-            <Text style={[styles.emptyTitle, { color: colors.text }]}>No locations yet</Text>
-            <Text style={[styles.emptyNote, { color: colors.subtext }]}>
-              Add your first location in the Locations tab to start tracking stock.
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>
+              No locations yet
             </Text>
-            <TouchableOpacity onPress={() => router.push('/(tabs)/locations')}>
+            <Text style={[styles.emptyNote, { color: colors.subtext }]}>
+              Add your first location in the Locations tab to start tracking
+              stock.
+            </Text>
+            <TouchableOpacity onPress={() => router.push("/(tabs)/locations")}>
               <GradView colors={settings.accentColor} style={styles.emptyBtn}>
                 <Text style={styles.emptyBtnText}>Go to Locations</Text>
               </GradView>
@@ -391,25 +519,25 @@ const styles = StyleSheet.create({
   content: { padding: 20, paddingBottom: 40 },
   // Header
   header: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
     marginBottom: 20,
   },
-  wordmark: { fontSize: 32, fontWeight: '800', letterSpacing: -0.5 },
+  wordmark: { fontSize: 32, fontWeight: "800", letterSpacing: -0.5 },
   date: { fontSize: 14, marginTop: 2 },
   settingsBtn: {
     width: 38,
     height: 38,
     borderRadius: 10,
     borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginTop: 4,
   },
   settingsIcon: { fontSize: 18 },
   // Stats
-  statsRow: { flexDirection: 'row', gap: 10, marginBottom: 28 },
+  statsRow: { flexDirection: "row", gap: 10, marginBottom: 28 },
   statCard: {
     flex: 1,
     borderRadius: 12,
@@ -417,31 +545,31 @@ const styles = StyleSheet.create({
     padding: 12,
     gap: 2,
   },
-  statValue: { fontSize: 26, fontWeight: '700' },
-  statLabel: { fontSize: 11, fontWeight: '500' },
+  statValue: { fontSize: 26, fontWeight: "700" },
+  statLabel: { fontSize: 11, fontWeight: "500" },
   // Sections
   section: { marginBottom: 24 },
-  sectionTitle: { fontSize: 18, fontWeight: '700', marginBottom: 10 },
+  sectionTitle: { fontSize: 18, fontWeight: "700", marginBottom: 10 },
   // Upcoming restock cards
   upcomingCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     borderRadius: 12,
     borderWidth: 1,
     marginBottom: 8,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
-  upcomingStripe: { width: 4, alignSelf: 'stretch' },
+  upcomingStripe: { width: 4, alignSelf: "stretch" },
   upcomingBody: { flex: 1, paddingVertical: 12, paddingHorizontal: 12, gap: 2 },
-  upcomingName: { fontSize: 14, fontWeight: '700' },
+  upcomingName: { fontSize: 14, fontWeight: "700" },
   upcomingAddr: { fontSize: 12 },
-  upcomingRight: { paddingHorizontal: 12, alignItems: 'flex-end', gap: 2 },
-  upcomingDue: { fontSize: 13, fontWeight: '700' },
+  upcomingRight: { paddingHorizontal: 12, alignItems: "flex-end", gap: 2 },
+  upcomingDue: { fontSize: 13, fontWeight: "700" },
   upcomingPeriod: { fontSize: 11 },
   // Recent restock cards
   recentCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     borderRadius: 12,
     borderWidth: 1,
     marginBottom: 8,
@@ -450,22 +578,27 @@ const styles = StyleSheet.create({
   // Empty state
   empty: {
     marginTop: 40,
-    alignItems: 'center',
+    alignItems: "center",
     borderWidth: 1.5,
-    borderStyle: 'dashed',
+    borderStyle: "dashed",
     borderRadius: 16,
     padding: 32,
     gap: 8,
   },
   emptyEmoji: { fontSize: 40, marginBottom: 4 },
-  emptyTitle: { fontSize: 18, fontWeight: '700' },
-  emptyNote: { fontSize: 14, textAlign: 'center', lineHeight: 20 },
-  emptyBtn: { marginTop: 8, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 10 },
-  emptyBtnText: { color: '#fff', fontWeight: '600', fontSize: 15 },
+  emptyTitle: { fontSize: 18, fontWeight: "700" },
+  emptyNote: { fontSize: 14, textAlign: "center", lineHeight: 20 },
+  emptyBtn: {
+    marginTop: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  emptyBtnText: { color: "#fff", fontWeight: "600", fontSize: 15 },
   // Settings modal
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
+  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)" },
   sheet: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
@@ -475,34 +608,42 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   sheetHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 16,
   },
-  sheetTitle: { fontSize: 17, fontWeight: '700' },
-  sheetClose: { fontSize: 15, fontWeight: '500' },
-  sheetSection: { fontSize: 13, fontWeight: '700', paddingHorizontal: 20, marginBottom: 4, opacity: 0.5, textTransform: 'uppercase', letterSpacing: 0.8 },
+  sheetTitle: { fontSize: 17, fontWeight: "700" },
+  sheetClose: { fontSize: 15, fontWeight: "500" },
+  sheetSection: {
+    fontSize: 13,
+    fontWeight: "700",
+    paddingHorizontal: 20,
+    marginBottom: 4,
+    opacity: 0.5,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+  },
   // Swatches
   swatchSection: { paddingHorizontal: 20, marginBottom: 16 },
-  swatchLabel: { fontSize: 13, fontWeight: '500', marginBottom: 8 },
-  swatchRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  swatchLabel: { fontSize: 13, fontWeight: "500", marginBottom: 8 },
+  swatchRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   swatch: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   swatchActive: {
     borderWidth: 3,
-    borderColor: '#fff',
-    boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
+    borderColor: "#fff",
+    boxShadow: "0 1px 4px rgba(0,0,0,0.3)",
     elevation: 4,
   },
   // Preview
   previewRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 10,
     paddingHorizontal: 20,
     paddingTop: 16,
@@ -514,8 +655,8 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1.5,
     paddingVertical: 10,
-    alignItems: 'center',
-    overflow: 'hidden',
+    alignItems: "center",
+    overflow: "hidden",
   },
-  previewChipText: { fontSize: 13, fontWeight: '600' },
+  previewChipText: { fontSize: 13, fontWeight: "600" },
 });

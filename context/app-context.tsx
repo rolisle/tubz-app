@@ -243,7 +243,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // ---------------------------------------------------------------------------
 
   const addLocation = (data: Omit<Location, 'id' | 'createdAt'>) => {
-    const location: Location = { ...data, id: uid(), createdAt: new Date().toISOString() };
+    const location: Location = {
+      restockPeriodWeeks: 4,
+      ...data,
+      id: uid(),
+      createdAt: new Date().toISOString(),
+    };
     dispatch({ type: 'ADD_LOCATION', payload: location });
   };
 
