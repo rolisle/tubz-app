@@ -451,8 +451,8 @@ export default function ProductsScreen() {
           filter === "all" ||
           p.category === filter ||
           (!p.category && filter === "other");
-        const matchSearch =
-          !search || p.name.toLowerCase().includes(search.toLowerCase());
+        const q = search.trim().toLowerCase();
+        const matchSearch = !q || p.name.toLowerCase().includes(q);
         return matchCat && matchSearch;
       })
       .sort((a, b) => a.name.localeCompare(b.name));
@@ -553,6 +553,9 @@ export default function ProductsScreen() {
           onChangeText={setSearch}
           onFocus={() => setSearchFocused(true)}
           onBlur={() => setSearchFocused(false)}
+          autoCorrect={false}
+          autoCapitalize="none"
+          autoComplete="off"
         />
         {search.length > 0 && (
           <TouchableOpacity onPress={() => setSearch("")} hitSlop={8}>

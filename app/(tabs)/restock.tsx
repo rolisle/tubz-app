@@ -150,6 +150,9 @@ function ProductPicker({ machineType, products, onSelect, onClose }: ProductPick
               autoFocus
               returnKeyType="search"
               clearButtonMode="while-editing"
+              autoCorrect={false}
+              autoCapitalize="none"
+              autoComplete="off"
               selectionColor={`${accent}44`}
               cursorColor={accent}
             />

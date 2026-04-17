@@ -264,11 +264,11 @@ export default function LocationsScreen() {
     router.push({ pathname: "/location/[id]", params: { id: loc.id } });
 
   const filtered = useMemo(() => {
-    const q = search.toLowerCase();
+    const q = search.trim().toLowerCase();
     return state.locations
       .filter(
         (loc) =>
-          !search ||
+          !q ||
           loc.name.toLowerCase().includes(q) ||
           loc.address?.toLowerCase().includes(q) ||
           loc.city?.toLowerCase().includes(q) ||
@@ -326,6 +326,9 @@ export default function LocationsScreen() {
         onChangeText={setSearch}
         onFocus={() => setSearchFocused(true)}
         onBlur={() => setSearchFocused(false)}
+        autoCorrect={false}
+        autoCapitalize="none"
+        autoComplete="off"
         selectionColor={`${accent}44`}
         cursorColor={accent}
       />

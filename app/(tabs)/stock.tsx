@@ -205,6 +205,9 @@ function ProductPicker({
               autoFocus
               returnKeyType="search"
               clearButtonMode="while-editing"
+              autoCorrect={false}
+              autoCapitalize="none"
+              autoComplete="off"
               selectionColor={`${accent}44`}
               cursorColor={accent}
             />

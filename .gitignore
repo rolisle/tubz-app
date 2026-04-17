@@ -36,6 +36,17 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
+# Android studio
+.idea/
+.vscode/
+.gradle/
+.settings/
+.project
+.classpath
+.factorypath
+.settings/
+.settings/
+
 app-example
 
 # generated native folders
