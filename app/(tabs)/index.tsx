@@ -374,10 +374,7 @@ const styles = StyleSheet.create({
   swatchActive: {
     borderWidth: 3,
     borderColor: '#fff',
-    shadowColor: '#000',
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 1 },
+    boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
     elevation: 4,
   },
   // Preview
