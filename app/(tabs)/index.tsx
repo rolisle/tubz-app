@@ -27,6 +27,7 @@ import {
   useSettings,
 } from '@/context/settings-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import type { Location } from '@/types';
 
 function todayLabel() {
   return new Date().toLocaleDateString('en-AU', {
@@ -34,6 +35,37 @@ function todayLabel() {
     month: 'long',
     day: 'numeric',
   });
+}
+
+/** Returns { dueDate, daysUntil } for a location that has a restock period set */
+function restockDue(loc: { lastRestockedAt: string | null; restockPeriodWeeks?: number }) {
+  if (!loc.restockPeriodWeeks) return null;
+  if (!loc.lastRestockedAt) return { dueDate: null, daysUntil: null };
+  const due = new Date(loc.lastRestockedAt);
+  due.setDate(due.getDate() + loc.restockPeriodWeeks * 7);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  due.setHours(0, 0, 0, 0);
+  const daysUntil = Math.round((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  return { dueDate: due, daysUntil };
+}
+
+function dueLabel(daysUntil: number | null): string {
+  if (daysUntil === null) return 'Never restocked';
+  if (daysUntil < 0) return `Overdue by ${Math.abs(daysUntil)}d`;
+  if (daysUntil === 0) return 'Due today';
+  if (daysUntil === 1) return 'Due tomorrow';
+  if (daysUntil <= 7) return `Due in ${daysUntil}d`;
+  const weeks = Math.floor(daysUntil / 7);
+  const days = daysUntil % 7;
+  return days > 0 ? `Due in ${weeks}w ${days}d` : `Due in ${weeks}w`;
+}
+
+function dueColor(daysUntil: number | null): string {
+  if (daysUntil === null) return '#94a3b8';
+  if (daysUntil < 0) return '#ef4444';
+  if (daysUntil <= 3) return '#f59e0b';
+  return '#22c55e';
 }
 
 /* ─── Settings modal ─────────────────────────────────────────── */
@@ -209,16 +241,26 @@ export default function DashboardScreen() {
     totalProducts:  state.products.length,
   }), [state.locations, state.products]);
 
-  const recentRestocks = useMemo(
-    () =>
-      [...state.locations]
-        .filter((l) => l.lastRestockedAt)
-        .sort((a, b) =>
-          new Date(b.lastRestockedAt!).getTime() - new Date(a.lastRestockedAt!).getTime()
-        )
-        .slice(0, 3),
-    [state.locations],
-  );
+  const upcomingRestocks = useMemo(() => {
+    // Only show locations that have a restock period set
+    const scheduled = state.locations.filter((l) => l.restockPeriodWeeks);
+    // Split into: has been restocked (sort by due date asc) and never restocked (append at end)
+    const withDue = scheduled
+      .filter((l) => l.lastRestockedAt)
+      .map((l) => ({ loc: l, info: restockDue(l)! }))
+      .sort((a, b) => a.info.daysUntil! - b.info.daysUntil!);
+    const neverRestocked = scheduled
+      .filter((l) => !l.lastRestockedAt)
+      .map((l) => ({ loc: l, info: { dueDate: null, daysUntil: null } }));
+    return [...withDue, ...neverRestocked];
+  }, [state.locations]);
+
+  const recentRestocks = useMemo(() =>
+    state.locations
+      .filter((l) => l.lastRestockedAt)
+      .sort((a, b) => new Date(b.lastRestockedAt!).getTime() - new Date(a.lastRestockedAt!).getTime())
+      .slice(0, 8),
+  [state.locations]);
 
   const navigateTo = (id: string) =>
     router.push({ pathname: '/location/[id]', params: { id } });
@@ -252,13 +294,69 @@ export default function DashboardScreen() {
           <StatCard label="Products"  value={stats.totalProducts}  colors={colors} />
         </View>
 
+        {/* Upcoming restocks */}
+        {upcomingRestocks.length > 0 && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Upcoming Restocks</Text>
+            {upcomingRestocks.map(({ loc, info }) => {
+              const color = dueColor(info.daysUntil);
+              const label = dueLabel(info.daysUntil);
+              return (
+                <TouchableOpacity
+                  key={loc.id}
+                  onPress={() => navigateTo(loc.id)}
+                  activeOpacity={0.75}
+                >
+                  <View style={[styles.upcomingCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                    <View style={[styles.upcomingStripe, { backgroundColor: color }]} />
+                    <View style={styles.upcomingBody}>
+                      <Text style={[styles.upcomingName, { color: colors.text }]} numberOfLines={1}>
+                        {loc.name}
+                      </Text>
+                      <Text style={[styles.upcomingAddr, { color: colors.subtext }]} numberOfLines={1}>
+                        {[loc.city, loc.postcode].filter(Boolean).join(' · ')}
+                      </Text>
+                    </View>
+                    <View style={styles.upcomingRight}>
+                      <Text style={[styles.upcomingDue, { color }]}>{label}</Text>
+                      <Text style={[styles.upcomingPeriod, { color: colors.subtext }]}>
+                        Every {loc.restockPeriodWeeks}w
+                      </Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+
         {/* Recent restocks */}
         {recentRestocks.length > 0 && (
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Recent Restocks</Text>
-            {recentRestocks.map((loc) => (
-              <LocationCard key={loc.id} location={loc} onPress={() => navigateTo(loc.id)} />
-            ))}
+            {recentRestocks.map((loc) => {
+              const date = new Date(loc.lastRestockedAt!);
+              const dateStr = date.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
+              return (
+                <TouchableOpacity
+                  key={loc.id}
+                  onPress={() => navigateTo(loc.id)}
+                  activeOpacity={0.75}
+                >
+                  <View style={[styles.recentCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                    <View style={styles.upcomingBody}>
+                      <Text style={[styles.upcomingName, { color: colors.text }]} numberOfLines={1}>
+                        {loc.name}
+                      </Text>
+                      <Text style={[styles.upcomingAddr, { color: colors.subtext }]} numberOfLines={1}>
+                        {[loc.city, loc.postcode].filter(Boolean).join(' · ')}
+                      </Text>
+                    </View>
+                    <Text style={[styles.recentDate, { color: colors.subtext }]}>{dateStr}</Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         )}
 
@@ -324,6 +422,31 @@ const styles = StyleSheet.create({
   // Sections
   section: { marginBottom: 24 },
   sectionTitle: { fontSize: 18, fontWeight: '700', marginBottom: 10 },
+  // Upcoming restock cards
+  upcomingCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 8,
+    overflow: 'hidden',
+  },
+  upcomingStripe: { width: 4, alignSelf: 'stretch' },
+  upcomingBody: { flex: 1, paddingVertical: 12, paddingHorizontal: 12, gap: 2 },
+  upcomingName: { fontSize: 14, fontWeight: '700' },
+  upcomingAddr: { fontSize: 12 },
+  upcomingRight: { paddingHorizontal: 12, alignItems: 'flex-end', gap: 2 },
+  upcomingDue: { fontSize: 13, fontWeight: '700' },
+  upcomingPeriod: { fontSize: 11 },
+  // Recent restock cards
+  recentCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 8,
+  },
+  recentDate: { fontSize: 12, paddingHorizontal: 12 },
   // Empty state
   empty: {
     marginTop: 40,

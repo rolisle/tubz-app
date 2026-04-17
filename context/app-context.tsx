@@ -3,6 +3,7 @@ import React, { createContext, useContext, useEffect, useReducer } from 'react';
 
 import { DEFAULT_PRODUCTS } from '@/constants/default-products';
 import type { AppState, Location, Machine, MachineType, Product, ProductCategory } from '@/types';
+import { rescheduleAllNotifications } from '@/utils/notifications';
 
 const STORAGE_KEY = '@tubz:appState';
 
@@ -223,6 +224,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [state]);
+
+  // Keep scheduled notifications in sync with location restock periods
+  useEffect(() => {
+    rescheduleAllNotifications(state.locations);
+  }, [state.locations]);
 
   // ---------------------------------------------------------------------------
   // Convenience helpers

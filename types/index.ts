@@ -27,6 +27,8 @@ export interface Location {
   postcode?: string;
   notes?: string;
   lastRestockedAt: string | null;
+  /** How often this location is restocked, in weeks (1-12). Undefined = not scheduled. */
+  restockPeriodWeeks?: number;
   machines: Machine[];
   createdAt: string;
 }

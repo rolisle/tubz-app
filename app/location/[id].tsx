@@ -347,6 +347,46 @@ export default function LocationDetailScreen() {
             </TouchableOpacity>
           </View>
 
+          {/* Restock period */}
+          <View style={styles.periodSection}>
+            <View style={styles.periodLabelRow}>
+              <Text style={[styles.periodLabel, { color: colors.subtext }]}>
+                Restock every
+              </Text>
+              {location.restockPeriodWeeks && (
+                <TouchableOpacity
+                  hitSlop={8}
+                  onPress={() => updateLocation({ ...location, restockPeriodWeeks: undefined })}
+                >
+                  <Text style={[styles.periodClear, { color: colors.subtext }]}>Clear</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.periodPills}
+              keyboardShouldPersistTaps="handled"
+            >
+              {Array.from({ length: 12 }, (_, i) => i + 1).map((w) => {
+                const active = location.restockPeriodWeeks === w;
+                return (
+                  <TouchableOpacity
+                    key={w}
+                    onPress={() => updateLocation({ ...location, restockPeriodWeeks: w })}
+                    style={[styles.periodPill, { borderColor: active ? accent : colors.border, overflow: 'hidden' }]}
+                  >
+                    {active && <GradView colors={settings.accentColor} style={StyleSheet.absoluteFill} />}
+                    <Text style={[styles.periodPillNum, { color: active ? '#fff' : colors.text }]}>{w}</Text>
+                    <Text style={[styles.periodPillUnit, { color: active ? '#ffffffbb' : colors.subtext }]}>
+                      {w === 1 ? 'wk' : 'wks'}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+
           {/* Restock button */}
           <TouchableOpacity
             style={[
@@ -554,6 +594,32 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   editDateBtnText: { fontSize: 12, fontWeight: "500" },
+  periodSection: { marginBottom: 14 },
+  periodLabelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  periodLabel: {
+    fontSize: 11,
+    fontWeight: '500',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  periodClear: { fontSize: 12, fontWeight: '500' },
+  periodPills: { gap: 6, paddingRight: 4 },
+  periodPill: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    minWidth: 46,
+  },
+  periodPillNum: { fontSize: 15, fontWeight: '700', lineHeight: 18 },
+  periodPillUnit: { fontSize: 10, fontWeight: '500', letterSpacing: 0.2 },
   restockBtn: {
     borderRadius: 10,
     borderWidth: 1.5,
