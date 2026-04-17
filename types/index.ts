@@ -2,6 +2,16 @@ export type MachineType = "sweet" | "toy";
 
 export type ProductCategory = "sweet" | "toy" | "other";
 
+export type WeekDay = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
+
+export interface DayHours {
+  open: string;
+  close: string;
+}
+
+/** Keyed by WeekDay; missing key = closed that day */
+export type OpeningHours = Partial<Record<WeekDay, DayHours>>;
+
 export interface Product {
   id: string;
   name: string;
@@ -27,6 +37,7 @@ export interface Location {
   lastRestockedAt: string | null;
   restockHistory?: string[];
   restockPeriodWeeks?: number;
+  openingHours?: OpeningHours;
   machines: Machine[];
   createdAt: string;
 }

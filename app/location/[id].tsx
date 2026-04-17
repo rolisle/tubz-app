@@ -10,6 +10,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -26,7 +27,13 @@ import { Colors } from "@/constants/theme";
 import { useApp } from "@/context/app-context";
 import { primaryColor, useSettings } from "@/context/settings-context";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-import type { Machine, MachineType } from "@/types";
+import type { Machine, MachineType, WeekDay } from "@/types";
+import {
+  DAY_LABELS,
+  getOpenStatus,
+  parseTimeInput,
+  WEEK_DAYS,
+} from "@/utils/opening-hours";
 
 const MACHINE_LABELS: Record<MachineType, string> = {
   sweet: "Sweet Machine 🍬",
@@ -81,6 +88,21 @@ export default function LocationDetailScreen() {
   const [showHistory, setShowHistory] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [showOpeningHours, setShowOpeningHours] = useState(false);
+
+  // Opening hours — local time-input state so users can type freely
+  const [timeInputs, setTimeInputs] = useState<
+    Record<string, { open: string; close: string }>
+  >(() => {
+    const result: Record<string, { open: string; close: string }> = {};
+    WEEK_DAYS.forEach((day) => {
+      result[day] = {
+        open: location?.openingHours?.[day]?.open ?? "09:00",
+        close: location?.openingHours?.[day]?.close ?? "17:00",
+      };
+    });
+    return result;
+  });
   const [editErrors, setEditErrors] = useState<Record<string, string>>({});
 
   // UK postcode: AN NAA / ANN NAA / AAN NAA / AANN NAA / ANA NAA / AANA NAA
@@ -107,7 +129,10 @@ export default function LocationDetailScreen() {
     } else if (!UK_POSTCODE.test(postcode.trim())) {
       errs.postcode = "Enter a valid UK postcode.";
     }
-    if (Object.keys(errs).length) { setEditErrors(errs); return; }
+    if (Object.keys(errs).length) {
+      setEditErrors(errs);
+      return;
+    }
     updateLocation({
       ...location,
       name: name.trim(),
@@ -121,6 +146,38 @@ export default function LocationDetailScreen() {
   const cancelEdit = () => {
     setEditErrors({});
     setShowEditModal(false);
+  };
+
+  const toggleDay = (day: WeekDay, enabled: boolean) => {
+    if (!location) return;
+    const newHours = { ...(location.openingHours ?? {}) };
+    if (enabled) {
+      newHours[day] = {
+        open: timeInputs[day].open,
+        close: timeInputs[day].close,
+      };
+    } else {
+      delete newHours[day];
+    }
+    updateLocation({ ...location, openingHours: newHours });
+  };
+
+  const handleTimeBlur = (day: WeekDay, field: "open" | "close") => {
+    if (!location?.openingHours?.[day]) return;
+    const raw = timeInputs[day][field];
+    const parsed = parseTimeInput(raw);
+    const normalised = parsed ?? (field === "open" ? "09:00" : "17:00");
+    setTimeInputs((prev) => ({
+      ...prev,
+      [day]: { ...prev[day], [field]: normalised },
+    }));
+    if (parsed) {
+      const newHours = {
+        ...(location.openingHours ?? {}),
+        [day]: { ...location.openingHours[day]!, [field]: parsed },
+      };
+      updateLocation({ ...location, openingHours: newHours });
+    }
   };
 
   const handleMachineUpdate = useCallback(
@@ -272,36 +329,78 @@ export default function LocationDetailScreen() {
           keyboardShouldPersistTaps="handled"
         >
           {/* Name + address header */}
-          <View style={styles.locationHeader}>
-            <Text
-              style={[styles.locationName, { color: colors.text }]}
-              numberOfLines={2}
-            >
-              {location.name}
-            </Text>
-            {location.address || location.city || location.postcode ? (
-              <TouchableOpacity
-                onPress={() => {
-                  const q = [location.address, location.postcode].filter(Boolean).join(", ");
-                  if (q) Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`);
-                }}
-                activeOpacity={0.6}
-              >
+          {(() => {
+            const status = getOpenStatus(location.openingHours);
+            return (
+              <View style={styles.locationHeader}>
                 <Text
-                  style={[styles.addressLine, { color: colors.subtext }]}
-                  numberOfLines={1}
+                  style={[styles.locationName, { color: colors.text }]}
+                  numberOfLines={2}
                 >
-                  {[location.address, location.city, location.postcode]
-                    .filter(Boolean)
-                    .join(" · ")}
+                  {location.name}
                 </Text>
-              </TouchableOpacity>
-            ) : (
-              <Text style={[styles.addressEmpty, { color: colors.subtext }]}>
-                No address set
-              </Text>
-            )}
-          </View>
+                {location.address || location.city || location.postcode ? (
+                  <TouchableOpacity
+                    onPress={() => {
+                      const q = [location.address, location.postcode]
+                        .filter(Boolean)
+                        .join(", ");
+                      if (q)
+                        Linking.openURL(
+                          `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`,
+                        );
+                    }}
+                    activeOpacity={0.6}
+                  >
+                    <Text
+                      style={[styles.addressLine, { color: colors.subtext }]}
+                      numberOfLines={1}
+                    >
+                      {[location.address, location.city, location.postcode]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </Text>
+                  </TouchableOpacity>
+                ) : (
+                  <Text
+                    style={[styles.addressEmpty, { color: colors.subtext }]}
+                  >
+                    No address set
+                  </Text>
+                )}
+                {status && (
+                  <View
+                    style={[
+                      styles.statusBadge,
+                      {
+                        backgroundColor: status.color + "18",
+                        borderColor: status.color + "44",
+                      },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.statusDot,
+                        { backgroundColor: status.color },
+                      ]}
+                    />
+                    <Text style={[styles.statusText, { color: status.color }]}>
+                      {status.isOpen ? "Open" : "Closed"}
+                      <Text
+                        style={[
+                          styles.statusSub,
+                          { color: status.color + "cc" },
+                        ]}
+                      >
+                        {" "}
+                        · {status.label}
+                      </Text>
+                    </Text>
+                  </View>
+                )}
+              </View>
+            );
+          })()}
 
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
@@ -565,20 +664,29 @@ export default function LocationDetailScreen() {
                   showsVerticalScrollIndicator={false}
                 >
                   {/* Name */}
-                  <Text style={[styles.editFieldLabel, { color: colors.subtext }]}>
-                    Name <Text style={{ color: '#ef4444' }}>*</Text>
+                  <Text
+                    style={[styles.editFieldLabel, { color: colors.subtext }]}
+                  >
+                    Name <Text style={{ color: "#ef4444" }}>*</Text>
                   </Text>
                   <TextInput
                     style={[
                       styles.editField,
                       {
                         color: colors.text,
-                        borderColor: editErrors.name ? '#ef4444' : focusedField === "eName" ? accent : colors.border,
+                        borderColor: editErrors.name
+                          ? "#ef4444"
+                          : focusedField === "eName"
+                            ? accent
+                            : colors.border,
                         backgroundColor: colors.background,
                       },
                     ]}
                     value={name}
-                    onChangeText={(v) => { setName(v); setEditErrors((e) => ({ ...e, name: "" })); }}
+                    onChangeText={(v) => {
+                      setName(v);
+                      setEditErrors((e) => ({ ...e, name: "" }));
+                    }}
                     onFocus={() => setFocusedField("eName")}
                     onBlur={() => setFocusedField(null)}
                     placeholder="Location name"
@@ -587,23 +695,34 @@ export default function LocationDetailScreen() {
                     cursorColor={accent}
                     returnKeyType="next"
                   />
-                  {editErrors.name ? <Text style={styles.editFieldError}>{editErrors.name}</Text> : null}
+                  {editErrors.name ? (
+                    <Text style={styles.editFieldError}>{editErrors.name}</Text>
+                  ) : null}
 
                   {/* Address */}
-                  <Text style={[styles.editFieldLabel, { color: colors.subtext }]}>
-                    Address <Text style={{ color: '#ef4444' }}>*</Text>
+                  <Text
+                    style={[styles.editFieldLabel, { color: colors.subtext }]}
+                  >
+                    Address <Text style={{ color: "#ef4444" }}>*</Text>
                   </Text>
                   <TextInput
                     style={[
                       styles.editField,
                       {
                         color: colors.text,
-                        borderColor: editErrors.address ? '#ef4444' : focusedField === "eAddress" ? accent : colors.border,
+                        borderColor: editErrors.address
+                          ? "#ef4444"
+                          : focusedField === "eAddress"
+                            ? accent
+                            : colors.border,
                         backgroundColor: colors.background,
                       },
                     ]}
                     value={address}
-                    onChangeText={(v) => { setAddress(v); setEditErrors((e) => ({ ...e, address: "" })); }}
+                    onChangeText={(v) => {
+                      setAddress(v);
+                      setEditErrors((e) => ({ ...e, address: "" }));
+                    }}
                     onFocus={() => setFocusedField("eAddress")}
                     onBlur={() => setFocusedField(null)}
                     placeholder="1st line of address"
@@ -612,7 +731,11 @@ export default function LocationDetailScreen() {
                     cursorColor={accent}
                     returnKeyType="next"
                   />
-                  {editErrors.address ? <Text style={styles.editFieldError}>{editErrors.address}</Text> : null}
+                  {editErrors.address ? (
+                    <Text style={styles.editFieldError}>
+                      {editErrors.address}
+                    </Text>
+                  ) : null}
 
                   {/* City + Postcode */}
                   <View style={styles.editFieldRow}>
@@ -622,12 +745,19 @@ export default function LocationDetailScreen() {
                           styles.editFieldHalf,
                           {
                             color: colors.text,
-                            borderColor: editErrors.city ? '#ef4444' : focusedField === "eCity" ? accent : colors.border,
+                            borderColor: editErrors.city
+                              ? "#ef4444"
+                              : focusedField === "eCity"
+                                ? accent
+                                : colors.border,
                             backgroundColor: colors.background,
                           },
                         ]}
                         value={city}
-                        onChangeText={(v) => { setCity(v); setEditErrors((e) => ({ ...e, city: "" })); }}
+                        onChangeText={(v) => {
+                          setCity(v);
+                          setEditErrors((e) => ({ ...e, city: "" }));
+                        }}
                         onFocus={() => setFocusedField("eCity")}
                         onBlur={() => setFocusedField(null)}
                         placeholder="City *"
@@ -636,7 +766,11 @@ export default function LocationDetailScreen() {
                         cursorColor={accent}
                         returnKeyType="next"
                       />
-                      {editErrors.city ? <Text style={styles.editFieldError}>{editErrors.city}</Text> : null}
+                      {editErrors.city ? (
+                        <Text style={styles.editFieldError}>
+                          {editErrors.city}
+                        </Text>
+                      ) : null}
                     </View>
                     <View style={{ flex: 1 }}>
                       <TextInput
@@ -644,12 +778,19 @@ export default function LocationDetailScreen() {
                           styles.editFieldHalf,
                           {
                             color: colors.text,
-                            borderColor: editErrors.postcode ? '#ef4444' : focusedField === "ePostcode" ? accent : colors.border,
+                            borderColor: editErrors.postcode
+                              ? "#ef4444"
+                              : focusedField === "ePostcode"
+                                ? accent
+                                : colors.border,
                             backgroundColor: colors.background,
                           },
                         ]}
                         value={postcode}
-                        onChangeText={(v) => { setPostcode(v); setEditErrors((e) => ({ ...e, postcode: "" })); }}
+                        onChangeText={(v) => {
+                          setPostcode(v);
+                          setEditErrors((e) => ({ ...e, postcode: "" }));
+                        }}
                         onFocus={() => setFocusedField("ePostcode")}
                         onBlur={() => setFocusedField(null)}
                         placeholder="Postcode *"
@@ -660,7 +801,11 @@ export default function LocationDetailScreen() {
                         autoCapitalize="characters"
                         autoCorrect={false}
                       />
-                      {editErrors.postcode ? <Text style={styles.editFieldError}>{editErrors.postcode}</Text> : null}
+                      {editErrors.postcode ? (
+                        <Text style={styles.editFieldError}>
+                          {editErrors.postcode}
+                        </Text>
+                      ) : null}
                     </View>
                   </View>
                 </ScrollView>
@@ -688,7 +833,7 @@ export default function LocationDetailScreen() {
               <View
                 style={[styles.menuHandle, { backgroundColor: colors.border }]}
               />
-
+              {/* Edit address */}
               <TouchableOpacity
                 style={[styles.menuItem, { borderBottomColor: colors.border }]}
                 onPress={() => {
@@ -704,7 +849,23 @@ export default function LocationDetailScreen() {
                   Edit address
                 </Text>
               </TouchableOpacity>
-
+              {/* Edit opening hours */}
+              <TouchableOpacity
+                style={[styles.menuItem, { borderBottomColor: colors.border }]}
+                onPress={() => {
+                  setShowMenu(false);
+                  setShowOpeningHours(true);
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.menuItemIcon, { color: colors.subtext }]}>
+                  ⏰
+                </Text>
+                <Text style={[styles.menuItemLabel, { color: colors.text }]}>
+                  Edit opening hours
+                </Text>
+              </TouchableOpacity>
+              {/* Restock history */}
               {(location.restockHistory?.length ?? 0) > 0 && (
                 <TouchableOpacity
                   style={[
@@ -732,7 +893,7 @@ export default function LocationDetailScreen() {
                   </Text>
                 </TouchableOpacity>
               )}
-
+              {/* Delete location */}
               <TouchableOpacity
                 style={styles.menuItem}
                 onPress={() => {
@@ -767,6 +928,94 @@ export default function LocationDetailScreen() {
                 </Text>
               </TouchableOpacity>
             </View>
+          </Modal>
+
+          {/* Opening hours modal */}
+          <Modal
+            visible={showOpeningHours}
+            transparent
+            animationType="slide"
+            onRequestClose={() => setShowOpeningHours(false)}
+          >
+            <Pressable style={styles.menuOverlay} onPress={() => setShowOpeningHours(false)} />
+            <KeyboardAvoidingView
+              style={styles.editSheetWrap}
+              behavior={Platform.OS === "ios" ? "padding" : "height"}
+            >
+              <View style={[styles.editSheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <View style={[styles.editSheetHeader, { borderBottomColor: colors.border }]}>
+                  <Text style={[styles.editSheetTitle, { color: colors.text }]}>Opening Hours</Text>
+                  <TouchableOpacity onPress={() => setShowOpeningHours(false)} hitSlop={8}>
+                    <Text style={[styles.editSheetSave, { color: accent }]}>Done</Text>
+                  </TouchableOpacity>
+                </View>
+                <ScrollView
+                  contentContainerStyle={styles.hoursModalContent}
+                  keyboardShouldPersistTaps="handled"
+                  showsVerticalScrollIndicator={false}
+                >
+                  {WEEK_DAYS.map((day) => {
+                    const isEnabled = !!location.openingHours?.[day];
+                    return (
+                      <View key={day} style={[styles.hoursRow, { borderBottomColor: colors.border }]}>
+                        <Text style={[styles.hoursDay, { color: colors.text }]}>{DAY_LABELS[day]}</Text>
+                        <Switch
+                          value={isEnabled}
+                          onValueChange={(v) => toggleDay(day, v)}
+                          trackColor={{ true: accent, false: colors.border }}
+                          thumbColor="#fff"
+                        />
+                        {isEnabled ? (
+                          <View style={styles.hoursTimes}>
+                            <TextInput
+                              style={[styles.hoursTimeInput, {
+                                color: colors.text,
+                                borderColor: focusedField === `${day}_open` ? accent : colors.border,
+                                backgroundColor: colors.background,
+                              }]}
+                              value={timeInputs[day].open}
+                              onChangeText={(v) => setTimeInputs((p) => ({ ...p, [day]: { ...p[day], open: v } }))}
+                              onFocus={() => setFocusedField(`${day}_open`)}
+                              onBlur={() => { setFocusedField(null); handleTimeBlur(day, 'open'); }}
+                              placeholder="09:00"
+                              placeholderTextColor={colors.subtext}
+                              keyboardType="numbers-and-punctuation"
+                              maxLength={5}
+                              returnKeyType="next"
+                              selectionColor={`${accent}44`}
+                              cursorColor={accent}
+                              autoCorrect={false}
+                            />
+                            <Text style={[styles.hoursDash, { color: colors.subtext }]}>–</Text>
+                            <TextInput
+                              style={[styles.hoursTimeInput, {
+                                color: colors.text,
+                                borderColor: focusedField === `${day}_close` ? accent : colors.border,
+                                backgroundColor: colors.background,
+                              }]}
+                              value={timeInputs[day].close}
+                              onChangeText={(v) => setTimeInputs((p) => ({ ...p, [day]: { ...p[day], close: v } }))}
+                              onFocus={() => setFocusedField(`${day}_close`)}
+                              onBlur={() => { setFocusedField(null); handleTimeBlur(day, 'close'); }}
+                              placeholder="17:00"
+                              placeholderTextColor={colors.subtext}
+                              keyboardType="numbers-and-punctuation"
+                              maxLength={5}
+                              returnKeyType="done"
+                              selectionColor={`${accent}44`}
+                              cursorColor={accent}
+                              autoCorrect={false}
+                            />
+                          </View>
+                        ) : (
+                          <Text style={[styles.hoursClosed, { color: colors.subtext }]}>Closed</Text>
+                        )}
+                      </View>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            </KeyboardAvoidingView>
           </Modal>
 
           {/* Divider */}
@@ -902,6 +1151,7 @@ export default function LocationDetailScreen() {
             numberOfLines={4}
             textAlignVertical="top"
           />
+
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -997,6 +1247,43 @@ const styles = StyleSheet.create({
     fontSize: 15,
     minHeight: 96,
   },
+  // Status badge
+  statusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginTop: 4,
+  },
+  statusDot: { width: 7, height: 7, borderRadius: 4 },
+  statusText: { fontSize: 13, fontWeight: "600" },
+  statusSub: { fontWeight: "400" },
+  // Opening hours editor
+  hoursModalContent: { paddingHorizontal: 20, paddingBottom: 40 },
+  hoursRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    gap: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  hoursDay: { fontSize: 14, fontWeight: "600", width: 36 },
+  hoursTimes: { flex: 1, flexDirection: "row", alignItems: "center", gap: 6 },
+  hoursTimeInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    fontSize: 14,
+    textAlign: "center",
+  },
+  hoursDash: { fontSize: 14 },
+  hoursClosed: { flex: 1, fontSize: 13, fontStyle: "italic" },
   // Edit location modal
   editOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)" },
   editSheetWrap: {
@@ -1028,7 +1315,7 @@ const styles = StyleSheet.create({
     paddingBottom: 48,
     gap: 6,
   },
-  editFieldError: { fontSize: 12, color: '#ef4444', marginTop: 3 },
+  editFieldError: { fontSize: 12, color: "#ef4444", marginTop: 3 },
   editFieldLabel: {
     fontSize: 12,
     fontWeight: "600",

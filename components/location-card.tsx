@@ -11,6 +11,7 @@ import { Colors } from "@/constants/theme";
 import { primaryColor, useSettings } from "@/context/settings-context";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import type { Location } from "@/types";
+import { getOpenStatus } from "@/utils/opening-hours";
 
 interface LocationCardProps {
   location: Location;
@@ -81,6 +82,20 @@ export function LocationCard({ location, onPress }: LocationCardProps) {
                 .join(", ")}
             </Text>
           ) : null}
+          {(() => {
+            const status = getOpenStatus(location.openingHours);
+            if (!status) return null;
+            return (
+              <View style={[styles.statusBadge, { backgroundColor: status.color + '18', borderColor: status.color + '44' }]}>
+                <View style={[styles.statusDot, { backgroundColor: status.color }]} />
+                <Text style={[styles.statusText, { color: status.color }]}>
+                  {status.isOpen ? 'Open' : 'Closed'}
+                  {'  '}
+                  <Text style={[styles.statusSub, { color: status.color + 'bb' }]}>{status.label}</Text>
+                </Text>
+              </View>
+            );
+          })()}
           <Text style={[styles.restock, { color: colors.subtext }]}>
             {formatLastRestock(location.lastRestockedAt)}
           </Text>
@@ -159,6 +174,20 @@ const styles = StyleSheet.create({
   },
   name: { fontSize: 16, fontWeight: "600" },
   address: { fontSize: 13 },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 5,
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginTop: 2,
+  },
+  statusDot: { width: 6, height: 6, borderRadius: 3 },
+  statusText: { fontSize: 12, fontWeight: '600' },
+  statusSub: { fontWeight: '400' },
   restock: { fontSize: 12, marginTop: 2 },
   mapBtn: {
     width: 36,
