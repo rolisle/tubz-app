@@ -2,8 +2,11 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import {
   Alert,
+  FlatList,
   KeyboardAvoidingView,
+  Modal,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -74,6 +77,7 @@ export default function LocationDetailScreen() {
   const [pickerDate, setPickerDate] = useState<Date>(
     location?.lastRestockedAt ? new Date(location.lastRestockedAt) : new Date(),
   );
+  const [showHistory, setShowHistory] = useState(false);
 
   const handleMachineUpdate = useCallback(
     (machine: Machine) => updateMachine(location?.id ?? "", machine),
@@ -317,6 +321,91 @@ export default function LocationDetailScreen() {
 
           {/* Last restock row */}
           <View style={styles.restockRow}>
+            {(location.restockHistory?.length ?? 0) > 0 && (
+              <TouchableOpacity
+                onPress={() => setShowHistory(true)}
+                style={[
+                  styles.historyBtn,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
+              >
+                <Text
+                  style={[styles.historyBtnText, { color: colors.subtext }]}
+                >
+                  🕓
+                </Text>
+              </TouchableOpacity>
+            )}
+            {/* Restock history modal */}
+            <Modal
+              visible={showHistory}
+              transparent
+              animationType="slide"
+              onRequestClose={() => setShowHistory(false)}
+            >
+              <Pressable
+                style={styles.historyOverlay}
+                onPress={() => setShowHistory(false)}
+              />
+              <View
+                style={[
+                  styles.historySheet,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
+              >
+                <View style={styles.historyHeader}>
+                  <Text style={[styles.historyTitle, { color: colors.text }]}>
+                    Restock History
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => setShowHistory(false)}
+                    hitSlop={8}
+                  >
+                    <Text
+                      style={[styles.historyClose, { color: accent }]}
+                    >
+                      Done
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                <FlatList
+                  data={[...(location.restockHistory ?? [])].reverse()}
+                  keyExtractor={(item, i) => `${item}-${i}`}
+                  contentContainerStyle={styles.historyList}
+                  renderItem={({ item, index }) => (
+                    <View
+                      style={[
+                        styles.historyRow,
+                        { borderBottomColor: colors.border },
+                      ]}
+                    >
+                      <Text
+                        style={[styles.historyIndex, { color: colors.subtext }]}
+                      >
+                        #{(location.restockHistory?.length ?? 0) - index}
+                      </Text>
+                      <Text
+                        style={[styles.historyDate, { color: colors.text }]}
+                      >
+                        {new Date(item).toLocaleDateString("en-AU", {
+                          weekday: "short",
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </Text>
+                    </View>
+                  )}
+                  ListEmptyComponent={
+                    <Text
+                      style={[styles.historyEmpty, { color: colors.subtext }]}
+                    >
+                      No history yet.
+                    </Text>
+                  }
+                />
+              </View>
+            </Modal>
             <View style={styles.restockInfo}>
               <Text style={[styles.restockMeta, { color: colors.subtext }]}>
                 Last restocked
@@ -356,9 +445,16 @@ export default function LocationDetailScreen() {
               {location.restockPeriodWeeks && (
                 <TouchableOpacity
                   hitSlop={8}
-                  onPress={() => updateLocation({ ...location, restockPeriodWeeks: undefined })}
+                  onPress={() =>
+                    updateLocation({
+                      ...location,
+                      restockPeriodWeeks: undefined,
+                    })
+                  }
                 >
-                  <Text style={[styles.periodClear, { color: colors.subtext }]}>Clear</Text>
+                  <Text style={[styles.periodClear, { color: colors.subtext }]}>
+                    Clear
+                  </Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -373,13 +469,38 @@ export default function LocationDetailScreen() {
                 return (
                   <TouchableOpacity
                     key={w}
-                    onPress={() => updateLocation({ ...location, restockPeriodWeeks: w })}
-                    style={[styles.periodPill, { borderColor: active ? accent : colors.border, overflow: 'hidden' }]}
+                    onPress={() =>
+                      updateLocation({ ...location, restockPeriodWeeks: w })
+                    }
+                    style={[
+                      styles.periodPill,
+                      {
+                        borderColor: active ? accent : colors.border,
+                        overflow: "hidden",
+                      },
+                    ]}
                   >
-                    {active && <GradView colors={settings.accentColor} style={StyleSheet.absoluteFill} />}
-                    <Text style={[styles.periodPillNum, { color: active ? '#fff' : colors.text }]}>{w}</Text>
-                    <Text style={[styles.periodPillUnit, { color: active ? '#ffffffbb' : colors.subtext }]}>
-                      {w === 1 ? 'wk' : 'wks'}
+                    {active && (
+                      <GradView
+                        colors={settings.accentColor}
+                        style={StyleSheet.absoluteFill}
+                      />
+                    )}
+                    <Text
+                      style={[
+                        styles.periodPillNum,
+                        { color: active ? "#fff" : colors.text },
+                      ]}
+                    >
+                      {w}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.periodPillUnit,
+                        { color: active ? "#ffffffbb" : colors.subtext },
+                      ]}
+                    >
+                      {w === 1 ? "wk" : "wks"}
                     </Text>
                   </TouchableOpacity>
                 );
@@ -387,26 +508,29 @@ export default function LocationDetailScreen() {
             </ScrollView>
           </View>
 
-          {/* Restock button */}
-          <TouchableOpacity
-            style={[
-              styles.restockBtn,
-              {
-                backgroundColor: colors.card,
-                borderColor: primaryColor(settings.accentColor),
-              },
-            ]}
-            onPress={handleRestock}
-          >
-            <Text
+          {/* Restock button row */}
+          <View style={styles.restockBtnRow}>
+            <TouchableOpacity
               style={[
-                styles.restockBtnText,
-                { color: primaryColor(settings.accentColor) },
+                styles.restockBtn,
+                {
+                  flex: 1,
+                  backgroundColor: colors.card,
+                  borderColor: primaryColor(settings.accentColor),
+                },
               ]}
+              onPress={handleRestock}
             >
-              ✓ Mark Restocked Now
-            </Text>
-          </TouchableOpacity>
+              <Text
+                style={[
+                  styles.restockBtnText,
+                  { color: primaryColor(settings.accentColor) },
+                ]}
+              >
+                ✓ Mark Restocked Now
+              </Text>
+            </TouchableOpacity>
+          </View>
 
           <DatePickerModal
             visible={showDatePicker}
@@ -421,26 +545,39 @@ export default function LocationDetailScreen() {
           {/* Machines — grouped by type */}
           {(["sweet", "toy"] as const).map((type) => {
             const typeColor = MACHINE_COLORS[type];
-            const typeMachines = location.machines.filter((m) => m.type === type);
+            const typeMachines = location.machines.filter(
+              (m) => m.type === type,
+            );
             const emoji = type === "sweet" ? "🍬" : "🪀";
-            const machineColors = type === "sweet" ? settings.sweetColor : settings.toyColor;
+            const machineColors =
+              type === "sweet" ? settings.sweetColor : settings.toyColor;
             const label = type === "sweet" ? "Sweet Machines" : "Toy Machines";
             return (
               <View key={type} style={styles.machineSection}>
                 {/* Section header */}
                 <View style={styles.machineSectionHeader}>
-                  <Text style={[styles.machineSectionTitle, { color: typeColor }]}>
-                    {emoji}  {label}
+                  <Text
+                    style={[styles.machineSectionTitle, { color: typeColor }]}
+                  >
+                    {emoji} {label}
                   </Text>
                   <TouchableOpacity
-                    style={[styles.addMachineInlineBtn, { borderColor: typeColor }]}
+                    style={[
+                      styles.addMachineInlineBtn,
+                      { borderColor: typeColor },
+                    ]}
                     onPress={() => handleAddMachine(type)}
                   >
                     <GradView
                       colors={machineColors}
                       style={[StyleSheet.absoluteFill, { opacity: 0.12 }]}
                     />
-                    <Text style={[styles.addMachineInlineBtnText, { color: typeColor }]}>
+                    <Text
+                      style={[
+                        styles.addMachineInlineBtnText,
+                        { color: typeColor },
+                      ]}
+                    >
                       + Add
                     </Text>
                   </TouchableOpacity>
@@ -467,7 +604,9 @@ export default function LocationDetailScreen() {
                   >
                     <View style={styles.machineHeader}>
                       <View style={styles.machineTitleRow}>
-                        <Text style={[styles.machineTitle, { color: typeColor }]}>
+                        <Text
+                          style={[styles.machineTitle, { color: typeColor }]}
+                        >
                           {MACHINE_LABELS[machine.type]}
                         </Text>
                         <Text
@@ -488,7 +627,9 @@ export default function LocationDetailScreen() {
                         onPress={() => handleDeleteMachine(machine.id)}
                         hitSlop={8}
                       >
-                        <Text style={{ color: "#ef4444", fontSize: 13 }}>Remove</Text>
+                        <Text style={{ color: "#ef4444", fontSize: 13 }}>
+                          Remove
+                        </Text>
                       </TouchableOpacity>
                     </View>
                     <MachineGrid
@@ -596,38 +737,85 @@ const styles = StyleSheet.create({
   editDateBtnText: { fontSize: 12, fontWeight: "500" },
   periodSection: { marginBottom: 14 },
   periodLabelRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 8,
   },
   periodLabel: {
     fontSize: 11,
-    fontWeight: '500',
-    textTransform: 'uppercase',
+    fontWeight: "500",
+    textTransform: "uppercase",
     letterSpacing: 0.4,
   },
-  periodClear: { fontSize: 12, fontWeight: '500' },
+  periodClear: { fontSize: 12, fontWeight: "500" },
   periodPills: { gap: 6, paddingRight: 4 },
   periodPill: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     borderWidth: 1.5,
     borderRadius: 10,
     paddingHorizontal: 10,
     paddingVertical: 7,
     minWidth: 46,
   },
-  periodPillNum: { fontSize: 15, fontWeight: '700', lineHeight: 18 },
-  periodPillUnit: { fontSize: 10, fontWeight: '500', letterSpacing: 0.2 },
+  periodPillNum: { fontSize: 15, fontWeight: "700", lineHeight: 18 },
+  periodPillUnit: { fontSize: 10, fontWeight: "500", letterSpacing: 0.2 },
+  restockBtnRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 20,
+  },
   restockBtn: {
     borderRadius: 10,
     borderWidth: 1.5,
     paddingVertical: 11,
     alignItems: "center",
-    marginBottom: 20,
   },
   restockBtnText: { fontSize: 15, fontWeight: "700" },
+  historyBtn: {
+    borderRadius: 10,
+    borderWidth: 1,
+    width: 42,
+    height: 42,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  historyBtnText: { fontSize: 18 },
+  // History modal
+  historyOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)" },
+  historySheet: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderTopWidth: 1,
+    maxHeight: "65%",
+  },
+  historyHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  historyTitle: { fontSize: 17, fontWeight: "700" },
+  historyClose: { fontSize: 15, fontWeight: "500" },
+  historyList: { paddingBottom: 40 },
+  historyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 13,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  historyIndex: { fontSize: 12, fontWeight: "600", minWidth: 28 },
+  historyDate: { fontSize: 15 },
+  historyEmpty: { textAlign: "center", paddingTop: 32, fontSize: 14 },
   divider: { height: StyleSheet.hairlineWidth, marginVertical: 20 },
   sectionLabel: { fontSize: 17, fontWeight: "700", marginBottom: 4 },
   sectionNote: { fontSize: 13, marginBottom: 12, lineHeight: 18 },

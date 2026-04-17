@@ -61,7 +61,11 @@ function reducer(state: AppState, action: Action): AppState {
         ...state,
         locations: state.locations.map((l) =>
           l.id === action.payload.id
-            ? { ...l, lastRestockedAt: action.payload.timestamp }
+            ? {
+                ...l,
+                lastRestockedAt: action.payload.timestamp,
+                restockHistory: [...(l.restockHistory ?? []), action.payload.timestamp],
+              }
             : l
         ),
       };
@@ -189,6 +193,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             locations: parsed.locations.map((l) => ({
               ...l,
               stockLevel: undefined,
+              // Seed restockHistory from lastRestockedAt if it doesn't exist yet
+              restockHistory:
+                l.restockHistory ??
+                (l.lastRestockedAt ? [l.lastRestockedAt] : []),
               machines: l.machines.map((m) => ({
                 ...m,
                 stockLevel: undefined,

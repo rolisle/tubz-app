@@ -1,6 +1,6 @@
-export type MachineType = 'sweet' | 'toy';
+export type MachineType = "sweet" | "toy";
 
-export type ProductCategory = 'sweet' | 'toy' | 'other';
+export type ProductCategory = "sweet" | "toy" | "other";
 
 export interface Product {
   id: string;
@@ -13,9 +13,7 @@ export interface Product {
 export interface Machine {
   id: string;
   type: MachineType;
-  /** Up to 9 slots; each entry is a product ID or null (empty slot) */
   slots: (string | null)[];
-  /** Supply stock count per product ID — how many of each item are available to reload */
   stockCounts: Record<string, number>;
 }
 
@@ -27,7 +25,7 @@ export interface Location {
   postcode?: string;
   notes?: string;
   lastRestockedAt: string | null;
-  /** How often this location is restocked, in weeks (1-12). Undefined = not scheduled. */
+  restockHistory?: string[];
   restockPeriodWeeks?: number;
   machines: Machine[];
   createdAt: string;
