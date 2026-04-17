@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useContext, useEffect, useReducer } from 'react';
 
 import { DEFAULT_PRODUCTS } from '@/constants/default-products';
-import type { AppState, Location, Machine, MachineType, Product, ProductCategory } from '@/types';
+import type { AppState, Location, Machine, MachineType, Product, ProductCategory, RestockEntry, RestockMachineEntry } from '@/types';
 import { rescheduleAllNotifications } from '@/utils/notifications';
 
 const STORAGE_KEY = '@tubz:appState';
@@ -21,7 +21,9 @@ type Action =
   | { type: 'ADD_LOCATION'; payload: Location }
   | { type: 'UPDATE_LOCATION'; payload: Location }
   | { type: 'DELETE_LOCATION'; payload: { id: string } }
-  | { type: 'RESTOCK_LOCATION'; payload: { id: string; timestamp: string } }
+  | { type: 'RESTOCK_LOCATION'; payload: { id: string; timestamp: string; machines: RestockMachineEntry[] } }
+  | { type: 'EDIT_RESTOCK_ENTRY'; payload: { locationId: string; index: number; entry: RestockEntry } }
+  | { type: 'DELETE_RESTOCK_ENTRY'; payload: { locationId: string; index: number } }
   | { type: 'ADD_MACHINE'; payload: { locationId: string; machine: Machine } }
   | { type: 'UPDATE_MACHINE'; payload: { locationId: string; machine: Machine } }
   | { type: 'DELETE_MACHINE'; payload: { locationId: string; machineId: string } }
@@ -56,7 +58,11 @@ function reducer(state: AppState, action: Action): AppState {
         locations: state.locations.filter((l) => l.id !== action.payload.id),
       };
 
-    case 'RESTOCK_LOCATION':
+    case 'RESTOCK_LOCATION': {
+      const entry: RestockEntry = {
+        timestamp: action.payload.timestamp,
+        machines: action.payload.machines,
+      };
       return {
         ...state,
         locations: state.locations.map((l) =>
@@ -64,10 +70,39 @@ function reducer(state: AppState, action: Action): AppState {
             ? {
                 ...l,
                 lastRestockedAt: action.payload.timestamp,
-                restockHistory: [...(l.restockHistory ?? []), action.payload.timestamp],
+                restockHistory: [...(l.restockHistory ?? []), entry],
               }
             : l
         ),
+      };
+    }
+
+    case 'EDIT_RESTOCK_ENTRY':
+      return {
+        ...state,
+        locations: state.locations.map((l) => {
+          if (l.id !== action.payload.locationId) return l;
+          const history = [...(l.restockHistory ?? [])];
+          history[action.payload.index] = action.payload.entry;
+          // Keep lastRestockedAt in sync with the most recent entry timestamp
+          const sorted = [...history].sort(
+            (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+          );
+          return { ...l, restockHistory: history, lastRestockedAt: sorted[0]?.timestamp ?? l.lastRestockedAt };
+        }),
+      };
+
+    case 'DELETE_RESTOCK_ENTRY':
+      return {
+        ...state,
+        locations: state.locations.map((l) => {
+          if (l.id !== action.payload.locationId) return l;
+          const history = (l.restockHistory ?? []).filter((_, i) => i !== action.payload.index);
+          const sorted = [...history].sort(
+            (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+          );
+          return { ...l, restockHistory: history, lastRestockedAt: sorted[0]?.timestamp ?? null };
+        }),
       };
 
     case 'ADD_MACHINE':
@@ -163,7 +198,9 @@ interface AppContextValue {
   addLocation: (location: Omit<Location, 'id' | 'createdAt'>) => void;
   updateLocation: (location: Location) => void;
   deleteLocation: (id: string) => void;
-  restockLocation: (id: string) => void;
+  restockLocation: (id: string, machines?: RestockMachineEntry[]) => void;
+  editRestockEntry: (locationId: string, index: number, entry: RestockEntry) => void;
+  deleteRestockEntry: (locationId: string, index: number) => void;
   addMachine: (locationId: string, type: MachineType) => void;
   updateMachine: (locationId: string, machine: Machine) => void;
   deleteMachine: (locationId: string, machineId: string) => void;
@@ -194,10 +231,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             locations: parsed.locations.map((l) => ({
               ...l,
               stockLevel: undefined,
-              // Seed restockHistory from lastRestockedAt if it doesn't exist yet
-              restockHistory:
-                l.restockHistory ??
-                (l.lastRestockedAt ? [l.lastRestockedAt] : []),
+              // Migrate restockHistory: string[] → RestockEntry[], or seed from lastRestockedAt
+              restockHistory: (() => {
+                const h = l.restockHistory as unknown;
+                if (Array.isArray(h) && h.length > 0) {
+                  if (typeof h[0] === 'string') {
+                    // Old format: convert each timestamp string to a RestockEntry
+                    return (h as string[]).map((ts) => ({ timestamp: ts, machines: [] }));
+                  }
+                  return h as RestockEntry[];
+                }
+                return l.lastRestockedAt
+                  ? [{ timestamp: l.lastRestockedAt, machines: [] }]
+                  : [];
+              })(),
               machines: l.machines.map((m) => ({
                 ...m,
                 stockLevel: undefined,
@@ -262,8 +309,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const deleteLocation = (id: string) =>
     dispatch({ type: 'DELETE_LOCATION', payload: { id } });
 
-  const restockLocation = (id: string) =>
-    dispatch({ type: 'RESTOCK_LOCATION', payload: { id, timestamp: new Date().toISOString() } });
+  const restockLocation = (id: string, machines: RestockMachineEntry[] = []) =>
+    dispatch({ type: 'RESTOCK_LOCATION', payload: { id, timestamp: new Date().toISOString(), machines } });
+
+  const editRestockEntry = (locationId: string, index: number, entry: RestockEntry) =>
+    dispatch({ type: 'EDIT_RESTOCK_ENTRY', payload: { locationId, index, entry } });
+
+  const deleteRestockEntry = (locationId: string, index: number) =>
+    dispatch({ type: 'DELETE_RESTOCK_ENTRY', payload: { locationId, index } });
 
   const addMachine = (locationId: string, type: MachineType) => {
     const machine: Machine = {
@@ -305,6 +358,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         updateLocation,
         deleteLocation,
         restockLocation,
+        editRestockEntry,
+        deleteRestockEntry,
         addMachine,
         updateMachine,
         deleteMachine,

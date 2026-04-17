@@ -3,6 +3,7 @@ import { useCallback, useMemo, useState } from "react";
 import {
   Alert,
   FlatList,
+  Image,
   KeyboardAvoidingView,
   Linking,
   Modal,
@@ -21,13 +22,14 @@ import { DatePickerModal } from "@/components/ui/date-picker-modal";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { GradView } from "@/components/ui/grad-view";
+import { PRODUCT_IMAGES } from "@/constants/product-images";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { MachineGrid } from "@/components/ui/machine-grid";
 import { Colors } from "@/constants/theme";
 import { useApp } from "@/context/app-context";
 import { primaryColor, useSettings } from "@/context/settings-context";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-import type { Machine, MachineType, WeekDay } from "@/types";
+import type { Machine, MachineType, RestockMachineEntry, WeekDay } from "@/types";
 import {
   DAY_LABELS,
   getOpenStatus,
@@ -56,6 +58,8 @@ export default function LocationDetailScreen() {
     updateLocation,
     deleteLocation,
     restockLocation,
+    editRestockEntry,
+    deleteRestockEntry,
     addMachine,
     updateMachine,
     deleteMachine,
@@ -89,6 +93,15 @@ export default function LocationDetailScreen() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showOpeningHours, setShowOpeningHours] = useState(false);
+  const [showRestockSession, setShowRestockSession] = useState(false);
+  // restockQtys: machineId → productId → quantity being restocked
+  const [restockQtys, setRestockQtys] = useState<Record<string, Record<string, number>>>({});
+
+  // Restock history editor
+  const [editingEntry, setEditingEntry] = useState<{ index: number; entry: import("@/types").RestockEntry } | null>(null);
+  const [editEntryDate, setEditEntryDate] = useState<Date>(new Date());
+  const [editEntryQtys, setEditEntryQtys] = useState<Record<string, Record<string, number>>>({});
+  const [showEditEntryDatePicker, setShowEditEntryDatePicker] = useState(false);
 
   // Opening hours — local time-input state so users can type freely
   const [timeInputs, setTimeInputs] = useState<
@@ -218,9 +231,76 @@ export default function LocationDetailScreen() {
     );
   }
 
-  const handleRestock = () => {
-    restockLocation(location.id);
+  const openRestockSession = () => {
+    // Initialise all product quantities to 0
+    const qtys: Record<string, Record<string, number>> = {};
+    location.machines.forEach((m) => {
+      qtys[m.id] = {};
+      const productIds = Array.from(new Set(m.slots.filter(Boolean) as string[]));
+      productIds.forEach((pid) => { qtys[m.id][pid] = 0; });
+    });
+    setRestockQtys(qtys);
+    setShowRestockSession(true);
+  };
+
+  const completeRestockSession = () => {
+    const machineEntries: RestockMachineEntry[] = location.machines
+      .map((m) => ({
+        machineId: m.id,
+        machineType: m.type,
+        products: Object.entries(restockQtys[m.id] ?? {})
+          .filter(([, qty]) => qty > 0)
+          .map(([productId, qty]) => ({ productId, qty })),
+      }))
+      .filter((me) => me.products.length > 0);
+    restockLocation(location.id, machineEntries);
     setPickerDate(new Date());
+    setShowRestockSession(false);
+  };
+
+  // ── History entry editor ──────────────────────────────────────
+  const openEditEntry = (originalIndex: number) => {
+    const entry = location.restockHistory![originalIndex];
+    const qtys: Record<string, Record<string, number>> = {};
+    entry.machines.forEach((me) => {
+      qtys[me.machineId] = {};
+      me.products.forEach((p) => { qtys[me.machineId][p.productId] = p.qty; });
+    });
+    setEditingEntry({ index: originalIndex, entry });
+    setEditEntryDate(new Date(entry.timestamp));
+    setEditEntryQtys(qtys);
+  };
+
+  const saveEditEntry = () => {
+    if (!editingEntry) return;
+    const updated: import("@/types").RestockEntry = {
+      timestamp: editEntryDate.toISOString(),
+      machines: editingEntry.entry.machines.map((me) => ({
+        ...me,
+        products: me.products.map((p) => ({
+          ...p,
+          qty: editEntryQtys[me.machineId]?.[p.productId] ?? p.qty,
+        })),
+      })),
+    };
+    editRestockEntry(location.id, editingEntry.index, updated);
+    setEditingEntry(null);
+    setShowHistory(true);
+  };
+
+  const handleDeleteEntry = (originalIndex: number) => {
+    const doDelete = () => {
+      deleteRestockEntry(location.id, originalIndex);
+      if (editingEntry?.index === originalIndex) setEditingEntry(null);
+    };
+    if (Platform.OS === "web") {
+      if (window.confirm("Delete this restock entry?")) { doDelete(); setShowHistory(true); }
+    } else {
+      Alert.alert("Delete entry?", "This cannot be undone.", [
+        { text: "Cancel", style: "cancel" },
+        { text: "Delete", style: "destructive", onPress: () => { doDelete(); setShowHistory(true); } },
+      ]);
+    }
   };
 
   const handleConfirmDate = (date: Date) => {
@@ -437,37 +517,57 @@ export default function LocationDetailScreen() {
                   </TouchableOpacity>
                 </View>
                 <FlatList
-                  data={[...(location.restockHistory ?? [])].reverse()}
-                  keyExtractor={(item, i) => `${item}-${i}`}
+                  data={[...(location.restockHistory ?? [])].map((e, i) => ({ entry: e, originalIndex: i })).reverse()}
+                  keyExtractor={({ entry, originalIndex }) => `${entry.timestamp}-${originalIndex}`}
                   contentContainerStyle={styles.historyList}
-                  renderItem={({ item, index }) => (
-                    <View
-                      style={[
-                        styles.historyRow,
-                        { borderBottomColor: colors.border },
-                      ]}
-                    >
-                      <Text
-                        style={[styles.historyIndex, { color: colors.subtext }]}
+                  renderItem={({ item: { entry, originalIndex }, index }) => {
+                    const total = location.restockHistory?.length ?? 0;
+                    const hasProducts = entry.machines?.some((m) => m.products.length > 0);
+                    return (
+                      <TouchableOpacity
+                        activeOpacity={0.75}
+                        style={[styles.historyRow, { borderBottomColor: colors.border }]}
+                        onPress={() => {
+                          setShowHistory(false);
+                          openEditEntry(originalIndex);
+                        }}
                       >
-                        #{(location.restockHistory?.length ?? 0) - index}
-                      </Text>
-                      <Text
-                        style={[styles.historyDate, { color: colors.text }]}
-                      >
-                        {new Date(item).toLocaleDateString("en-GB", {
-                          weekday: "short",
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        })}
-                      </Text>
-                    </View>
-                  )}
+                        <Text style={[styles.historyIndex, { color: colors.subtext }]}>
+                          #{total - index}
+                        </Text>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.historyDate, { color: colors.text }]}>
+                            {new Date(entry.timestamp).toLocaleDateString("en-GB", {
+                              weekday: "short",
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            })}
+                          </Text>
+                          {hasProducts && entry.machines.map((me) => (
+                            me.products.length > 0 && (
+                              <View key={me.machineId} style={{ marginTop: 4 }}>
+                                <Text style={[styles.historyMachineLabel, { color: colors.subtext }]}>
+                                  {MACHINE_LABELS[me.machineType]}
+                                </Text>
+                                {me.products.map((p) => {
+                                  const product = state.products.find((pr) => pr.id === p.productId);
+                                  return (
+                                    <Text key={p.productId} style={[styles.historyProductLine, { color: colors.text }]}>
+                                      · {product?.name ?? p.productId} ×{p.qty}
+                                    </Text>
+                                  );
+                                })}
+                              </View>
+                            )
+                          ))}
+                        </View>
+                        <Text style={[styles.historyEditChevron, { color: colors.subtext }]}>›</Text>
+                      </TouchableOpacity>
+                    );
+                  }}
                   ListEmptyComponent={
-                    <Text
-                      style={[styles.historyEmpty, { color: colors.subtext }]}
-                    >
+                    <Text style={[styles.historyEmpty, { color: colors.subtext }]}>
                       No history yet.
                     </Text>
                   }
@@ -504,7 +604,7 @@ export default function LocationDetailScreen() {
                   borderColor: primaryColor(settings.accentColor),
                 },
               ]}
-              onPress={handleRestock}
+              onPress={openRestockSession}
             >
               <Text
                 style={[
@@ -512,7 +612,7 @@ export default function LocationDetailScreen() {
                   { color: primaryColor(settings.accentColor) },
                 ]}
               >
-                ✓ Mark Restocked Now
+                ✓ Restock Now
               </Text>
             </TouchableOpacity>
 
@@ -1153,6 +1253,367 @@ export default function LocationDetailScreen() {
           />
 
         </ScrollView>
+
+      {/* ── History Entry Editor (full-screen) ──────────────────── */}
+      <Modal
+        visible={!!editingEntry}
+        animationType="slide"
+        onRequestClose={() => { setEditingEntry(null); setShowHistory(true); }}
+      >
+        <SafeAreaView style={[styles.rssSafe, { backgroundColor: colors.background }]}>
+          {/* Navbar */}
+          <View style={[styles.rssNavbar, { borderBottomColor: colors.border }]}>
+            <TouchableOpacity onPress={() => { setEditingEntry(null); setShowHistory(true); }} hitSlop={8}>
+              <Text style={[styles.rssCancel, { color: colors.subtext }]}>‹ Back</Text>
+            </TouchableOpacity>
+            <View>
+              <Text style={[styles.rssNavTitle, { color: colors.text }]}>Edit Entry</Text>
+              {editingEntry && (
+                <Text style={[styles.rssNavSub, { color: colors.subtext }]}>
+                  #{editingEntry.index + 1}
+                </Text>
+              )}
+            </View>
+            <TouchableOpacity
+              style={[styles.rssConfirmBtn, { backgroundColor: accent }]}
+              onPress={saveEditEntry}
+            >
+              <Text style={styles.rssConfirmBtnText}>Save</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView contentContainerStyle={styles.rssContent}>
+            {/* Date row */}
+            <TouchableOpacity
+              style={[styles.heDateRow, { backgroundColor: colors.card, borderColor: colors.border }]}
+              onPress={() => setShowEditEntryDatePicker(true)}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.heDateLabel, { color: colors.subtext }]}>Date</Text>
+                <Text style={[styles.heDateValue, { color: colors.text }]}>
+                  {editEntryDate.toLocaleDateString("en-GB", {
+                    weekday: "long",
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                  })}
+                </Text>
+              </View>
+              <Text style={[styles.historyEditChevron, { color: colors.subtext, fontSize: 22 }]}>›</Text>
+            </TouchableOpacity>
+
+            {/* Machine entries */}
+            {editingEntry && editingEntry.entry.machines.length === 0 && (
+              <Text style={[styles.rssEmptyNote, { color: colors.subtext, textAlign: "left", marginTop: 16 }]}>
+                No product data recorded for this session.
+              </Text>
+            )}
+            {editingEntry?.entry.machines.map((me) => {
+              const machineColorStr = MACHINE_COLORS[me.machineType];
+              const machineColorSetting = me.machineType === "sweet"
+                ? settings.sweetColor
+                : settings.toyColor;
+              const max = me.machineType === "toy" ? 12 : 9;
+
+              return (
+                <View
+                  key={me.machineId}
+                  style={[
+                    styles.rssMachineCard,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: machineColorStr + "55",
+                      borderLeftColor: machineColorStr,
+                      marginTop: 12,
+                    },
+                  ]}
+                >
+                  <View style={[styles.rssMachineHeader, { overflow: "hidden" }]}>
+                    <GradView
+                      colors={machineColorSetting}
+                      style={[StyleSheet.absoluteFill, { opacity: 0.07 }]}
+                    />
+                    <Text style={[styles.rssMachineTitle, { color: machineColorStr }]}>
+                      {MACHINE_LABELS[me.machineType]}
+                    </Text>
+                  </View>
+
+                  {me.products.map((p) => {
+                    const product = state.products.find((pr) => pr.id === p.productId);
+                    const qty = editEntryQtys[me.machineId]?.[p.productId] ?? p.qty;
+                    const pct = qty / max;
+                    const barColor =
+                      pct === 0 ? colors.border :
+                      pct < 0.4 ? "#ef4444" :
+                      pct < 0.75 ? "#f59e0b" : "#22c55e";
+                    const imgSrc = product?.localImageUri
+                      ? { uri: product.localImageUri }
+                      : product ? PRODUCT_IMAGES[product.id] : undefined;
+
+                    return (
+                      <View
+                        key={p.productId}
+                        style={[styles.rssItemRow, { borderTopColor: colors.border }]}
+                      >
+                        {imgSrc ? (
+                          <Image source={imgSrc} style={styles.rssThumb} resizeMode="cover" />
+                        ) : (
+                          <Text style={styles.rssThumbEmoji}>
+                            {product?.emoji ?? (me.machineType === "sweet" ? "🍬" : "🪀")}
+                          </Text>
+                        )}
+                        <View style={styles.rssItemInfo}>
+                          <Text style={[styles.rssItemName, { color: colors.text }]} numberOfLines={1}>
+                            {product?.name ?? p.productId}
+                          </Text>
+                          <View style={[styles.rssBarTrack, { backgroundColor: colors.border }]}>
+                            <View style={[styles.rssBarFill, { width: `${pct * 100}%`, backgroundColor: barColor }]} />
+                          </View>
+                        </View>
+                        <View style={styles.rssCounter}>
+                          <TouchableOpacity
+                            onPress={() => setEditEntryQtys((prev) => ({
+                              ...prev,
+                              [me.machineId]: {
+                                ...prev[me.machineId],
+                                [p.productId]: Math.max(0, (prev[me.machineId]?.[p.productId] ?? p.qty) - 1),
+                              },
+                            }))}
+                            hitSlop={6}
+                            disabled={qty === 0}
+                            style={[styles.rssCounterBtn, { borderColor: colors.border, backgroundColor: colors.background, opacity: qty === 0 ? 0.3 : 1 }]}
+                          >
+                            <Text style={[styles.rssCounterBtnText, { color: colors.text }]}>−</Text>
+                          </TouchableOpacity>
+                          <Text style={[styles.rssCounterVal, { color: colors.text }]}>
+                            {qty}
+                            <Text style={[styles.rssCounterMax, { color: colors.subtext }]}>/{max}</Text>
+                          </Text>
+                          <TouchableOpacity
+                            onPress={() => setEditEntryQtys((prev) => ({
+                              ...prev,
+                              [me.machineId]: {
+                                ...prev[me.machineId],
+                                [p.productId]: Math.min(max, (prev[me.machineId]?.[p.productId] ?? p.qty) + 1),
+                              },
+                            }))}
+                            hitSlop={6}
+                            disabled={qty >= max}
+                            style={[styles.rssCounterBtn, { borderColor: colors.border, backgroundColor: colors.background, opacity: qty >= max ? 0.3 : 1 }]}
+                          >
+                            <Text style={[styles.rssCounterBtnText, { color: colors.text }]}>＋</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              );
+            })}
+
+            {/* Delete entry */}
+            {editingEntry && (
+              <TouchableOpacity
+                style={[styles.heDeleteBtn, { borderColor: "#ef4444" }]}
+                onPress={() => handleDeleteEntry(editingEntry.index)}
+              >
+                <Text style={styles.heDeleteBtnText}>🗑 Delete this entry</Text>
+              </TouchableOpacity>
+            )}
+          </ScrollView>
+
+          {/* Inline date picker */}
+          <DatePickerModal
+            visible={showEditEntryDatePicker}
+            value={editEntryDate}
+            onConfirm={(d) => { setEditEntryDate(d); setShowEditEntryDatePicker(false); }}
+            onCancel={() => setShowEditEntryDatePicker(false)}
+          />
+        </SafeAreaView>
+      </Modal>
+
+      {/* ── Restock Session Modal (full-screen) ─────────────────── */}
+      <Modal
+        visible={showRestockSession}
+        animationType="slide"
+        onRequestClose={() => setShowRestockSession(false)}
+      >
+        <SafeAreaView style={[styles.rssSafe, { backgroundColor: colors.background }]}>
+          {/* Navbar */}
+          <View style={[styles.rssNavbar, { borderBottomColor: colors.border }]}>
+            <TouchableOpacity onPress={() => setShowRestockSession(false)} hitSlop={8}>
+              <Text style={[styles.rssCancel, { color: colors.subtext }]}>Cancel</Text>
+            </TouchableOpacity>
+            <View>
+              <Text style={[styles.rssNavTitle, { color: colors.text }]}>Restock</Text>
+              <Text style={[styles.rssNavSub, { color: colors.subtext }]}>{location.name}</Text>
+            </View>
+            <TouchableOpacity
+              style={[styles.rssConfirmBtn, { backgroundColor: accent }]}
+              onPress={completeRestockSession}
+            >
+              <Text style={styles.rssConfirmBtnText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView contentContainerStyle={styles.rssContent}>
+            {location.machines.length === 0 ? (
+              <View style={styles.rssEmptyWrap}>
+                <Text style={styles.rssEmptyEmoji}>📦</Text>
+                <Text style={[styles.rssEmptyTitle, { color: colors.text }]}>No machines yet</Text>
+                <Text style={[styles.rssEmptyNote, { color: colors.subtext }]}>
+                  Add machines to this location first.
+                </Text>
+              </View>
+            ) : (
+              location.machines.map((machine) => {
+                const productIds = Array.from(
+                  new Set(machine.slots.filter(Boolean) as string[])
+                );
+                const machineColorStr = MACHINE_COLORS[machine.type];
+                const machineColorSetting = machine.type === "sweet"
+                  ? settings.sweetColor
+                  : settings.toyColor;
+                const max = machine.type === "toy" ? 12 : 9;
+                const totalQty = productIds.reduce(
+                  (s, pid) => s + (restockQtys[machine.id]?.[pid] ?? 0), 0
+                );
+
+                return (
+                  <View
+                    key={machine.id}
+                    style={[
+                      styles.rssMachineCard,
+                      {
+                        backgroundColor: colors.card,
+                        borderColor: machineColorStr + "55",
+                        borderLeftColor: machineColorStr,
+                      },
+                    ]}
+                  >
+                    {/* Machine header */}
+                    <View style={[styles.rssMachineHeader, { overflow: "hidden" }]}>
+                      <GradView
+                        colors={machineColorSetting}
+                        style={[StyleSheet.absoluteFill, { opacity: 0.07 }]}
+                      />
+                      <View style={styles.rssMachineTitleRow}>
+                        <Text style={[styles.rssMachineTitle, { color: machineColorStr }]}>
+                          {MACHINE_LABELS[machine.type]}
+                        </Text>
+                        {totalQty > 0 && (
+                          <View style={[styles.rssTotalBadge, { backgroundColor: machineColorStr + "22" }]}>
+                            <Text style={[styles.rssTotalBadgeText, { color: machineColorStr }]}>
+                              {totalQty} total
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    </View>
+
+                    {/* Product rows */}
+                    {productIds.length === 0 ? (
+                      <Text style={[styles.rssEmptyMachine, { color: colors.subtext }]}>
+                        No products in this machine.
+                      </Text>
+                    ) : (
+                      productIds.map((pid) => {
+                        const product = state.products.find((p) => p.id === pid);
+                        const qty = restockQtys[machine.id]?.[pid] ?? 0;
+                        const pct = qty / max;
+                        const barColor =
+                          pct === 0 ? colors.border :
+                          pct < 0.4 ? "#ef4444" :
+                          pct < 0.75 ? "#f59e0b" : "#22c55e";
+
+                        const imgSrc = product?.localImageUri
+                          ? { uri: product.localImageUri }
+                          : product ? PRODUCT_IMAGES[product.id] : undefined;
+
+                        return (
+                          <View
+                            key={pid}
+                            style={[
+                              styles.rssItemRow,
+                              { borderTopColor: colors.border },
+                            ]}
+                          >
+                            {/* Thumbnail */}
+                            {imgSrc ? (
+                              <Image source={imgSrc} style={styles.rssThumb} resizeMode="cover" />
+                            ) : (
+                              <Text style={styles.rssThumbEmoji}>
+                                {product?.emoji ?? (machine.type === "sweet" ? "🍬" : "🪀")}
+                              </Text>
+                            )}
+
+                            {/* Name + bar */}
+                            <View style={styles.rssItemInfo}>
+                              <Text style={[styles.rssItemName, { color: colors.text }]} numberOfLines={1}>
+                                {product?.name ?? pid}
+                              </Text>
+                              <View style={[styles.rssBarTrack, { backgroundColor: colors.border }]}>
+                                <View style={[styles.rssBarFill, { width: `${pct * 100}%`, backgroundColor: barColor }]} />
+                              </View>
+                            </View>
+
+                            {/* Counter */}
+                            <View style={styles.rssCounter}>
+                              <TouchableOpacity
+                                onPress={() =>
+                                  setRestockQtys((prev) => ({
+                                    ...prev,
+                                    [machine.id]: {
+                                      ...prev[machine.id],
+                                      [pid]: Math.max(0, (prev[machine.id]?.[pid] ?? 0) - 1),
+                                    },
+                                  }))
+                                }
+                                hitSlop={6}
+                                disabled={qty === 0}
+                                style={[
+                                  styles.rssCounterBtn,
+                                  { borderColor: colors.border, backgroundColor: colors.background, opacity: qty === 0 ? 0.3 : 1 },
+                                ]}
+                              >
+                                <Text style={[styles.rssCounterBtnText, { color: colors.text }]}>−</Text>
+                              </TouchableOpacity>
+                              <Text style={[styles.rssCounterVal, { color: colors.text }]}>
+                                {qty}
+                                <Text style={[styles.rssCounterMax, { color: colors.subtext }]}>/{max}</Text>
+                              </Text>
+                              <TouchableOpacity
+                                onPress={() =>
+                                  setRestockQtys((prev) => ({
+                                    ...prev,
+                                    [machine.id]: {
+                                      ...prev[machine.id],
+                                      [pid]: Math.min(max, (prev[machine.id]?.[pid] ?? 0) + 1),
+                                    },
+                                  }))
+                                }
+                                hitSlop={6}
+                                disabled={qty >= max}
+                                style={[
+                                  styles.rssCounterBtn,
+                                  { borderColor: colors.border, backgroundColor: colors.background, opacity: qty >= max ? 0.3 : 1 },
+                                ]}
+                              >
+                                <Text style={[styles.rssCounterBtnText, { color: colors.text }]}>＋</Text>
+                              </TouchableOpacity>
+                            </View>
+                          </View>
+                        );
+                      })
+                    )}
+                  </View>
+                );
+              })
+            )}
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
+
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -1427,7 +1888,98 @@ const styles = StyleSheet.create({
   },
   historyIndex: { fontSize: 12, fontWeight: "600", minWidth: 28 },
   historyDate: { fontSize: 15 },
+  historyMachineLabel: { fontSize: 12, fontWeight: "600", marginTop: 2 },
+  historyProductLine: { fontSize: 13, paddingLeft: 4 },
   historyEmpty: { textAlign: "center", paddingTop: 32, fontSize: 14 },
+  historyEditChevron: { fontSize: 20, fontWeight: "300" },
+  // History entry editor
+  heDateRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  heDateLabel: { fontSize: 11, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 2 },
+  heDateValue: { fontSize: 16, fontWeight: "600" },
+  heDeleteBtn: {
+    marginTop: 24,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: "center",
+  },
+  heDeleteBtnText: { fontSize: 15, fontWeight: "600", color: "#ef4444" },
+  // ── Restock session (full-screen modal) ───────────────────────
+  rssSafe: { flex: 1 },
+  rssNavbar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  rssCancel: { fontSize: 15, fontWeight: "500" },
+  rssNavTitle: { fontSize: 17, fontWeight: "700", textAlign: "center" },
+  rssNavSub: { fontSize: 12, textAlign: "center" },
+  rssConfirmBtn: { borderRadius: 10, paddingHorizontal: 16, paddingVertical: 8 },
+  rssConfirmBtnText: { fontSize: 14, fontWeight: "700", color: "#000" },
+  rssContent: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 60 },
+  // Empty state
+  rssEmptyWrap: { alignItems: "center", paddingTop: 60, gap: 8 },
+  rssEmptyEmoji: { fontSize: 48, marginBottom: 4 },
+  rssEmptyTitle: { fontSize: 18, fontWeight: "700" },
+  rssEmptyNote: { fontSize: 14, textAlign: "center", lineHeight: 20, maxWidth: 280 },
+  // Machine card (mirrors restock tab)
+  rssMachineCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderLeftWidth: 3,
+    marginBottom: 12,
+    overflow: "hidden",
+  },
+  rssMachineHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  rssMachineTitleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  rssMachineTitle: { fontSize: 15, fontWeight: "700" },
+  rssTotalBadge: { borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 },
+  rssTotalBadgeText: { fontSize: 11, fontWeight: "700" },
+  rssEmptyMachine: { fontSize: 13, paddingHorizontal: 14, paddingBottom: 10 },
+  // Item row
+  rssItemRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  rssThumb: { width: 50, height: 50, borderRadius: 6 },
+  rssThumbEmoji: { fontSize: 34, width: 50, textAlign: "center", lineHeight: 50 },
+  rssItemInfo: { flex: 1, gap: 5 },
+  rssItemName: { fontSize: 13, fontWeight: "500" },
+  rssBarTrack: { height: 4, borderRadius: 2, overflow: "hidden" },
+  rssBarFill: { height: 4, borderRadius: 2 },
+  // Counter
+  rssCounter: { flexDirection: "row", alignItems: "center", gap: 6 },
+  rssCounterBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 7,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  rssCounterBtnText: { fontSize: 16, lineHeight: 16, includeFontPadding: false, fontWeight: "500" },
+  rssCounterVal: { fontSize: 15, fontWeight: "700", minWidth: 32, textAlign: "center" },
+  rssCounterMax: { fontSize: 11, fontWeight: "400" },
   divider: { height: StyleSheet.hairlineWidth, marginVertical: 20 },
   sectionLabel: { fontSize: 17, fontWeight: "700", marginBottom: 4 },
   sectionNote: { fontSize: 13, marginBottom: 12, lineHeight: 18 },

@@ -27,6 +27,22 @@ export interface Machine {
   stockCounts: Record<string, number>;
 }
 
+export interface RestockProduct {
+  productId: string;
+  qty: number;
+}
+
+export interface RestockMachineEntry {
+  machineId: string;
+  machineType: MachineType;
+  products: RestockProduct[];
+}
+
+export interface RestockEntry {
+  timestamp: string;
+  machines: RestockMachineEntry[];
+}
+
 export interface Location {
   id: string;
   name: string;
@@ -35,7 +51,8 @@ export interface Location {
   postcode?: string;
   notes?: string;
   lastRestockedAt: string | null;
-  restockHistory?: string[];
+  /** Array of restock sessions; older format (string[]) is migrated on load */
+  restockHistory?: RestockEntry[];
   restockPeriodWeeks?: number;
   openingHours?: OpeningHours;
   machines: Machine[];
