@@ -40,7 +40,8 @@
         "expo-image-picker",
         {
           "photosPermission": "Allow Tubz to access your photos to attach product images.",
-          "cameraPermission": "Allow Tubz to use your camera to take product photos."
+          "cameraPermission": "Allow Tubz to use your camera to take product photos.",
+          "microphonePermission": false
         }
       ],
       [
@@ -52,6 +53,15 @@
           "backgroundColor": "#ffffff",
           "dark": {
             "backgroundColor": "#000000"
+          }
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableMinifyInReleaseBuilds": true,
+            "extraProguardRules": "-keepattributes SourceFile,LineNumberTable"
           }
         }
       ]
