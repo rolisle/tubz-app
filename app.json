@@ -37,6 +37,13 @@
         }
       ],
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Tubz to access your photos to attach product images.",
+          "cameraPermission": "Allow Tubz to use your camera to take product photos."
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "image": "./assets/images/splash-icon.png",

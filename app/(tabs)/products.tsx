@@ -90,7 +90,7 @@ function ProductFormModal({
     setNameFocused(false);
   };
 
-  const pickImage = async () => {
+  const pickFromLibrary = async () => {
     if (Platform.OS !== "web") {
       const { status } =
         await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -109,6 +109,41 @@ function ProductFormModal({
       quality: 0.8,
     });
     if (!result.canceled) setImageUri(result.assets[0].uri);
+  };
+
+  const takePhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert(
+        "Permission needed",
+        "Allow camera access to take a product photo.",
+      );
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [3, 4],
+      quality: 0.8,
+    });
+    if (!result.canceled) setImageUri(result.assets[0].uri);
+  };
+
+  const pickImage = () => {
+    // Web doesn't support launchCameraAsync; go straight to library.
+    if (Platform.OS === "web") {
+      pickFromLibrary();
+      return;
+    }
+    Alert.alert(
+      "Product Image",
+      "Choose a source",
+      [
+        { text: "Take Photo", onPress: takePhoto },
+        { text: "Choose from Library", onPress: pickFromLibrary },
+        { text: "Cancel", style: "cancel" },
+      ],
+      { cancelable: true },
+    );
   };
 
   const handleDelete = () => {
@@ -272,7 +307,7 @@ function ProductFormModal({
                         { color: colors.subtext },
                       ]}
                     >
-                      {"📷  Tap to upload"}
+                      {"📷  Tap to add photo"}
                     </Text>
                   )}
                 </TouchableOpacity>
