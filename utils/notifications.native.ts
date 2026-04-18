@@ -1,6 +1,25 @@
+import { Asset } from 'expo-asset';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import type { Location } from '../types';
+
+// Preload the app icon so we can attach it to notifications.
+// On iOS it becomes a rich media attachment; on Android it's used as the
+// setLargeIcon() override (otherwise Android falls back to the launcher
+// foreground, which is the generic Expo placeholder).
+let cachedIconUri: string | null = null;
+async function getIconUri(): Promise<string | null> {
+  if (Platform.OS === 'web') return null;
+  if (cachedIconUri) return cachedIconUri;
+  try {
+    const asset = Asset.fromModule(require('../assets/images/icon.png'));
+    if (!asset.localUri) await asset.downloadAsync();
+    cachedIconUri = asset.localUri ?? asset.uri;
+    return cachedIconUri;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Identifier format: `restock-{locationId}`
@@ -11,7 +30,8 @@ import type { Location } from '../types';
 // Configure how notifications are presented when the app is in the foreground
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
     shouldPlaySound: false,
     shouldSetBadge: false,
   }),
@@ -82,12 +102,17 @@ export async function scheduleLocationNotification(location: Location): Promise<
       ? `${location.name} is due for a restock today.`
       : `${location.name} is due for a restock in ${daysUntil} day${daysUntil !== 1 ? 's' : ''}.`;
 
+  const iconUri = await getIconUri();
+
   await Notifications.scheduleNotificationAsync({
     identifier: `restock-${location.id}`,
     content: {
       title: '📦 Restock Due Soon',
       body,
       data: { locationId: location.id },
+      ...(iconUri
+        ? { attachments: [{ identifier: 'app-icon', url: iconUri, type: 'public.png' }] }
+        : {}),
     },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.DATE,
