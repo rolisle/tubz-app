@@ -1,8 +1,9 @@
-import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { RestockProductRow } from "@/components/restock-product-row";
 import { GradView } from "@/components/ui/grad-view";
+import { SlideModal } from "@/components/ui/slide-modal";
 import { Colors } from "@/constants/theme";
 import type { AppColor } from "@/context/settings-context";
 import type { Machine, MachineType, Product } from "@/types";
@@ -42,7 +43,7 @@ export function RestockSessionModal({
   colors,
 }: RestockSessionModalProps) {
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+    <SlideModal visible={visible} onRequestClose={onClose}>
       <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
         {/* Navbar */}
         <View style={[styles.navbar, { borderBottomColor: colors.border }]}>
@@ -144,7 +145,7 @@ export function RestockSessionModal({
           )}
         </ScrollView>
       </SafeAreaView>
-    </Modal>
+    </SlideModal>
   );
 }
 

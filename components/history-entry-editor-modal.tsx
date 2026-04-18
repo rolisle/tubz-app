@@ -1,9 +1,10 @@
-import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { DatePickerModal } from "@/components/ui/date-picker-modal";
 import { RestockProductRow } from "@/components/restock-product-row";
 import { GradView } from "@/components/ui/grad-view";
+import { SlideModal } from "@/components/ui/slide-modal";
 import { Colors } from "@/constants/theme";
 import type { AppColor } from "@/context/settings-context";
 import type { MachineType, Product, RestockEntry } from "@/types";
@@ -49,9 +50,8 @@ export function HistoryEntryEditorModal({
   colors,
 }: HistoryEntryEditorModalProps) {
   return (
-    <Modal
+    <SlideModal
       visible={!!editingEntry}
-      animationType="slide"
       onRequestClose={onClose}
     >
       <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
@@ -172,7 +172,7 @@ export function HistoryEntryEditorModal({
           onCancel={() => onShowDatePicker(false)}
         />
       </SafeAreaView>
-    </Modal>
+    </SlideModal>
   );
 }
 

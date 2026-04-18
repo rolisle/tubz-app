@@ -4,9 +4,7 @@ import {
   Alert,
   FlatList,
   KeyboardAvoidingView,
-  Modal,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Switch,
@@ -24,6 +22,7 @@ import { HistoryEntryEditorModal } from "@/components/history-entry-editor-modal
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { MachineGrid } from "@/components/ui/machine-grid";
 import { RestockSessionModal } from "@/components/restock-session-modal";
+import { SlideModal } from "@/components/ui/slide-modal";
 import { Colors } from "@/constants/theme";
 import { useApp } from "@/context/app-context";
 import { primaryColor, useSettings } from "@/context/settings-context";
@@ -178,6 +177,7 @@ export default function LocationDetailScreen() {
   const cancelEdit = () => {
     setEditErrors({});
     setShowEditModal(false);
+    setShowMenu(true);
   };
 
   const toggleDay = (day: WeekDay, enabled: boolean) => {
@@ -343,13 +343,19 @@ export default function LocationDetailScreen() {
       if (window.confirm(`Delete "${location.name}"? This cannot be undone.`)) {
         deleteLocation(location.id);
         router.back();
+      } else {
+        setShowMenu(true);
       }
     } else {
       Alert.alert(
         "Delete Location",
         `Are you sure you want to delete "${location.name}"? This cannot be undone.`,
         [
-          { text: "Cancel", style: "cancel" },
+          {
+            text: "Cancel",
+            style: "cancel",
+            onPress: () => setShowMenu(true),
+          },
           {
             text: "Delete",
             style: "destructive",
@@ -359,6 +365,7 @@ export default function LocationDetailScreen() {
             },
           },
         ],
+        { onDismiss: () => setShowMenu(true) },
       );
     }
   };
@@ -757,35 +764,24 @@ export default function LocationDetailScreen() {
 
         </ScrollView>
 
-      {/* ── History modal ──────────────────────────────────────── */}
-      <Modal
+      {/* ── History modal (full-screen) ─────────────────────────── */}
+      <SlideModal
         visible={showHistory}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowHistory(false)}
+        onRequestClose={() => { setShowHistory(false); setShowMenu(true); }}
       >
-        <Pressable
-          style={styles.historyOverlay}
-          onPress={() => setShowHistory(false)}
-        />
-        <View
-          style={[
-            styles.historySheet,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <View style={styles.historyHeader}>
-            <Text style={[styles.historyTitle, { color: colors.text }]}>
+        <SafeAreaView style={[styles.fsModalSafe, { backgroundColor: colors.background }]}>
+          <View style={[styles.fsModalNavbar, { borderBottomColor: colors.border }]}>
+            <TouchableOpacity
+              onPress={() => { setShowHistory(false); setShowMenu(true); }}
+              hitSlop={8}
+              style={styles.fsModalSide}
+            >
+              <Text style={[styles.fsModalBack, { color: accent }]}>‹ Back</Text>
+            </TouchableOpacity>
+            <Text style={[styles.fsModalTitle, { color: colors.text }]}>
               Restock History
             </Text>
-            <TouchableOpacity
-              onPress={() => setShowHistory(false)}
-              hitSlop={8}
-            >
-              <Text style={[styles.historyClose, { color: accent }]}>
-                Done
-              </Text>
-            </TouchableOpacity>
+            <View style={styles.fsModalSide} />
           </View>
           <FlatList
             data={historyListData}
@@ -843,45 +839,30 @@ export default function LocationDetailScreen() {
               </Text>
             }
           />
-        </View>
-      </Modal>
+        </SafeAreaView>
+      </SlideModal>
 
       {/* ── Edit location modal ─────────────────────────────────── */}
-      <Modal
+      <SlideModal
         visible={showEditModal}
-        transparent
-        animationType="slide"
         onRequestClose={cancelEdit}
       >
-        <Pressable style={styles.editOverlay} onPress={cancelEdit} />
-        <KeyboardAvoidingView
-          style={styles.editSheetWrap}
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-        >
-          <View
-            style={[
-              styles.editSheet,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
+        <SafeAreaView style={[styles.fsModalSafe, { backgroundColor: colors.background }]}>
+          <KeyboardAvoidingView
+            style={{ flex: 1 }}
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
           >
-            <View
-              style={[
-                styles.editSheetHeader,
-                { borderBottomColor: colors.border },
-              ]}
-            >
-              <TouchableOpacity onPress={cancelEdit} hitSlop={8}>
-                <Text
-                  style={[styles.editSheetCancel, { color: colors.danger }]}
-                >
+            <View style={[styles.fsModalNavbar, { borderBottomColor: colors.border }]}>
+              <TouchableOpacity onPress={cancelEdit} hitSlop={8} style={styles.fsModalSide}>
+                <Text style={[styles.fsModalBack, { color: colors.danger }]}>
                   Cancel
                 </Text>
               </TouchableOpacity>
-              <Text style={[styles.editSheetTitle, { color: colors.text }]}>
+              <Text style={[styles.fsModalTitle, { color: colors.text }]}>
                 Edit Location
               </Text>
-              <TouchableOpacity onPress={saveEdit} hitSlop={8}>
-                <Text style={[styles.editSheetSave, { color: accent }]}>
+              <TouchableOpacity onPress={saveEdit} hitSlop={8} style={[styles.fsModalSide, { alignItems: "flex-end" }]}>
+                <Text style={[styles.fsModalBack, { color: accent }]}>
                   Save
                 </Text>
               </TouchableOpacity>
@@ -1025,93 +1006,92 @@ export default function LocationDetailScreen() {
                 </View>
               </View>
             </ScrollView>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
+      </SlideModal>
 
-      {/* ── Location menu (⋯) ──────────────────────────────────── */}
-      <Modal
+      {/* ── Settings menu (full-screen) ─────────────────────────── */}
+      <SlideModal
         visible={showMenu}
-        transparent
-        animationType="slide"
         onRequestClose={() => setShowMenu(false)}
       >
-        <Pressable
-          style={styles.menuOverlay}
-          onPress={() => setShowMenu(false)}
-        />
-        <View
-          style={[
-            styles.menuSheet,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <View style={[styles.menuHandle, { backgroundColor: colors.border }]} />
-          <TouchableOpacity
-            style={[styles.menuItem, { borderBottomColor: colors.border }]}
-            onPress={() => { setShowMenu(false); openEdit(); }}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.menuItemIcon, { color: colors.subtext }]}>✏️</Text>
-            <Text style={[styles.menuItemLabel, { color: colors.text }]}>Edit address</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.menuItem, { borderBottomColor: colors.border }]}
-            onPress={() => { setShowMenu(false); setShowOpeningHours(true); }}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.menuItemIcon, { color: colors.subtext }]}>⏰</Text>
-            <Text style={[styles.menuItemLabel, { color: colors.text }]}>Edit opening hours</Text>
-          </TouchableOpacity>
-          {(location.restockHistory?.length ?? 0) > 0 && (
+        <SafeAreaView style={[styles.fsModalSafe, { backgroundColor: colors.background }]}>
+          <View style={[styles.fsModalNavbar, { borderBottomColor: colors.border }]}>
+            <TouchableOpacity
+              onPress={() => setShowMenu(false)}
+              hitSlop={8}
+              style={styles.fsModalSide}
+            >
+              <Text style={[styles.fsModalBack, { color: accent }]}>‹ Back</Text>
+            </TouchableOpacity>
+            <Text style={[styles.fsModalTitle, { color: colors.text }]}>Settings</Text>
+            <View style={styles.fsModalSide} />
+          </View>
+          <ScrollView contentContainerStyle={styles.menuList}>
             <TouchableOpacity
               style={[styles.menuItem, { borderBottomColor: colors.border }]}
-              onPress={() => { setShowMenu(false); setShowHistory(true); }}
+              onPress={() => { setShowMenu(false); openEdit(); }}
               activeOpacity={0.7}
             >
-              <Text style={[styles.menuItemIcon, { color: colors.subtext }]}>🕓</Text>
-              <Text style={[styles.menuItemLabel, { color: colors.text }]}>Restock history</Text>
-              <Text style={[styles.menuItemMeta, { color: colors.subtext }]}>
-                {location.restockHistory?.length} entries
-              </Text>
+              <Text style={[styles.menuItemIcon, { color: colors.subtext }]}>✏️</Text>
+              <Text style={[styles.menuItemLabel, { color: colors.text }]}>Edit address</Text>
+              <Text style={[styles.menuItemChevron, { color: colors.subtext }]}>›</Text>
             </TouchableOpacity>
-          )}
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => { setShowMenu(false); handleDeleteLocation(); }}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.menuItemIcon, { color: "#ef4444" }]}>🗑️</Text>
-            <Text style={[styles.menuItemLabel, { color: "#ef4444" }]}>Delete location</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.menuCancel, { backgroundColor: colors.background, borderColor: colors.border }]}
-            onPress={() => setShowMenu(false)}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.menuCancelText, { color: colors.subtext }]}>Cancel</Text>
-          </TouchableOpacity>
-        </View>
-      </Modal>
-
-      {/* ── Opening hours modal ─────────────────────────────────── */}
-      <Modal
-        visible={showOpeningHours}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowOpeningHours(false)}
-      >
-        <Pressable style={styles.menuOverlay} onPress={() => setShowOpeningHours(false)} />
-        <KeyboardAvoidingView
-          style={styles.editSheetWrap}
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-        >
-          <View style={[styles.editSheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={[styles.editSheetHeader, { borderBottomColor: colors.border }]}>
-              <Text style={[styles.editSheetTitle, { color: colors.text }]}>Opening Hours</Text>
-              <TouchableOpacity onPress={() => setShowOpeningHours(false)} hitSlop={8}>
-                <Text style={[styles.editSheetSave, { color: accent }]}>Done</Text>
+            <TouchableOpacity
+              style={[styles.menuItem, { borderBottomColor: colors.border }]}
+              onPress={() => { setShowMenu(false); setShowOpeningHours(true); }}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.menuItemIcon, { color: colors.subtext }]}>⏰</Text>
+              <Text style={[styles.menuItemLabel, { color: colors.text }]}>Edit opening hours</Text>
+              <Text style={[styles.menuItemChevron, { color: colors.subtext }]}>›</Text>
+            </TouchableOpacity>
+            {(location.restockHistory?.length ?? 0) > 0 && (
+              <TouchableOpacity
+                style={[styles.menuItem, { borderBottomColor: colors.border }]}
+                onPress={() => { setShowMenu(false); setShowHistory(true); }}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.menuItemIcon, { color: colors.subtext }]}>🕓</Text>
+                <Text style={[styles.menuItemLabel, { color: colors.text }]}>Restock history</Text>
+                <Text style={[styles.menuItemMeta, { color: colors.subtext }]}>
+                  {location.restockHistory?.length} {location.restockHistory?.length === 1 ? "entry" : "entries"}
+                </Text>
+                <Text style={[styles.menuItemChevron, { color: colors.subtext }]}>›</Text>
               </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              style={[styles.menuItem, { borderBottomColor: colors.border }]}
+              onPress={() => { setShowMenu(false); handleDeleteLocation(); }}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.menuItemIcon, { color: "#ef4444" }]}>🗑️</Text>
+              <Text style={[styles.menuItemLabel, { color: "#ef4444" }]}>Delete location</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </SafeAreaView>
+      </SlideModal>
+
+      {/* ── Opening hours modal (full-screen) ───────────────────── */}
+      <SlideModal
+        visible={showOpeningHours}
+        onRequestClose={() => { setShowOpeningHours(false); setShowMenu(true); }}
+      >
+        <SafeAreaView style={[styles.fsModalSafe, { backgroundColor: colors.background }]}>
+          <KeyboardAvoidingView
+            style={{ flex: 1 }}
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+          >
+            <View style={[styles.fsModalNavbar, { borderBottomColor: colors.border }]}>
+              <TouchableOpacity
+                onPress={() => { setShowOpeningHours(false); setShowMenu(true); }}
+                hitSlop={8}
+                style={styles.fsModalSide}
+              >
+                <Text style={[styles.fsModalBack, { color: accent }]}>‹ Back</Text>
+              </TouchableOpacity>
+              <Text style={[styles.fsModalTitle, { color: colors.text }]}>Opening Hours</Text>
+              <View style={styles.fsModalSide} />
             </View>
             <ScrollView
               contentContainerStyle={styles.hoursModalContent}
@@ -1178,9 +1158,9 @@ export default function LocationDetailScreen() {
                 );
               })}
             </ScrollView>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
+      </SlideModal>
 
       {/* ── History Entry Editor (full-screen) ──────────────────── */}
       <HistoryEntryEditorModal
@@ -1268,46 +1248,20 @@ const styles = StyleSheet.create({
   },
   addressLine: { fontSize: 14 },
   addressEmpty: { fontSize: 13, fontStyle: "italic" },
-  // Location menu sheet
-  menuOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)" },
-  menuSheet: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    borderTopWidth: 1,
-    paddingBottom: 36,
-    paddingTop: 10,
-  },
-  menuHandle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    alignSelf: "center",
-    marginBottom: 12,
-  },
+  // Settings menu (full-screen)
+  menuList: { paddingTop: 8, paddingBottom: 40 },
   menuItem: {
     flexDirection: "row",
     alignItems: "center",
     gap: 14,
     paddingHorizontal: 24,
-    paddingVertical: 16,
+    paddingVertical: 18,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   menuItemIcon: { fontSize: 20, width: 26, textAlign: "center" },
   menuItemLabel: { flex: 1, fontSize: 16 },
   menuItemMeta: { fontSize: 13 },
-  menuCancel: {
-    marginHorizontal: 16,
-    marginTop: 10,
-    borderRadius: 14,
-    borderWidth: 1,
-    paddingVertical: 14,
-    alignItems: "center",
-  },
-  menuCancelText: { fontSize: 16, fontWeight: "600" },
+  menuItemChevron: { fontSize: 20, fontWeight: "400" },
   // Notes (inline at bottom)
   notesLabel: {
     fontSize: 11,
@@ -1345,31 +1299,7 @@ const styles = StyleSheet.create({
   },
   hoursDash: { fontSize: 14 },
   hoursClosed: { flex: 1, fontSize: 13, fontStyle: "italic" },
-  // Edit location modal
-  editOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)" },
-  editSheetWrap: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-  },
-  editSheet: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    borderTopWidth: 1,
-    maxHeight: "85%",
-  },
-  editSheetHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  editSheetTitle: { fontSize: 17, fontWeight: "700" },
-  editSheetCancel: { fontSize: 15 },
-  editSheetSave: { fontSize: 15, fontWeight: "700" },
+  // Edit location modal (full-screen)
   editSheetContent: {
     paddingHorizontal: 20,
     paddingTop: 16,
@@ -1456,27 +1386,19 @@ const styles = StyleSheet.create({
   },
   periodPillNum: { fontSize: 15, fontWeight: "700", lineHeight: 18 },
   periodPillUnit: { fontSize: 10, fontWeight: "500", letterSpacing: 0.2 },
-  // History modal
-  historyOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)" },
-  historySheet: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    borderTopWidth: 1,
-    maxHeight: "65%",
-  },
-  historyHeader: {
+  // Full-screen modal navbar (shared by History & Opening Hours)
+  fsModalSafe: { flex: 1 },
+  fsModalNavbar: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  historyTitle: { fontSize: 17, fontWeight: "700" },
-  historyClose: { fontSize: 15, fontWeight: "500" },
+  fsModalSide: { minWidth: 64 },
+  fsModalBack: { fontSize: 15, fontWeight: "600" },
+  fsModalTitle: { flex: 1, fontSize: 17, fontWeight: "700", textAlign: "center" },
+  // History list
   historyList: { paddingBottom: 40 },
   historyRow: {
     flexDirection: "row",

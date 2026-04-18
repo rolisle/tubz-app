@@ -60,7 +60,6 @@ function dueColor(daysUntil: number | null): string {
   return "#22c55e";
 }
 
-
 /* ─── Stat card ──────────────────────────────────────────────── */
 
 interface StatCardProps {
@@ -129,8 +128,10 @@ export default function DashboardScreen() {
     [state.locations],
   );
 
-  const navigateTo = useCallback((id: string) =>
-    router.push({ pathname: "/location/[id]", params: { id } }), [router]);
+  const navigateTo = useCallback(
+    (id: string) => router.push({ pathname: "/location/[id]", params: { id } }),
+    [router],
+  );
 
   const today = useMemo(() => todayLabel(), []);
 
@@ -147,7 +148,9 @@ export default function DashboardScreen() {
         {/* Header row */}
         <View style={styles.header}>
           <View>
-            <Text style={[styles.wordmark, { color: colors.text }]}>Tubz</Text>
+            <Text style={[styles.wordmark, { color: colors.text }]}>
+              Dashboard
+            </Text>
             <Text style={[styles.date, { color: colors.subtext }]}>
               {today}
             </Text>
