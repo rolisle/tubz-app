@@ -132,23 +132,25 @@ export function HistoryEntryEditorModal({
                   </Text>
                 </View>
 
-                {me.products.map((p) => {
-                  const product = products.find((pr) => pr.id === p.productId);
-                  const qty = editEntryQtys[me.machineId]?.[p.productId] ?? p.qty;
-                  return (
-                    <RestockProductRow
-                      key={p.productId}
-                      productId={p.productId}
-                      product={product}
-                      qty={qty}
-                      max={max}
-                      machineType={me.machineType}
-                      colors={colors}
-                      onDecrement={() => onChangeQty(me.machineId, p.productId, -1)}
-                      onIncrement={() => onChangeQty(me.machineId, p.productId, +1)}
-                    />
-                  );
-                })}
+                <View style={styles.machineBody}>
+                  {me.products.map((p) => {
+                    const product = products.find((pr) => pr.id === p.productId);
+                    const qty = editEntryQtys[me.machineId]?.[p.productId] ?? p.qty;
+                    return (
+                      <RestockProductRow
+                        key={p.productId}
+                        productId={p.productId}
+                        product={product}
+                        qty={qty}
+                        max={max}
+                        machineType={me.machineType}
+                        colors={colors}
+                        onDecrement={() => onChangeQty(me.machineId, p.productId, -1)}
+                        onIncrement={() => onChangeQty(me.machineId, p.productId, +1)}
+                      />
+                    );
+                  })}
+                </View>
               </View>
             );
           })}
@@ -208,6 +210,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   machineTitle: { fontSize: 15, fontWeight: "700" },
+  machineBody: { paddingHorizontal: 14, paddingBottom: 6 },
   dateRow: {
     flexDirection: "row",
     alignItems: "center",

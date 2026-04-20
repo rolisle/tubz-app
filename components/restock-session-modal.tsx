@@ -116,29 +116,31 @@ export function RestockSessionModal({
                   </View>
 
                   {/* Product rows */}
-                  {productIds.length === 0 ? (
-                    <Text style={[styles.emptyMachine, { color: colors.subtext }]}>
-                      No products in this machine.
-                    </Text>
-                  ) : (
-                    productIds.map((pid) => {
-                      const product = products.find((p) => p.id === pid);
-                      const qty = restockQtys[machine.id]?.[pid] ?? 0;
-                      return (
-                        <RestockProductRow
-                          key={pid}
-                          productId={pid}
-                          product={product}
-                          qty={qty}
-                          max={max}
-                          machineType={machine.type}
-                          colors={colors}
-                          onDecrement={() => onChangeQty(machine.id, pid, -1)}
-                          onIncrement={() => onChangeQty(machine.id, pid, +1)}
-                        />
-                      );
-                    })
-                  )}
+                  <View style={styles.machineBody}>
+                    {productIds.length === 0 ? (
+                      <Text style={[styles.emptyMachine, { color: colors.subtext }]}>
+                        No products in this machine.
+                      </Text>
+                    ) : (
+                      productIds.map((pid) => {
+                        const product = products.find((p) => p.id === pid);
+                        const qty = restockQtys[machine.id]?.[pid] ?? 0;
+                        return (
+                          <RestockProductRow
+                            key={pid}
+                            productId={pid}
+                            product={product}
+                            qty={qty}
+                            max={max}
+                            machineType={machine.type}
+                            colors={colors}
+                            onDecrement={() => onChangeQty(machine.id, pid, -1)}
+                            onIncrement={() => onChangeQty(machine.id, pid, +1)}
+                          />
+                        );
+                      })
+                    )}
+                  </View>
                 </View>
               );
             })
@@ -187,5 +189,6 @@ const styles = StyleSheet.create({
   machineTitle: { fontSize: 15, fontWeight: "700" },
   totalBadge: { borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 },
   totalBadgeText: { fontSize: 11, fontWeight: "700" },
-  emptyMachine: { fontSize: 13, paddingHorizontal: 14, paddingBottom: 10 },
+  machineBody: { paddingHorizontal: 14, paddingBottom: 6 },
+  emptyMachine: { fontSize: 13, paddingVertical: 10 },
 });
