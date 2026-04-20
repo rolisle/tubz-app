@@ -236,6 +236,19 @@ export default function LocationDetailScreen() {
     [location?.id, updateMachine],
   );
 
+  const openStatus = useMemo(
+    () => getOpenStatus(location?.openingHours),
+    [location?.openingHours],
+  );
+
+  const historyListData = useMemo(
+    () =>
+      [...(location?.restockHistory ?? [])]
+        .map((e, i) => ({ entry: e, originalIndex: i }))
+        .reverse(),
+    [location?.restockHistory],
+  );
+
   if (!location) {
     return (
       <SafeAreaView
@@ -268,25 +281,6 @@ export default function LocationDetailScreen() {
       </SafeAreaView>
     );
   }
-
-  // Derived memos (safe to compute after the early-return guard above)
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  const openStatus = useMemo(
-    () => getOpenStatus(location.openingHours),
-    [location.openingHours],
-  );
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  const historyListData = useMemo(
-    () =>
-      [...(location.restockHistory ?? [])]
-        .map((e, i) => ({ entry: e, originalIndex: i }))
-        .reverse(),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [
-      location.restockHistory?.length,
-      location.restockHistory?.[location.restockHistory.length - 1]?.timestamp,
-    ],
-  );
 
   const openRestockSession = () => {
     // Initialise all product quantities to 0
