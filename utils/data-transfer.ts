@@ -1,11 +1,14 @@
 /**
- * Native implementation of export/import using expo-file-system,
+ * Native implementation of export/import using expo-file-system (v19 new API),
  * expo-sharing, and expo-document-picker.
+ *
+ * expo-file-system v19 (SDK 54) deprecated the legacy API. We use the new
+ * File/Paths class API here; the legacy entry-point is no longer used.
  *
  * The .web.ts version provides web-specific implementations.
  */
 import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system';
+import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import type { AppState } from '../types';
 import { parseExport } from './parse-export';
@@ -26,13 +29,12 @@ export async function exportData(state: AppState): Promise<void> {
 
   const json = JSON.stringify(payload, null, 2);
   const filename = `tubz-export-${new Date().toISOString().slice(0, 10)}.json`;
-  const uri = FileSystem.cacheDirectory + filename;
-
-  await FileSystem.writeAsStringAsync(uri, json, { encoding: FileSystem.EncodingType.UTF8 });
+  const file = new File(Paths.cache, filename);
+  file.write(json);
 
   const canShare = await Sharing.isAvailableAsync();
   if (canShare) {
-    await Sharing.shareAsync(uri, { mimeType: 'application/json', dialogTitle: 'Export Tubz data' });
+    await Sharing.shareAsync(file.uri, { mimeType: 'application/json', dialogTitle: 'Export Tubz data' });
   }
 }
 
@@ -50,7 +52,7 @@ export async function importData(): Promise<TubzExport> {
     throw new Error('Cancelled');
   }
 
-  const uri = result.assets[0].uri;
-  const raw = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.UTF8 });
+  const file = new File(result.assets[0].uri);
+  const raw = await file.text();
   return parseExport(raw);
 }
