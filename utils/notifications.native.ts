@@ -93,8 +93,11 @@ export async function scheduleLocationNotification(location: Location): Promise<
   // Don't schedule if due date is already past (already overdue, no notification needed)
   if (due <= now) return;
 
-  // If the 1-week warning has already passed, fire immediately
-  const triggerAt = triggerDate > now ? triggerDate : new Date(now.getTime() + 2000);
+  // If the 7-day warning window has already passed (e.g. restockPeriodWeeks === 1),
+  // fire on the due date itself rather than immediately. Firing at now+2s would
+  // almost always be cancelled by the next rescheduleAllNotifications call triggered
+  // by a state update, so the notification would never actually appear.
+  const triggerAt = triggerDate > now ? triggerDate : due;
 
   const daysUntil = Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
   const body =

@@ -1,6 +1,8 @@
 import { useRouter } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import {
+  Alert,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,11 +12,13 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { SettingsModal } from "@/components/settings-modal";
+import { SlideModal } from "@/components/ui/slide-modal";
 import { GradView } from "@/components/ui/grad-view";
 import { Colors } from "@/constants/theme";
 import { useApp } from "@/context/app-context";
-import { useSettings } from "@/context/settings-context";
+import { primaryColor, useSettings } from "@/context/settings-context";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { scheduleLocationNotification } from "@/utils/notifications";
 
 function todayLabel() {
   return new Date().toLocaleDateString("en-GB", {
@@ -91,6 +95,8 @@ export default function DashboardScreen() {
   const colors = Colors[colorScheme];
   const router = useRouter();
   const [showSettings, setShowSettings] = useState(false);
+  const [showTestMenu, setShowTestMenu] = useState(false);
+  const accent = primaryColor(settings.accentColor);
 
   const stats = useMemo(
     () => ({
@@ -135,6 +141,67 @@ export default function DashboardScreen() {
 
   const today = useMemo(() => todayLabel(), []);
 
+  // ── Test helpers ─────────────────────────────────────────────
+  const testNotificationNow = useCallback(async () => {
+    if (Platform.OS === "web") {
+      Alert.alert("Not supported", "Push notifications are not available on web.");
+      return;
+    }
+    const fakeLocation = {
+      id: "__test__",
+      name: "Test Location",
+      address: "1 Test Street",
+      city: "Testville",
+      postcode: "TE1 1ST",
+      createdAt: new Date().toISOString(),
+      lastRestockedAt: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(),
+      restockPeriodWeeks: 1,
+      machines: [],
+    };
+    // Schedule a notification due 1 day from now so the trigger fires immediately
+    // (it's within the 7-day window, but due > now, so it schedules for due date = tomorrow)
+    // For a true "fire now" test we temporarily set due = now + 3s
+    const testDue = new Date(Date.now() + 3000);
+    const testLastRestocked = new Date(testDue.getTime() - 7 * 24 * 60 * 60 * 1000);
+    await scheduleLocationNotification({
+      ...fakeLocation,
+      lastRestockedAt: testLastRestocked.toISOString(),
+      restockPeriodWeeks: 1,
+    });
+    setShowTestMenu(false);
+    Alert.alert(
+      "Test notification scheduled",
+      "A 'Restock Due' notification will fire in ~3 seconds. Lock screen or background the app to see it.",
+    );
+  }, []);
+
+  const testNotificationDueToday = useCallback(async () => {
+    if (Platform.OS === "web") {
+      Alert.alert("Not supported", "Push notifications are not available on web.");
+      return;
+    }
+    // Due date = today (daysUntil = 0), so it should fire immediately as a "due today" alert
+    const now = new Date();
+    const dueToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 0);
+    const lastRestocked = new Date(dueToday.getTime() - 7 * 24 * 60 * 60 * 1000);
+    await scheduleLocationNotification({
+      id: "__test_today__",
+      name: "Test Location (Due Today)",
+      address: "",
+      city: "",
+      postcode: "",
+      createdAt: new Date().toISOString(),
+      lastRestockedAt: lastRestocked.toISOString(),
+      restockPeriodWeeks: 1,
+      machines: [],
+    });
+    setShowTestMenu(false);
+    Alert.alert(
+      "Scheduled: due today",
+      "Notification fires at end of today. Background the app tonight to see it.",
+    );
+  }, []);
+
   return (
     <SafeAreaView
       style={[styles.safe, { backgroundColor: colors.background }]}
@@ -155,16 +222,28 @@ export default function DashboardScreen() {
               {today}
             </Text>
           </View>
-          <TouchableOpacity
-            onPress={() => setShowSettings(true)}
-            hitSlop={8}
-            style={[
-              styles.settingsBtn,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-          >
-            <Text style={styles.settingsIcon}>⚙️</Text>
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              onPress={() => setShowTestMenu(true)}
+              hitSlop={8}
+              style={[
+                styles.settingsBtn,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+            >
+              <Text style={styles.settingsIcon}>🧪</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setShowSettings(true)}
+              hitSlop={8}
+              style={[
+                styles.settingsBtn,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+            >
+              <Text style={styles.settingsIcon}>⚙️</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Stats row */}
@@ -331,6 +410,108 @@ export default function DashboardScreen() {
           colors={colors}
         />
       )}
+
+      {/* ── Test Menu (temp) ─────────────────────────────────── */}
+      <SlideModal
+        visible={showTestMenu}
+        onRequestClose={() => setShowTestMenu(false)}
+      >
+        <SafeAreaView
+          style={[styles.testModalSafe, { backgroundColor: colors.background }]}
+        >
+          <View
+            style={[
+              styles.testModalNavbar,
+              { borderBottomColor: colors.border },
+            ]}
+          >
+            <TouchableOpacity
+              onPress={() => setShowTestMenu(false)}
+              hitSlop={8}
+              style={styles.testModalSide}
+            >
+              <Text style={[styles.testModalBack, { color: accent }]}>
+                ‹ Back
+              </Text>
+            </TouchableOpacity>
+            <Text style={[styles.testModalTitle, { color: colors.text }]}>
+              🧪 Test Menu
+            </Text>
+            <View style={styles.testModalSide} />
+          </View>
+
+          <ScrollView contentContainerStyle={styles.testMenuList}>
+            <Text style={[styles.testMenuSection, { color: colors.subtext }]}>
+              NOTIFICATIONS
+            </Text>
+
+            <TouchableOpacity
+              style={[
+                styles.testMenuItem,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+              onPress={testNotificationNow}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.testMenuIcon]}>📦</Text>
+              <View style={styles.testMenuText}>
+                <Text style={[styles.testMenuLabel, { color: colors.text }]}>
+                  Fire restock notification (~3s)
+                </Text>
+                <Text
+                  style={[styles.testMenuSub, { color: colors.subtext }]}
+                >
+                  Fires a &ldquo;Restock Due&rdquo; notification in ~3 seconds. Background
+                  the app to see it.
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.testMenuItem,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+              onPress={testNotificationDueToday}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.testMenuIcon]}>📅</Text>
+              <View style={styles.testMenuText}>
+                <Text style={[styles.testMenuLabel, { color: colors.text }]}>
+                  Schedule &ldquo;Due today&rdquo; notification
+                </Text>
+                <Text
+                  style={[styles.testMenuSub, { color: colors.subtext }]}
+                >
+                  Schedules a notification for end of today (23:59). Good for
+                  testing the due-date trigger.
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            <Text
+              style={[
+                styles.testMenuSection,
+                { color: colors.subtext, marginTop: 24 },
+              ]}
+            >
+              INFO
+            </Text>
+            <View
+              style={[
+                styles.testInfoCard,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+            >
+              <Text style={[styles.testInfoText, { color: colors.subtext }]}>
+                This menu is temporary and for development/testing only. Remove
+                the 🧪 button from the dashboard header once testing is
+                complete.
+              </Text>
+            </View>
+          </ScrollView>
+        </SafeAreaView>
+      </SlideModal>
     </SafeAreaView>
   );
 }
@@ -416,4 +597,49 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   emptyBtnText: { color: "#fff", fontWeight: "600", fontSize: 15 },
+  // Header action buttons row
+  headerActions: { flexDirection: "row", gap: 8, marginTop: 4 },
+  // Test menu modal
+  testModalSafe: { flex: 1 },
+  testModalNavbar: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  testModalSide: { minWidth: 64 },
+  testModalBack: { fontSize: 15, fontWeight: "600" },
+  testModalTitle: {
+    flex: 1,
+    fontSize: 17,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  testMenuList: { padding: 20, gap: 10 },
+  testMenuSection: {
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+    marginBottom: 4,
+  },
+  testMenuItem: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 14,
+  },
+  testMenuIcon: { fontSize: 22, lineHeight: 28 },
+  testMenuText: { flex: 1, gap: 4 },
+  testMenuLabel: { fontSize: 15, fontWeight: "600" },
+  testMenuSub: { fontSize: 12, lineHeight: 17 },
+  testInfoCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 14,
+  },
+  testInfoText: { fontSize: 13, lineHeight: 18 },
 });
