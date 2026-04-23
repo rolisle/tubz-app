@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Platform,
@@ -18,6 +18,7 @@ import { Colors } from "@/constants/theme";
 import { useApp } from "@/context/app-context";
 import { primaryColor, useSettings } from "@/context/settings-context";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { type CrashEntry, clearLogs, getLogs } from "@/utils/crash-log";
 import { scheduleLocationNotification } from "@/utils/notifications";
 
 function todayLabel() {
@@ -96,7 +97,16 @@ export default function DashboardScreen() {
   const router = useRouter();
   const [showSettings, setShowSettings] = useState(false);
   const [showTestMenu, setShowTestMenu] = useState(false);
+  const [crashLogs, setCrashLogs] = useState<CrashEntry[]>([]);
+  const [showCrashLog, setShowCrashLog] = useState(false);
   const accent = primaryColor(settings.accentColor);
+
+  // Reload crash logs every time the test menu opens
+  useEffect(() => {
+    if (showTestMenu) {
+      getLogs().then(setCrashLogs);
+    }
+  }, [showTestMenu]);
 
   const stats = useMemo(
     () => ({
@@ -199,6 +209,11 @@ export default function DashboardScreen() {
       "Scheduled: due today",
       "Notification fires at end of today. Background the app tonight to see it.",
     );
+  }, []);
+
+  const handleClearLogs = useCallback(async () => {
+    await clearLogs();
+    setCrashLogs([]);
   }, []);
 
   return (
@@ -410,6 +425,110 @@ export default function DashboardScreen() {
         />
       )}
 
+      {/* ── Crash Log detail modal ────────────────────────────── */}
+      <SlideModal
+        visible={showCrashLog}
+        onRequestClose={() => setShowCrashLog(false)}
+      >
+        <SafeAreaView
+          style={[styles.testModalSafe, { backgroundColor: colors.background }]}
+        >
+          <View
+            style={[
+              styles.testModalNavbar,
+              { borderBottomColor: colors.border },
+            ]}
+          >
+            <TouchableOpacity
+              onPress={() => setShowCrashLog(false)}
+              hitSlop={8}
+              style={styles.testModalSide}
+            >
+              <Text style={[styles.testModalBack, { color: accent }]}>
+                ‹ Back
+              </Text>
+            </TouchableOpacity>
+            <Text style={[styles.testModalTitle, { color: colors.text }]}>
+              🪲 Crash Log
+            </Text>
+            <TouchableOpacity
+              onPress={handleClearLogs}
+              hitSlop={8}
+              style={[styles.testModalSide, { alignItems: "flex-end" }]}
+            >
+              <Text style={[styles.testModalBack, { color: colors.danger }]}>
+                Clear
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView contentContainerStyle={styles.logList}>
+            {crashLogs.length === 0 ? (
+              <Text style={[styles.logEmpty, { color: colors.subtext }]}>
+                No entries yet.
+              </Text>
+            ) : (
+              crashLogs.map((entry) => {
+                const levelColor =
+                  entry.level === "fatal"
+                    ? "#ef4444"
+                    : entry.level === "error"
+                      ? "#f97316"
+                      : "#f59e0b";
+                const ts = new Date(entry.timestamp).toLocaleString("en-GB", {
+                  day: "numeric",
+                  month: "short",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  second: "2-digit",
+                });
+                return (
+                  <View
+                    key={entry.id}
+                    style={[
+                      styles.logEntry,
+                      {
+                        backgroundColor: colors.card,
+                        borderColor: colors.border,
+                        borderLeftColor: levelColor,
+                      },
+                    ]}
+                  >
+                    <View style={styles.logEntryHeader}>
+                      <Text
+                        style={[styles.logLevel, { color: levelColor }]}
+                      >
+                        {entry.level.toUpperCase()}
+                      </Text>
+                      <Text
+                        style={[styles.logTs, { color: colors.subtext }]}
+                      >
+                        {ts}
+                      </Text>
+                    </View>
+                    <Text
+                      style={[styles.logMessage, { color: colors.text }]}
+                      selectable
+                    >
+                      {entry.message}
+                    </Text>
+                    {entry.stack ? (
+                      <Text
+                        style={[styles.logStack, { color: colors.subtext }]}
+                        selectable
+                        numberOfLines={6}
+                      >
+                        {entry.stack}
+                      </Text>
+                    ) : null}
+                  </View>
+                );
+              })
+            )}
+          </ScrollView>
+        </SafeAreaView>
+      </SlideModal>
+
       {/* ── Test Menu (temp) ─────────────────────────────────── */}
       <SlideModal
         visible={showTestMenu}
@@ -487,6 +606,63 @@ export default function DashboardScreen() {
                 </Text>
               </View>
             </TouchableOpacity>
+
+            <Text
+              style={[
+                styles.testMenuSection,
+                { color: colors.subtext, marginTop: 24 },
+              ]}
+            >
+              CRASH LOG
+            </Text>
+
+            {/* Log summary row */}
+            <View
+              style={[
+                styles.testMenuItem,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+            >
+              <Text style={styles.testMenuIcon}>🪲</Text>
+              <View style={styles.testMenuText}>
+                <Text style={[styles.testMenuLabel, { color: colors.text }]}>
+                  {crashLogs.length === 0
+                    ? "No entries"
+                    : `${crashLogs.length} entr${crashLogs.length === 1 ? "y" : "ies"}`}
+                </Text>
+                <Text style={[styles.testMenuSub, { color: colors.subtext }]}>
+                  Errors and console.error calls captured since install.
+                </Text>
+              </View>
+              <View style={{ gap: 6 }}>
+                {crashLogs.length > 0 && (
+                  <TouchableOpacity
+                    onPress={() => setShowCrashLog(true)}
+                    style={[
+                      styles.logBtn,
+                      { borderColor: accent, backgroundColor: colors.background },
+                    ]}
+                  >
+                    <Text style={[styles.logBtnText, { color: accent }]}>
+                      View
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                {crashLogs.length > 0 && (
+                  <TouchableOpacity
+                    onPress={handleClearLogs}
+                    style={[
+                      styles.logBtn,
+                      { borderColor: colors.danger, backgroundColor: colors.background },
+                    ]}
+                  >
+                    <Text style={[styles.logBtnText, { color: colors.danger }]}>
+                      Clear
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
 
             <Text
               style={[
@@ -641,4 +817,32 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   testInfoText: { fontSize: 13, lineHeight: 18 },
+  // Log action buttons (View / Clear)
+  logBtn: {
+    borderWidth: 1,
+    borderRadius: 7,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    alignItems: "center",
+  },
+  logBtnText: { fontSize: 12, fontWeight: "600" },
+  // Crash log detail modal
+  logList: { padding: 16, gap: 10 },
+  logEmpty: { textAlign: "center", paddingTop: 40, fontSize: 14 },
+  logEntry: {
+    borderRadius: 10,
+    borderWidth: 1,
+    borderLeftWidth: 3,
+    padding: 12,
+    gap: 6,
+  },
+  logEntryHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  logLevel: { fontSize: 10, fontWeight: "800", letterSpacing: 0.6 },
+  logTs: { fontSize: 10 },
+  logMessage: { fontSize: 13, lineHeight: 18 },
+  logStack: { fontSize: 10, lineHeight: 14, fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace" },
 });

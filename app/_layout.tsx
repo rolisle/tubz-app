@@ -7,6 +7,7 @@ import 'react-native-reanimated';
 import { AppProvider } from '@/context/app-context';
 import { SettingsProvider } from '@/context/settings-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { installGlobalHandlers } from '@/utils/crash-log';
 import { ensureNotificationChannel, requestNotificationPermission } from '@/utils/notifications';
 
 export const unstable_settings = {
@@ -17,6 +18,8 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
 
   useEffect(() => {
+    // Install global JS error + console.error interceptors as early as possible
+    installGlobalHandlers();
     // On Android 8+, a notification channel must exist before any notification
     // can be scheduled. ensureNotificationChannel() is a no-op on iOS/web.
     ensureNotificationChannel().then(() => requestNotificationPermission());

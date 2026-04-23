@@ -95,6 +95,7 @@ export async function cancelLocationNotification(locationId: string): Promise<vo
 export async function scheduleLocationNotification(location: Location): Promise<void> {
   if (Platform.OS === 'web') return;
 
+  try {
   // Always cancel the old one first to avoid duplicates
   await cancelLocationNotification(location.id);
 
@@ -132,6 +133,8 @@ export async function scheduleLocationNotification(location: Location): Promise<
       title: '📦 Restock Due Soon',
       body,
       data: { locationId: location.id },
+      // channelId belongs in the content on Android, NOT in the trigger
+      ...(Platform.OS === 'android' ? { channelId: RESTOCK_CHANNEL_ID } : {}),
       // attachments is an iOS-only API — guard it so Android doesn't reject the payload
       ...(Platform.OS === 'ios' && iconUri
         ? { attachments: [{ identifier: 'app-icon', url: iconUri, type: 'public.png' }] }
@@ -140,10 +143,12 @@ export async function scheduleLocationNotification(location: Location): Promise<
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.DATE,
       date: triggerAt,
-      // Android 8+ requires every notification to belong to a channel
-      ...(Platform.OS === 'android' ? { channelId: RESTOCK_CHANNEL_ID } : {}),
     },
   });
+  } catch (e) {
+    // Swallow scheduling errors — a failed notification must never crash the app.
+    console.warn('[notifications] scheduleLocationNotification failed:', e);
+  }
 }
 
 /** Cancel all restock-* notifications and reschedule from scratch. */
