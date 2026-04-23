@@ -2,6 +2,11 @@
 
 A stock and restock management app for Tubz vending machines, built with [Expo](https://expo.dev) and React Native. Runs on iOS, Android, and web.
 
+### Recent updates
+
+- **Restock notifications:** scheduling updated so short restock windows (e.g. **1 week**) still receive a local notification on the **due date**, instead of a fragile near-immediate fire that could be dropped when state reschedules. Longer windows still get the 7-day-ahead reminder when there is room for it
+- **Dashboard test menu (🧪):** next to the settings control — temporary panel to fire sample “Restock Due” notifications for QA; intended to be removed when no longer needed
+
 ## Features
 
 ### Dashboard
@@ -10,6 +15,7 @@ A stock and restock management app for Tubz vending machines, built with [Expo](
 - **Upcoming Restocks** — locations with a restock period set, sorted by soonest due date; never-restocked locations shown at the bottom
 - **Recent Restocks** — up to 8 locations sorted by most recently restocked
 - Settings icon (⚙️) opens the theme settings modal
+- **Test menu** (🧪) — temporary developer control next to the settings icon. Opens a small panel to trigger sample restock notifications (e.g. a notification in a few seconds, or one scheduled for late today) so you can verify push behaviour on a device. Remove this entry point when you no longer need it
 - Tap any restock card to navigate directly to that location
 
 ### Locations
@@ -85,9 +91,12 @@ A stock and restock management app for Tubz vending machines, built with [Expo](
 ### Notifications
 
 - Local push notifications for locations with a restock period set
-- Fires 7 days before the restock is due date
+- **7-day lead time:** when the due date is more than 7 days away, the notification is scheduled for one week *before* that due date (so you get a heads-up a week in advance)
+- **Short restock periods (e.g. 1 week):** there is no day left for a “7 days before” reminder, so the notification is scheduled for the **due date** itself instead. That keeps one-week (and other tight) cycles reliable; previously an “almost immediate” trigger could be cancelled on the next data save
+- If the 7-day warning window is already in the past but the due date is still in the future, the notification is scheduled for the **due date** (not a few seconds from now), so it is not lost when the app reschedules after each change
 - Permissions requested on first launch (iOS/Android only; no-op on web)
 - Notifications are automatically rescheduled when restock periods or last-restocked dates change
+- App icon is attached where supported (richer display on iOS, large icon on Android)
 
 ## Tech Stack
 
@@ -135,7 +144,7 @@ Requires [EAS CLI](https://docs.expo.dev/build/introduction/) and an Expo accoun
 ```
 app/
   (tabs)/
-    index.tsx        # Dashboard — upcoming/recent restocks, stats
+    index.tsx        # Dashboard — stats, upcoming/recent restocks, temp test menu (🧪)
     locations.tsx    # Location list (All / By City) + add modal
     products.tsx     # Product catalog (grid/list toggle, add/edit)
     restock.tsx      # Restock planner
