@@ -7,7 +7,7 @@ import 'react-native-reanimated';
 import { AppProvider } from '@/context/app-context';
 import { SettingsProvider } from '@/context/settings-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { requestNotificationPermission } from '@/utils/notifications';
+import { ensureNotificationChannel, requestNotificationPermission } from '@/utils/notifications';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -17,7 +17,9 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
 
   useEffect(() => {
-    requestNotificationPermission();
+    // On Android 8+, a notification channel must exist before any notification
+    // can be scheduled. ensureNotificationChannel() is a no-op on iOS/web.
+    ensureNotificationChannel().then(() => requestNotificationPermission());
   }, []);
 
   return (

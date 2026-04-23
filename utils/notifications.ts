@@ -3,6 +3,10 @@
 
 import type { Location } from '../types';
 
+export const RESTOCK_CHANNEL_ID = 'restock-reminders';
+
+export async function ensureNotificationChannel(): Promise<void> {}
+
 export async function requestNotificationPermission(): Promise<boolean> {
   return false;
 }

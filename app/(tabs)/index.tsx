@@ -158,10 +158,9 @@ export default function DashboardScreen() {
       restockPeriodWeeks: 1,
       machines: [],
     };
-    // Schedule a notification due 1 day from now so the trigger fires immediately
-    // (it's within the 7-day window, but due > now, so it schedules for due date = tomorrow)
-    // For a true "fire now" test we temporarily set due = now + 3s
-    const testDue = new Date(Date.now() + 3000);
+    // Due = now + 10s. The "7 days before" trigger is in the past, so
+    // scheduleLocationNotification will set triggerAt = due = now + 10s.
+    const testDue = new Date(Date.now() + 10_000);
     const testLastRestocked = new Date(testDue.getTime() - 7 * 24 * 60 * 60 * 1000);
     await scheduleLocationNotification({
       ...fakeLocation,
@@ -171,7 +170,7 @@ export default function DashboardScreen() {
     setShowTestMenu(false);
     Alert.alert(
       "Test notification scheduled",
-      "A 'Restock Due' notification will fire in ~3 seconds. Lock screen or background the app to see it.",
+      "A 'Restock Due' notification will fire in ~10 seconds. Background or lock the screen now to see it.",
     );
   }, []);
 
@@ -461,8 +460,8 @@ export default function DashboardScreen() {
                 <Text
                   style={[styles.testMenuSub, { color: colors.subtext }]}
                 >
-                  Fires a &ldquo;Restock Due&rdquo; notification in ~3 seconds. Background
-                  the app to see it.
+                  Fires a &ldquo;Restock Due&rdquo; notification in ~10 seconds. Background
+                  or lock the screen, then wait.
                 </Text>
               </View>
             </TouchableOpacity>

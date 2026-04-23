@@ -3,6 +3,25 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import type { Location } from '../types';
 
+export const RESTOCK_CHANNEL_ID = 'restock-reminders';
+
+/**
+ * Create (or update) the Android notification channel for restock reminders.
+ * Safe to call multiple times — Android is idempotent for channels with the
+ * same id. Must be called before any notification is scheduled on Android 8+,
+ * otherwise notifications are silently dropped.
+ */
+export async function ensureNotificationChannel(): Promise<void> {
+  if (Platform.OS !== 'android') return;
+  await Notifications.setNotificationChannelAsync(RESTOCK_CHANNEL_ID, {
+    name: 'Restock Reminders',
+    importance: Notifications.AndroidImportance.HIGH,
+    vibrationPattern: [0, 250, 250, 250],
+    lightColor: '#9cfc68',
+    showBadge: false,
+  });
+}
+
 // Preload the app icon so we can attach it to notifications.
 // On iOS it becomes a rich media attachment; on Android it's used as the
 // setLargeIcon() override (otherwise Android falls back to the launcher
@@ -113,13 +132,16 @@ export async function scheduleLocationNotification(location: Location): Promise<
       title: '📦 Restock Due Soon',
       body,
       data: { locationId: location.id },
-      ...(iconUri
+      // attachments is an iOS-only API — guard it so Android doesn't reject the payload
+      ...(Platform.OS === 'ios' && iconUri
         ? { attachments: [{ identifier: 'app-icon', url: iconUri, type: 'public.png' }] }
         : {}),
     },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.DATE,
       date: triggerAt,
+      // Android 8+ requires every notification to belong to a channel
+      ...(Platform.OS === 'android' ? { channelId: RESTOCK_CHANNEL_ID } : {}),
     },
   });
 }
