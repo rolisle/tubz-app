@@ -5,6 +5,7 @@ import type { Dispatch, ReactNode } from 'react';
 import { DEFAULT_PRODUCTS } from '@/constants/default-products';
 import type { AppState, Location, Machine, MachineType, Product, ProductCategory, RestockEntry, RestockMachineEntry } from '@/types';
 import { uid } from '@/utils/id';
+import { appendLog } from '@/utils/crash-log';
 import { rescheduleAllNotifications } from '@/utils/notifications';
 
 const STORAGE_KEY = '@tubz:appState';
@@ -286,7 +287,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Keep scheduled notifications in sync with location restock periods
   useEffect(() => {
-    rescheduleAllNotifications(state.locations);
+    rescheduleAllNotifications(state.locations).catch((e: unknown) => {
+      appendLog({
+        level: 'error',
+        message: `rescheduleAllNotifications failed: ${e instanceof Error ? e.message : String(e)}`,
+        stack: e instanceof Error ? e.stack : undefined,
+      });
+    });
   }, [state.locations]);
 
   // ---------------------------------------------------------------------------

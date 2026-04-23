@@ -64,6 +64,14 @@ export async function appendLog(
   }
 }
 
+/**
+ * Write a lightweight breadcrumb (non-error) to the log.
+ * Useful for tracing "last known good point" before a native crash.
+ */
+export function breadcrumb(message: string): void {
+  appendLog({ level: 'warn', message: `[breadcrumb] ${message}` });
+}
+
 export async function getLogs(): Promise<CrashEntry[]> {
   try {
     const raw = await AsyncStorage.getItem(STORAGE_KEY);

@@ -1,9 +1,10 @@
-import { Asset } from 'expo-asset';
-import * as Notifications from 'expo-notifications';
-import { Platform } from 'react-native';
-import type { Location } from '../types';
+import { Asset } from "expo-asset";
+import * as Notifications from "expo-notifications";
+import { Platform } from "react-native";
+import { breadcrumb } from "./crash-log";
+import type { Location } from "../types";
 
-export const RESTOCK_CHANNEL_ID = 'restock-reminders';
+export const RESTOCK_CHANNEL_ID = "restock-reminders";
 
 /**
  * Create (or update) the Android notification channel for restock reminders.
@@ -12,12 +13,12 @@ export const RESTOCK_CHANNEL_ID = 'restock-reminders';
  * otherwise notifications are silently dropped.
  */
 export async function ensureNotificationChannel(): Promise<void> {
-  if (Platform.OS !== 'android') return;
+  if (Platform.OS !== "android") return;
   await Notifications.setNotificationChannelAsync(RESTOCK_CHANNEL_ID, {
-    name: 'Restock Reminders',
+    name: "Restock Reminders",
     importance: Notifications.AndroidImportance.HIGH,
     vibrationPattern: [0, 250, 250, 250],
-    lightColor: '#9cfc68',
+    lightColor: "#9cfc68",
     showBadge: false,
   });
 }
@@ -28,10 +29,10 @@ export async function ensureNotificationChannel(): Promise<void> {
 // foreground, which is the generic Expo placeholder).
 let cachedIconUri: string | null = null;
 async function getIconUri(): Promise<string | null> {
-  if (Platform.OS === 'web') return null;
+  if (Platform.OS === "web") return null;
   if (cachedIconUri) return cachedIconUri;
   try {
-    const asset = Asset.fromModule(require('../assets/images/icon.png'));
+    const asset = Asset.fromModule(require("../assets/images/icon.png"));
     if (!asset.localUri) await asset.downloadAsync();
     cachedIconUri = asset.localUri ?? asset.uri;
     return cachedIconUri;
@@ -59,13 +60,13 @@ Notifications.setNotificationHandler({
 /** Request permission – call once at startup. Returns true if granted. */
 export async function requestNotificationPermission(): Promise<boolean> {
   // Notifications are not supported on web
-  if (Platform.OS === 'web') return false;
+  if (Platform.OS === "web") return false;
 
   const { status: existing } = await Notifications.getPermissionsAsync();
-  if (existing === 'granted') return true;
+  if (existing === "granted") return true;
 
   const { status } = await Notifications.requestPermissionsAsync();
-  return status === 'granted';
+  return status === "granted";
 }
 
 /** Calculate the ISO date when a location's restock is due. */
@@ -80,9 +81,13 @@ function dueDate(location: Location): Date | null {
 }
 
 /** Cancel any scheduled notification for this location. */
-export async function cancelLocationNotification(locationId: string): Promise<void> {
-  if (Platform.OS === 'web') return;
-  await Notifications.cancelScheduledNotificationAsync(`restock-${locationId}`).catch(() => {});
+export async function cancelLocationNotification(
+  locationId: string,
+): Promise<void> {
+  if (Platform.OS === "web") return;
+  await Notifications.cancelScheduledNotificationAsync(
+    `restock-${locationId}`,
+  ).catch(() => {});
 }
 
 /**
@@ -92,81 +97,105 @@ export async function cancelLocationNotification(locationId: string): Promise<vo
  * the past but the due date is still in the future, fires immediately.
  * Skips locations with no restock period set.
  */
-export async function scheduleLocationNotification(location: Location): Promise<void> {
-  if (Platform.OS === 'web') return;
+export async function scheduleLocationNotification(
+  location: Location,
+): Promise<void> {
+  if (Platform.OS === "web") return;
 
   try {
-  // Always cancel the old one first to avoid duplicates
-  await cancelLocationNotification(location.id);
+    // Ensure the Android channel exists before every schedule attempt.
+    // This is idempotent, so calling it here (rather than only at startup)
+    // removes the race condition between app-context hydration and _layout.tsx
+    // initialisation. Without this, scheduleNotificationAsync can be called
+    // before the channel exists, throwing a native Java exception that kills
+    // the process before any JS error handler can catch it.
+    await ensureNotificationChannel();
+    breadcrumb(`scheduleLocationNotification: channel ready for "${location.name}" (${location.id})`);
 
-  if (!location.restockPeriodWeeks) return;
+    // Always cancel the old one first to avoid duplicates
+    await cancelLocationNotification(location.id);
 
-  const due = dueDate(location);
-  if (!due) return;
+    if (!location.restockPeriodWeeks) return;
 
-  const now = new Date();
+    const due = dueDate(location);
+    if (!due) return;
 
-  // Notification fires 1 week before the due date
-  const triggerDate = new Date(due);
-  triggerDate.setDate(triggerDate.getDate() - 7);
+    const now = new Date();
 
-  // Don't schedule if due date is already past (already overdue, no notification needed)
-  if (due <= now) return;
+    // Notification fires 1 week before the due date
+    const triggerDate = new Date(due);
+    triggerDate.setDate(triggerDate.getDate() - 7);
 
-  // If the 7-day warning window has already passed (e.g. restockPeriodWeeks === 1),
-  // fire on the due date itself rather than immediately. Firing at now+2s would
-  // almost always be cancelled by the next rescheduleAllNotifications call triggered
-  // by a state update, so the notification would never actually appear.
-  const triggerAt = triggerDate > now ? triggerDate : due;
+    // Don't schedule if due date is already past (already overdue, no notification needed)
+    if (due <= now) return;
 
-  const daysUntil = Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-  const body =
-    daysUntil <= 1
-      ? `${location.name} is due for a restock today.`
-      : `${location.name} is due for a restock in ${daysUntil} day${daysUntil !== 1 ? 's' : ''}.`;
+    // If the 7-day warning window has already passed (e.g. restockPeriodWeeks === 1),
+    // fire on the due date itself rather than immediately. Firing at now+2s would
+    // almost always be cancelled by the next rescheduleAllNotifications call triggered
+    // by a state update, so the notification would never actually appear.
+    const triggerAt = triggerDate > now ? triggerDate : due;
 
-  const iconUri = await getIconUri();
+    const daysUntil = Math.ceil(
+      (due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+    );
+    const body =
+      daysUntil <= 1
+        ? `${location.name} is due for a restock today.`
+        : `${location.name} is due for a restock in ${daysUntil} day${daysUntil !== 1 ? "s" : ""}.`;
 
-  await Notifications.scheduleNotificationAsync({
-    identifier: `restock-${location.id}`,
-    content: {
-      title: '📦 Restock Due Soon',
-      body,
-      data: { locationId: location.id },
-      // channelId belongs in the content on Android, NOT in the trigger
-      ...(Platform.OS === 'android' ? { channelId: RESTOCK_CHANNEL_ID } : {}),
-      // attachments is an iOS-only API — guard it so Android doesn't reject the payload
-      ...(Platform.OS === 'ios' && iconUri
-        ? { attachments: [{ identifier: 'app-icon', url: iconUri, type: 'public.png' }] }
-        : {}),
-    },
-    trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.DATE,
-      date: triggerAt,
-    },
-  });
+    const iconUri = await getIconUri();
+
+    breadcrumb(`scheduleNotificationAsync: firing for "${location.name}" at ${triggerAt.toISOString()}`);
+    await Notifications.scheduleNotificationAsync({
+      identifier: `restock-${location.id}`,
+      content: {
+        title: "📦 Restock Due Soon",
+        body,
+        data: { locationId: location.id },
+        // channelId belongs in the content on Android, NOT in the trigger
+        ...(Platform.OS === "android" ? { channelId: RESTOCK_CHANNEL_ID } : {}),
+        // attachments is an iOS-only API — guard it so Android doesn't reject the payload
+        ...(Platform.OS === "ios" && iconUri
+          ? {
+              attachments: [
+                { identifier: "app-icon", url: iconUri, type: "public.png" },
+              ],
+            }
+          : {}),
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date: triggerAt,
+      },
+    });
   } catch (e) {
     // Swallow scheduling errors — a failed notification must never crash the app.
-    console.warn('[notifications] scheduleLocationNotification failed:', e);
+    console.warn("[notifications] scheduleLocationNotification failed:", e);
   }
 }
 
 /** Cancel all restock-* notifications and reschedule from scratch. */
-export async function rescheduleAllNotifications(locations: Location[]): Promise<void> {
-  if (Platform.OS === 'web') return;
+export async function rescheduleAllNotifications(
+  locations: Location[],
+): Promise<void> {
+  if (Platform.OS === "web") return;
 
   // Cancel only restock-* identifiers so other notification types are unaffected
   const scheduled = await Notifications.getAllScheduledNotificationsAsync();
   await Promise.all(
     scheduled
-      .filter((n) => n.identifier.startsWith('restock-'))
-      .map((n) => Notifications.cancelScheduledNotificationAsync(n.identifier).catch(() => {}))
+      .filter((n) => n.identifier.startsWith("restock-"))
+      .map((n) =>
+        Notifications.cancelScheduledNotificationAsync(n.identifier).catch(
+          () => {},
+        ),
+      ),
   );
 
   // Re-schedule each location that has a restock period
   await Promise.all(
     locations
       .filter((l) => l.restockPeriodWeeks)
-      .map((l) => scheduleLocationNotification(l))
+      .map((l) => scheduleLocationNotification(l)),
   );
 }
