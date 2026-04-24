@@ -1,7 +1,7 @@
 # Tubz — Privacy Policy
 
 **Effective date:** 15 April 2026
-**Last updated:** 15 April 2026
+**Last updated:** 24 April 2026
 
 This Privacy Policy describes how the Tubz mobile application ("Tubz", "the
 app", "we", "our", or "us") handles information when you use it. By using the
@@ -82,6 +82,14 @@ Used to deliver **local** reminder notifications for upcoming restock
 dates at locations you have configured. Notifications are scheduled and
 delivered entirely on-device by the Android operating system; no push
 service is used and no notification content leaves your device.
+
+### Exact alarms (`SCHEDULE_EXACT_ALARM`)
+
+Used to schedule restock reminder notifications at a precise date and time
+(e.g. one week before a location's restock is due). Android 12 and above
+require this permission for apps to set exact-time alarms. The permission
+is used solely to deliver local, on-device reminders; no data leaves your
+device as a result.
 
 ### Internet (`INTERNET`)
 
