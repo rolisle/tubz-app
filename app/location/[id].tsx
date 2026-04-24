@@ -234,6 +234,27 @@ export default function LocationDetailScreen() {
     }
   };
 
+  const handleTimeSave = (
+    day: WeekDay,
+    field: "open" | "close",
+    value: string,
+  ) => {
+    if (!location?.openingHours?.[day]) return;
+    const parsed = parseTimeInput(value);
+    const normalised = parsed ?? (field === "open" ? "09:00" : "17:00");
+    setTimeInputs((prev) => ({
+      ...prev,
+      [day]: { ...prev[day], [field]: normalised },
+    }));
+    if (parsed) {
+      const newHours = {
+        ...(location.openingHours ?? {}),
+        [day]: { ...location.openingHours[day]!, [field]: parsed },
+      };
+      updateLocation({ ...location, openingHours: newHours });
+    }
+  };
+
   const handleMachineUpdate = useCallback(
     (machine: Machine) => updateMachine(location?.id ?? "", machine),
     [location?.id, updateMachine],
@@ -676,6 +697,7 @@ export default function LocationDetailScreen() {
           }
           onToggleDay={toggleDay}
           onTimeBlur={handleTimeBlur}
+          onTimeSave={handleTimeSave}
           colors={colors}
           accent={accent}
         />
