@@ -2,10 +2,13 @@ import { useCallback, useMemo, useState } from 'react';
 import {
   FlatList,
   Image,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -38,44 +41,93 @@ interface SlotPickerProps {
 
 function SlotPicker({ slotIndex, products, machineType, onSelect, onClose, colorScheme }: SlotPickerProps) {
   const colors = Colors[colorScheme];
-  const filtered = products.filter((p) => !p.category || p.category === machineType);
+  const { settings } = useSettings();
+  const accent = primaryColor(settings.accentColor);
+  const [search, setSearch] = useState('');
+  const [searchFocused, setSearchFocused] = useState(false);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return products
+      .filter((p) => !p.category || p.category === machineType)
+      .filter((p) => !q || p.name.toLowerCase().includes(q))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [products, machineType, search]);
 
   return (
     <Modal transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.overlay} onPress={onClose} />
-      <View style={[styles.sheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <View style={styles.sheetHeader}>
-          <Text style={[styles.sheetTitle, { color: colors.text }]}>Slot {slotIndex + 1}</Text>
-          <TouchableOpacity onPress={onClose} hitSlop={8}>
-            <Text style={[styles.sheetClose, { color: colors.subtext }]}>Done</Text>
-          </TouchableOpacity>
-        </View>
-
-        <TouchableOpacity
-          style={[styles.productRow, { borderColor: colors.border }]}
-          onPress={() => onSelect(null)}>
-          <Text style={styles.productEmoji}>–</Text>
-          <Text style={[styles.productName, { color: colors.subtext }]}>Empty</Text>
-        </TouchableOpacity>
-
-        <FlatList
-          data={filtered}
-          keyExtractor={(p) => p.id}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[styles.productRow, { borderColor: colors.border }]}
-              onPress={() => onSelect(item.id)}>
-              <ProductThumb product={item} size={30} />
-              <Text style={[styles.productName, { color: colors.text }]}>{item.name}</Text>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <Pressable style={styles.overlay} onPress={onClose} />
+        <View style={[styles.sheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={styles.sheetHeader}>
+            <Text style={[styles.sheetTitle, { color: colors.text }]}>Slot {slotIndex + 1}</Text>
+            <TouchableOpacity onPress={onClose} hitSlop={8}>
+              <Text style={[styles.sheetClose, { color: colors.subtext }]}>Done</Text>
             </TouchableOpacity>
-          )}
-          ListEmptyComponent={
-            <Text style={[styles.emptyNote, { color: colors.subtext }]}>
-              No {machineType} products in catalog yet.{'\n'}Add them in the Products tab.
-            </Text>
-          }
-        />
-      </View>
+          </View>
+
+          <View
+            style={[
+              styles.searchWrap,
+              {
+                backgroundColor: colors.background,
+                borderColor: searchFocused ? accent : colors.border,
+              },
+            ]}
+          >
+            <Text style={[styles.searchIcon, { color: colors.subtext }]}>🔍</Text>
+            <TextInput
+              style={[styles.searchInput, { color: colors.text }]}
+              value={search}
+              onChangeText={setSearch}
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => setSearchFocused(false)}
+              placeholder="Search products…"
+              placeholderTextColor={colors.subtext}
+              autoFocus
+              returnKeyType="search"
+              clearButtonMode="while-editing"
+              autoCorrect={false}
+              autoCapitalize="none"
+              autoComplete="off"
+              selectionColor={`${accent}44`}
+              cursorColor={accent}
+            />
+          </View>
+
+          <TouchableOpacity
+            style={[styles.productRow, { borderColor: colors.border }]}
+            onPress={() => onSelect(null)}>
+            <Text style={styles.productEmoji}>–</Text>
+            <Text style={[styles.productName, { color: colors.subtext }]}>Empty</Text>
+          </TouchableOpacity>
+
+          <FlatList
+            data={filtered}
+            keyExtractor={(p) => p.id}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ paddingBottom: 20 }}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={[styles.productRow, { borderColor: colors.border }]}
+                onPress={() => onSelect(item.id)}>
+                <ProductThumb product={item} size={30} />
+                <Text style={[styles.productName, { color: colors.text }]}>{item.name}</Text>
+              </TouchableOpacity>
+            )}
+            ListEmptyComponent={
+              <Text style={[styles.emptyNote, { color: colors.subtext }]}>
+                {search
+                  ? `No results for "${search}"`
+                  : `No ${machineType} products in catalog yet.\nAdd them in the Products tab.`}
+              </Text>
+            }
+          />
+        </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -445,7 +497,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   // Slot Picker
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
+  overlay: { flex: 1 },
   sheet: {
     position: 'absolute',
     bottom: 0,
@@ -466,6 +518,18 @@ const styles = StyleSheet.create({
   },
   sheetTitle: { fontSize: 17, fontWeight: '600' },
   sheetClose: { fontSize: 15, fontWeight: '500' },
+  searchWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    height: 40,
+  },
+  searchIcon: { fontSize: 14, marginRight: 6 },
+  searchInput: { flex: 1, fontSize: 15 },
   productRow: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Tubz app",
     "slug": "tubz-app",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "tubzapp",
@@ -12,7 +12,7 @@
       "supportsTablet": true
     },
     "android": {
-      "versionCode": 4,
+      "versionCode": 5,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -22,9 +22,7 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.rolisle.tubzapp",
-      "permissions": [
-        "android.permission.SCHEDULE_EXACT_ALARM"
-      ]
+      "permissions": ["android.permission.SCHEDULE_EXACT_ALARM"]
     },
     "web": {
       "output": "static",

@@ -15,10 +15,11 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { LocationCard } from "@/components/location-card";
+import { FsModalNavbar } from "@/components/ui/fs-modal-navbar";
 import { GradView } from "@/components/ui/grad-view";
 import { SlideModal } from "@/components/ui/slide-modal";
 import { Colors } from "@/constants/theme";
-import { useApp } from "@/context/app-context";
+import { useApp, useAppActions } from "@/context/app-context";
 import {
   AppColor,
   primaryColor,
@@ -83,7 +84,7 @@ interface AddLocationModalProps {
 }
 
 function AddLocationModal({ visible, onClose, colors }: AddLocationModalProps) {
-  const { addLocation } = useApp();
+  const { addLocation } = useAppActions();
   const { settings } = useSettings();
   const accent = primaryColor(settings.accentColor);
   const [name, setName] = useState("");
@@ -148,22 +149,17 @@ function AddLocationModal({ visible, onClose, colors }: AddLocationModalProps) {
           style={{ flex: 1 }}
           behavior={Platform.OS === "ios" ? "padding" : "height"}
         >
-          {/* Navbar */}
-          <View style={[styles.fsModalNavbar, { borderBottomColor: colors.border }]}>
-            <TouchableOpacity onPress={handleClose} hitSlop={8} style={styles.fsModalSide}>
-              <Text style={[styles.fsModalBack, { color: colors.danger }]}>Cancel</Text>
-            </TouchableOpacity>
-            <Text style={[styles.fsModalTitle, { color: colors.text }]}>New Location</Text>
-            <TouchableOpacity
-              onPress={handleAdd}
-              hitSlop={8}
-              style={[styles.fsModalSide, { alignItems: "flex-end" }]}
-            >
-              <Text style={[styles.fsModalBack, { color: isValid ? accent : colors.subtext }]}>
-                Add
-              </Text>
-            </TouchableOpacity>
-          </View>
+          <FsModalNavbar
+            title="New Location"
+            colors={colors}
+            accent={accent}
+            left={{ label: "Cancel", onPress: handleClose, tone: "danger" }}
+            right={{
+              label: "Add",
+              onPress: handleAdd,
+              tone: isValid ? "accent" : "muted",
+            }}
+          />
 
           <ScrollView
             contentContainerStyle={styles.fsModalContent}
@@ -504,21 +500,6 @@ const styles = StyleSheet.create({
   emptyNote: { fontSize: 14, textAlign: "center" },
   // Full-screen modal
   fsModalSafe: { flex: 1 },
-  fsModalNavbar: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  fsModalSide: { minWidth: 64 },
-  fsModalBack: { fontSize: 15, fontWeight: "600" },
-  fsModalTitle: {
-    flex: 1,
-    fontSize: 17,
-    fontWeight: "700",
-    textAlign: "center",
-  },
   fsModalContent: {
     padding: 20,
     gap: 4,

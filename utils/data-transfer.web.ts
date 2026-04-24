@@ -30,7 +30,13 @@ export async function exportData(state: AppState): Promise<void> {
   URL.revokeObjectURL(url);
 }
 
-/** Opens a file picker, reads the chosen JSON, and returns the parsed payload. */
+/** Opens a file picker, reads the chosen JSON, and returns the parsed payload.
+ *
+ * We intentionally do NOT use a focus-return fallback to detect cancellation —
+ * it can race `onchange` on slow devices or large files and falsely reject a
+ * valid import. Browsers without native `oncancel` support will simply leave
+ * the Promise pending if the user dismisses the dialog without picking a file,
+ * which is harmless (it resolves the next time the user imports). */
 export async function importData(): Promise<TubzExport> {
   return new Promise((resolve, reject) => {
     const input = document.createElement('input');
@@ -47,24 +53,15 @@ export async function importData(): Promise<TubzExport> {
     input.onchange = async () => {
       const file = input.files?.[0];
       if (!file) { settle(() => reject(new Error('Cancelled'))); return; }
-      const text = await file.text();
       try {
+        const text = await file.text();
         settle(() => resolve(parseExport(text)));
       } catch (e) {
         settle(() => reject(e));
       }
     };
 
-    // oncancel is spec'd but not universally supported; use focus-return as fallback
     input.oncancel = () => settle(() => reject(new Error('Cancelled')));
-
-    // When the browser returns focus to the window after the picker closes without
-    // a selection, resolve as cancelled after a short delay
-    const onWindowFocus = () => {
-      setTimeout(() => settle(() => reject(new Error('Cancelled'))), 300);
-      window.removeEventListener('focus', onWindowFocus);
-    };
-    window.addEventListener('focus', onWindowFocus);
 
     input.click();
   });

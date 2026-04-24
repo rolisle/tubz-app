@@ -1,13 +1,15 @@
 import * as ImagePicker from "expo-image-picker";
-import { memo, useCallback, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Dimensions,
   FlatList,
   Image,
+  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   SectionList,
   StyleSheet,
   Text,
@@ -17,13 +19,16 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { FsModalNavbar } from "@/components/ui/fs-modal-navbar";
 import { GradView } from "@/components/ui/grad-view";
+import { SlideModal } from "@/components/ui/slide-modal";
 import { PRODUCT_IMAGES } from "@/constants/product-images";
 import { Colors } from "@/constants/theme";
-import { useApp } from "@/context/app-context";
+import { useApp, useAppActions } from "@/context/app-context";
 import { primaryColor, useSettings } from "@/context/settings-context";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import type { Product, ProductCategory } from "@/types";
+import { confirmDelete } from "@/utils/confirm";
 
 const CATEGORY_LABELS: Record<ProductCategory, string> = {
   sweet: "🍬 Sweets",
@@ -66,7 +71,7 @@ function ProductFormModal({
   colors,
   editProduct,
 }: ProductFormModalProps) {
-  const { addProduct, updateProduct, deleteProduct } = useApp();
+  const { addProduct, updateProduct, deleteProduct } = useAppActions();
   const { settings } = useSettings();
   const accent = primaryColor(settings.accentColor);
   const isEdit = !!editProduct;
@@ -76,8 +81,10 @@ function ProductFormModal({
   const [category, setCategory] = useState<ProductCategory>("sweet");
   const [imageUri, setImageUri] = useState<string | null>(null);
 
-  // Populate fields when opening in edit mode – called by Modal's onShow
-  const handleShow = () => {
+  // Populate fields whenever the modal becomes visible — replaces the old
+  // `Modal.onShow` hook now that we render via SlideModal.
+  useEffect(() => {
+    if (!visible) return;
     if (editProduct) {
       setName(editProduct.name);
       setCategory(editProduct.category ?? "sweet");
@@ -88,7 +95,7 @@ function ProductFormModal({
       setImageUri(null);
     }
     setNameFocused(false);
-  };
+  }, [visible, editProduct]);
 
   const pickFromLibrary = async () => {
     if (Platform.OS !== "web") {
@@ -146,25 +153,15 @@ function ProductFormModal({
     );
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!editProduct) return;
-    const doDelete = () => {
-      deleteProduct(editProduct.id);
-      onClose();
-    };
-    if (Platform.OS === "web") {
-      if (window.confirm(`Delete "${editProduct.name}" from the catalog?`))
-        doDelete();
-    } else {
-      Alert.alert(
-        "Delete Product",
-        `Remove "${editProduct.name}" from the catalog? This won't affect existing machine slots.`,
-        [
-          { text: "Cancel", style: "cancel" },
-          { text: "Delete", style: "destructive", onPress: doDelete },
-        ],
-      );
-    }
+    const ok = await confirmDelete(
+      `"${editProduct.name}"`,
+      "This won't affect existing machine slots.",
+    );
+    if (!ok) return;
+    deleteProduct(editProduct.id);
+    onClose();
   };
 
   const handleSave = () => {
@@ -186,162 +183,154 @@ function ProductFormModal({
     onClose();
   };
 
+  // User-uploaded URI takes priority; fall back to the bundled asset for
+  // this product id. Extracted out of the JSX so the logic is readable.
+  const uploadedSrc = imageUri ? { uri: imageUri } : null;
+  const bundledSrc = editProduct ? PRODUCT_IMAGES[editProduct.id] : null;
+  const displaySrc = uploadedSrc ?? bundledSrc ?? null;
+  const canClear = !!imageUri;
+
   return (
-    <Modal
+    <SlideModal
+      animation="fade"
       visible={visible}
-      transparent
-      animationType="slide"
       onRequestClose={onClose}
-      onShow={handleShow}
     >
-      <Pressable style={styles.overlay} onPress={onClose} />
-      <View
-        style={[
-          styles.sheet,
-          { backgroundColor: colors.card, borderColor: colors.border },
-        ]}
+      <SafeAreaView
+        style={[styles.fsModalSafe, { backgroundColor: colors.background }]}
       >
-        <View style={styles.sheetHandle} />
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
+          <FsModalNavbar
+            title={isEdit ? "Edit Product" : "New Product"}
+            colors={colors}
+            accent={accent}
+            left={{ label: "Cancel", tone: "danger", onPress: onClose }}
+            right={{ label: "Save", tone: "accent", onPress: handleSave }}
+          />
 
-        {/* Header row */}
-        <View style={styles.sheetHeaderRow}>
-          <Text style={[styles.sheetTitle, { color: colors.text }]}>
-            {isEdit ? "Edit Product" : "New Product"}
-          </Text>
-          {isEdit && (
-            <TouchableOpacity onPress={handleDelete} hitSlop={8}>
-              <Text style={styles.sheetDeleteText}>Delete</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* Category selector */}
-        <Text style={[styles.fieldLabel, { color: colors.subtext }]}>
-          Category
-        </Text>
-        <View style={styles.categoryRow}>
-          {(Object.keys(CATEGORY_LABELS) as ProductCategory[]).map((cat) => (
-            <TouchableOpacity
-              key={cat}
-              onPress={() => setCategory(cat)}
-              style={[
-                styles.categoryBtn,
-                {
-                  backgroundColor: category === cat ? accent : colors.card,
-                  borderColor: category === cat ? accent : colors.border,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.categoryBtnText,
-                  { color: category === cat ? "#fff" : colors.subtext },
-                ]}
-              >
-                {CATEGORY_LABELS[cat]}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <Text style={[styles.fieldLabel, { color: colors.subtext }]}>
-          Name <Text style={{ color: colors.danger }}>*</Text>
-        </Text>
-        <TextInput
-          style={[
-            styles.input,
-            {
-              color: colors.text,
-              borderColor: nameFocused ? accent : colors.border,
-              backgroundColor: colors.background,
-            },
-          ]}
-          placeholder="e.g. Gummy Bears"
-          placeholderTextColor={colors.subtext}
-          value={name}
-          onChangeText={setName}
-          onFocus={() => setNameFocused(true)}
-          onBlur={() => setNameFocused(false)}
-          selectionColor={`${accent}44`}
-          cursorColor={accent}
-          autoFocus={!isEdit}
-          returnKeyType="next"
-        />
-
-        {/* Image picker */}
-        {(() => {
-          // User-uploaded URI takes priority; fall back to the bundled asset for this product id
-          const uploadedSrc = imageUri ? { uri: imageUri } : null;
-          const bundledSrc = editProduct
-            ? PRODUCT_IMAGES[editProduct.id]
-            : null;
-          const displaySrc = uploadedSrc ?? bundledSrc ?? null;
-          // Show clear button only when there's a user-set URI (not a read-only bundled image)
-          const canClear = !!imageUri;
-          return (
-            <>
-              <Text style={[styles.fieldLabel, { color: colors.subtext }]}>
-                Image (optional)
-              </Text>
-              <View style={styles.imagePickerRow}>
+          <ScrollView
+            contentContainerStyle={styles.fsModalContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <Text style={[styles.fieldLabel, { color: colors.subtext }]}>
+              Category
+            </Text>
+            <View style={styles.categoryRow}>
+              {(Object.keys(CATEGORY_LABELS) as ProductCategory[]).map((cat) => (
                 <TouchableOpacity
-                  onPress={pickImage}
+                  key={cat}
+                  onPress={() => setCategory(cat)}
                   style={[
-                    styles.imagePicker,
+                    styles.categoryBtn,
                     {
-                      borderColor: displaySrc ? accent : colors.border,
-                      backgroundColor: colors.background,
+                      backgroundColor: category === cat ? accent : colors.card,
+                      borderColor: category === cat ? accent : colors.border,
                     },
                   ]}
                 >
-                  {displaySrc ? (
-                    <Image
-                      source={displaySrc}
-                      style={styles.imagePreview}
-                      resizeMode="contain"
-                    />
-                  ) : (
-                    <Text
-                      style={[
-                        styles.imagePickerPlaceholder,
-                        { color: colors.subtext },
-                      ]}
-                    >
-                      {"📷  Tap to add photo"}
-                    </Text>
-                  )}
-                </TouchableOpacity>
-                {canClear && (
-                  <TouchableOpacity
-                    onPress={() => setImageUri(null)}
-                    hitSlop={8}
+                  <Text
                     style={[
-                      styles.imageClear,
-                      { backgroundColor: colors.border },
+                      styles.categoryBtnText,
+                      { color: category === cat ? "#fff" : colors.subtext },
                     ]}
                   >
-                    <Text
-                      style={[styles.imageClearText, { color: colors.text }]}
-                    >
-                      ✕
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </>
-          );
-        })()}
+                    {CATEGORY_LABELS[cat]}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
 
-        <TouchableOpacity
-          style={[styles.addBtn, { backgroundColor: accent }]}
-          onPress={handleSave}
-        >
-          <Text style={styles.addBtnText}>
-            {isEdit ? "Save Changes" : "Add Product"}
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </Modal>
+            <Text style={[styles.fieldLabel, { color: colors.subtext }]}>
+              Name <Text style={{ color: colors.danger }}>*</Text>
+            </Text>
+            <TextInput
+              style={[
+                styles.input,
+                {
+                  color: colors.text,
+                  borderColor: nameFocused ? accent : colors.border,
+                  backgroundColor: colors.background,
+                },
+              ]}
+              placeholder="e.g. Gummy Bears"
+              placeholderTextColor={colors.subtext}
+              value={name}
+              onChangeText={setName}
+              onFocus={() => setNameFocused(true)}
+              onBlur={() => setNameFocused(false)}
+              selectionColor={`${accent}44`}
+              cursorColor={accent}
+              autoFocus={!isEdit}
+              returnKeyType="next"
+            />
+
+            <Text style={[styles.fieldLabel, { color: colors.subtext }]}>
+              Image (optional)
+            </Text>
+            <View style={styles.imagePickerRow}>
+              <TouchableOpacity
+                onPress={pickImage}
+                style={[
+                  styles.imagePicker,
+                  {
+                    borderColor: displaySrc ? accent : colors.border,
+                    backgroundColor: colors.background,
+                  },
+                ]}
+              >
+                {displaySrc ? (
+                  <Image
+                    source={displaySrc}
+                    style={styles.imagePreview}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <Text
+                    style={[
+                      styles.imagePickerPlaceholder,
+                      { color: colors.subtext },
+                    ]}
+                  >
+                    {"📷  Tap to add photo"}
+                  </Text>
+                )}
+              </TouchableOpacity>
+              {canClear && (
+                <TouchableOpacity
+                  onPress={() => setImageUri(null)}
+                  hitSlop={8}
+                  style={[
+                    styles.imageClear,
+                    { backgroundColor: colors.border },
+                  ]}
+                >
+                  <Text
+                    style={[styles.imageClearText, { color: colors.text }]}
+                  >
+                    ✕
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {isEdit && (
+              <TouchableOpacity
+                style={[styles.formDeleteBtn, { borderColor: colors.danger }]}
+                onPress={handleDelete}
+              >
+                <Text style={[styles.formDeleteText, { color: colors.danger }]}>
+                  🗑 Delete Product
+                </Text>
+              </TouchableOpacity>
+            )}
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </SlideModal>
   );
 }
 
@@ -363,20 +352,12 @@ const ProductRow = memo(function ProductRow({
     ? { uri: product.localImageUri }
     : PRODUCT_IMAGES[product.id];
 
-  const handleDelete = () => {
-    if (Platform.OS === "web") {
-      if (window.confirm(`Remove "${product.name}" from the catalog?`))
-        onDelete();
-    } else {
-      Alert.alert(
-        "Delete Product",
-        `Remove "${product.name}" from the catalog? This won't affect existing machine slots.`,
-        [
-          { text: "Cancel", style: "cancel" },
-          { text: "Delete", style: "destructive", onPress: onDelete },
-        ],
-      );
-    }
+  const handleDelete = async () => {
+    const ok = await confirmDelete(
+      `"${product.name}"`,
+      "This won't affect existing machine slots.",
+    );
+    if (ok) onDelete();
   };
 
   const { width, height } = Dimensions.get("window");
@@ -523,24 +504,9 @@ export default function ProductsScreen() {
       <ProductGridCard
         product={item}
         onEdit={() => setEditingProduct(item)}
-        onDelete={() => {
-          if (Platform.OS === "web") {
-            if (window.confirm(`Remove "${item.name}" from the catalog?`))
-              deleteProduct(item.id);
-          } else {
-            Alert.alert(
-              "Delete Product",
-              `Remove "${item.name}" from the catalog?`,
-              [
-                { text: "Cancel", style: "cancel" },
-                {
-                  text: "Delete",
-                  style: "destructive",
-                  onPress: () => deleteProduct(item.id),
-                },
-              ],
-            );
-          }
+        onDelete={async () => {
+          const ok = await confirmDelete(`"${item.name}"`);
+          if (ok) deleteProduct(item.id);
         }}
         colors={colors}
       />
@@ -945,43 +911,21 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#fff",
   },
-  // Modal
-  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)" },
-  sheet: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    borderTopWidth: 1,
-    padding: 24,
-    paddingBottom: 40,
+  // Full-screen modal
+  fsModalSafe: { flex: 1 },
+  fsModalContent: {
+    padding: 20,
     gap: 4,
+    paddingBottom: 40,
   },
-  sheetHandle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "#ccc",
-    alignSelf: "center",
-    marginBottom: 12,
-  },
-  sheetHeaderRow: {
-    flexDirection: "row",
+  formDeleteBtn: {
+    marginTop: 24,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 14,
     alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 12,
   },
-  sheetTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-  },
-  sheetDeleteText: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#ef4444",
-  },
+  formDeleteText: { fontSize: 15, fontWeight: "600" },
   fieldLabel: {
     fontSize: 12,
     fontWeight: "600",
@@ -1014,11 +958,4 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 4,
   },
-  addBtn: {
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: "center",
-    marginTop: 16,
-  },
-  addBtnText: { color: "#fff", fontSize: 16, fontWeight: "700" },
 });

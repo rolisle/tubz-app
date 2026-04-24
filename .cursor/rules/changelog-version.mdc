@@ -1,0 +1,26 @@
+---
+description: Keep CHANGELOG.md in sync with app and package version bumps
+globs: app.json, package.json, CHANGELOG.md
+alwaysApply: false
+---
+
+# Changelog and version numbers
+
+When **any** of these change, **update `CHANGELOG.md` in the same change** (same PR / commit as the version bump):
+
+- `expo.version` in `app.json`
+- `expo.android.versionCode` in `app.json`
+- `version` in `package.json` (should match `expo.version`)
+
+## What to add
+
+1. If releasing a new user-facing version: add a dated section `## [x.y.z] - YYYY-MM-DD` (use the release date or today’s date for internal builds).
+2. Under the header, set **`Android versionCode: N`** on its own line when `versionCode` changed.
+3. List changes under **Added**, **Changed**, **Fixed**, or **Removed** as appropriate ([Keep a Changelog](https://keepachangelog.com/)).
+4. Clear the `[Unreleased]` section of items that are now shipped, or add a new `[Unreleased]` note if work continues.
+
+If only `versionCode` bumps with no functional change, still add a small **Changed** line (e.g. “Build number bump for store upload”).
+
+## Do not
+
+- Bump `version` / `versionCode` without a matching changelog entry, unless the user explicitly says to skip the changelog for that change.

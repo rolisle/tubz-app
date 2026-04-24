@@ -1,8 +1,7 @@
-import { useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useMemo, useState } from "react";
 import {
   Alert,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,15 +10,13 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { TestMenuModal } from "@/components/dev/test-menu-modal";
 import { SettingsModal } from "@/components/settings-modal";
-import { SlideModal } from "@/components/ui/slide-modal";
 import { GradView } from "@/components/ui/grad-view";
 import { Colors } from "@/constants/theme";
 import { useApp } from "@/context/app-context";
 import { primaryColor, useSettings } from "@/context/settings-context";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-import { type CrashEntry, clearLogs, getLogs } from "@/utils/crash-log";
-import { scheduleLocationNotification } from "@/utils/notifications";
 
 function todayLabel() {
   return new Date().toLocaleDateString("en-GB", {
@@ -97,16 +94,7 @@ export default function DashboardScreen() {
   const router = useRouter();
   const [showSettings, setShowSettings] = useState(false);
   const [showTestMenu, setShowTestMenu] = useState(false);
-  const [crashLogs, setCrashLogs] = useState<CrashEntry[]>([]);
-  const [showCrashLog, setShowCrashLog] = useState(false);
   const accent = primaryColor(settings.accentColor);
-
-  // Reload crash logs every time the test menu opens
-  useEffect(() => {
-    if (showTestMenu) {
-      getLogs().then(setCrashLogs);
-    }
-  }, [showTestMenu]);
 
   const stats = useMemo(
     () => ({
@@ -149,71 +137,15 @@ export default function DashboardScreen() {
     [router],
   );
 
-  const today = useMemo(() => todayLabel(), []);
+  const [today, setToday] = useState(todayLabel);
+  useFocusEffect(
+    useCallback(() => {
+      setToday(todayLabel());
+    }, []),
+  );
 
-  // ── Test helpers ─────────────────────────────────────────────
-  const testNotificationNow = useCallback(async () => {
-    if (Platform.OS === "web") {
-      Alert.alert("Not supported", "Push notifications are not available on web.");
-      return;
-    }
-    const fakeLocation = {
-      id: "__test__",
-      name: "Test Location",
-      address: "1 Test Street",
-      city: "Testville",
-      postcode: "TE1 1ST",
-      createdAt: new Date().toISOString(),
-      lastRestockedAt: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(),
-      restockPeriodWeeks: 1,
-      machines: [],
-    };
-    // Due = now + 10s. The "7 days before" trigger is in the past, so
-    // scheduleLocationNotification will set triggerAt = due = now + 10s.
-    const testDue = new Date(Date.now() + 10_000);
-    const testLastRestocked = new Date(testDue.getTime() - 7 * 24 * 60 * 60 * 1000);
-    await scheduleLocationNotification({
-      ...fakeLocation,
-      lastRestockedAt: testLastRestocked.toISOString(),
-      restockPeriodWeeks: 1,
-    });
-    setShowTestMenu(false);
-    Alert.alert(
-      "Test notification scheduled",
-      "A 'Restock Due' notification will fire in ~10 seconds. Background or lock the screen now to see it.",
-    );
-  }, []);
-
-  const testNotificationDueToday = useCallback(async () => {
-    if (Platform.OS === "web") {
-      Alert.alert("Not supported", "Push notifications are not available on web.");
-      return;
-    }
-    // Due date = today (daysUntil = 0), so it should fire immediately as a "due today" alert
-    const now = new Date();
-    const dueToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 0);
-    const lastRestocked = new Date(dueToday.getTime() - 7 * 24 * 60 * 60 * 1000);
-    await scheduleLocationNotification({
-      id: "__test_today__",
-      name: "Test Location (Due Today)",
-      address: "",
-      city: "",
-      postcode: "",
-      createdAt: new Date().toISOString(),
-      lastRestockedAt: lastRestocked.toISOString(),
-      restockPeriodWeeks: 1,
-      machines: [],
-    });
-    setShowTestMenu(false);
-    Alert.alert(
-      "Scheduled: due today",
-      "Notification fires at end of today. Background the app tonight to see it.",
-    );
-  }, []);
-
-  const handleClearLogs = useCallback(async () => {
-    await clearLogs();
-    setCrashLogs([]);
+  const showTestAlert = useCallback((title: string, message?: string) => {
+    Alert.alert(title, message);
   }, []);
 
   return (
@@ -425,270 +357,13 @@ export default function DashboardScreen() {
         />
       )}
 
-      {/* ── Crash Log detail modal ────────────────────────────── */}
-      <SlideModal
-        animation="fade"
-        visible={showCrashLog}
-        onRequestClose={() => setShowCrashLog(false)}
-      >
-        <SafeAreaView
-          style={[styles.testModalSafe, { backgroundColor: colors.background }]}
-        >
-          <View
-            style={[
-              styles.testModalNavbar,
-              { borderBottomColor: colors.border },
-            ]}
-          >
-            <TouchableOpacity
-              onPress={() => setShowCrashLog(false)}
-              hitSlop={8}
-              style={styles.testModalSide}
-            >
-              <Text style={[styles.testModalBack, { color: accent }]}>
-                ‹ Back
-              </Text>
-            </TouchableOpacity>
-            <Text style={[styles.testModalTitle, { color: colors.text }]}>
-              🪲 Crash Log
-            </Text>
-            <TouchableOpacity
-              onPress={handleClearLogs}
-              hitSlop={8}
-              style={[styles.testModalSide, { alignItems: "flex-end" }]}
-            >
-              <Text style={[styles.testModalBack, { color: colors.danger }]}>
-                Clear
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView contentContainerStyle={styles.logList}>
-            {crashLogs.length === 0 ? (
-              <Text style={[styles.logEmpty, { color: colors.subtext }]}>
-                No entries yet.
-              </Text>
-            ) : (
-              crashLogs.map((entry) => {
-                const levelColor =
-                  entry.level === "fatal"
-                    ? "#ef4444"
-                    : entry.level === "error"
-                      ? "#f97316"
-                      : "#f59e0b";
-                const ts = new Date(entry.timestamp).toLocaleString("en-GB", {
-                  day: "numeric",
-                  month: "short",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  second: "2-digit",
-                });
-                return (
-                  <View
-                    key={entry.id}
-                    style={[
-                      styles.logEntry,
-                      {
-                        backgroundColor: colors.card,
-                        borderColor: colors.border,
-                        borderLeftColor: levelColor,
-                      },
-                    ]}
-                  >
-                    <View style={styles.logEntryHeader}>
-                      <Text
-                        style={[styles.logLevel, { color: levelColor }]}
-                      >
-                        {entry.level.toUpperCase()}
-                      </Text>
-                      <Text
-                        style={[styles.logTs, { color: colors.subtext }]}
-                      >
-                        {ts}
-                      </Text>
-                    </View>
-                    <Text
-                      style={[styles.logMessage, { color: colors.text }]}
-                      selectable
-                    >
-                      {entry.message}
-                    </Text>
-                    {entry.stack ? (
-                      <Text
-                        style={[styles.logStack, { color: colors.subtext }]}
-                        selectable
-                        numberOfLines={6}
-                      >
-                        {entry.stack}
-                      </Text>
-                    ) : null}
-                  </View>
-                );
-              })
-            )}
-          </ScrollView>
-        </SafeAreaView>
-      </SlideModal>
-
-      {/* ── Test Menu (temp) ─────────────────────────────────── */}
-      <SlideModal
-        animation="fade"
+      <TestMenuModal
         visible={showTestMenu}
-        onRequestClose={() => setShowTestMenu(false)}
-      >
-        <SafeAreaView
-          style={[styles.testModalSafe, { backgroundColor: colors.background }]}
-        >
-          <View
-            style={[
-              styles.testModalNavbar,
-              { borderBottomColor: colors.border },
-            ]}
-          >
-            <TouchableOpacity
-              onPress={() => setShowTestMenu(false)}
-              hitSlop={8}
-              style={styles.testModalSide}
-            >
-              <Text style={[styles.testModalBack, { color: accent }]}>
-                ‹ Back
-              </Text>
-            </TouchableOpacity>
-            <Text style={[styles.testModalTitle, { color: colors.text }]}>
-              🧪 Test Menu
-            </Text>
-            <View style={styles.testModalSide} />
-          </View>
-
-          <ScrollView contentContainerStyle={styles.testMenuList}>
-            <Text style={[styles.testMenuSection, { color: colors.subtext }]}>
-              NOTIFICATIONS
-            </Text>
-
-            <TouchableOpacity
-              style={[
-                styles.testMenuItem,
-                { backgroundColor: colors.card, borderColor: colors.border },
-              ]}
-              onPress={testNotificationNow}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.testMenuIcon]}>📦</Text>
-              <View style={styles.testMenuText}>
-                <Text style={[styles.testMenuLabel, { color: colors.text }]}>
-                  Fire restock notification (~3s)
-                </Text>
-                <Text
-                  style={[styles.testMenuSub, { color: colors.subtext }]}
-                >
-                  Fires a &ldquo;Restock Due&rdquo; notification in ~10 seconds. Background
-                  or lock the screen, then wait.
-                </Text>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.testMenuItem,
-                { backgroundColor: colors.card, borderColor: colors.border },
-              ]}
-              onPress={testNotificationDueToday}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.testMenuIcon]}>📅</Text>
-              <View style={styles.testMenuText}>
-                <Text style={[styles.testMenuLabel, { color: colors.text }]}>
-                  Schedule &ldquo;Due today&rdquo; notification
-                </Text>
-                <Text
-                  style={[styles.testMenuSub, { color: colors.subtext }]}
-                >
-                  Schedules a notification for end of today (23:59). Good for
-                  testing the due-date trigger.
-                </Text>
-              </View>
-            </TouchableOpacity>
-
-            <Text
-              style={[
-                styles.testMenuSection,
-                { color: colors.subtext, marginTop: 24 },
-              ]}
-            >
-              CRASH LOG
-            </Text>
-
-            {/* Log summary row */}
-            <View
-              style={[
-                styles.testMenuItem,
-                { backgroundColor: colors.card, borderColor: colors.border },
-              ]}
-            >
-              <Text style={styles.testMenuIcon}>🪲</Text>
-              <View style={styles.testMenuText}>
-                <Text style={[styles.testMenuLabel, { color: colors.text }]}>
-                  {crashLogs.length === 0
-                    ? "No entries"
-                    : `${crashLogs.length} entr${crashLogs.length === 1 ? "y" : "ies"}`}
-                </Text>
-                <Text style={[styles.testMenuSub, { color: colors.subtext }]}>
-                  Errors and console.error calls captured since install.
-                </Text>
-              </View>
-              <View style={{ gap: 6 }}>
-                {crashLogs.length > 0 && (
-                  <TouchableOpacity
-                    onPress={() => setShowCrashLog(true)}
-                    style={[
-                      styles.logBtn,
-                      { borderColor: accent, backgroundColor: colors.background },
-                    ]}
-                  >
-                    <Text style={[styles.logBtnText, { color: accent }]}>
-                      View
-                    </Text>
-                  </TouchableOpacity>
-                )}
-                {crashLogs.length > 0 && (
-                  <TouchableOpacity
-                    onPress={handleClearLogs}
-                    style={[
-                      styles.logBtn,
-                      { borderColor: colors.danger, backgroundColor: colors.background },
-                    ]}
-                  >
-                    <Text style={[styles.logBtnText, { color: colors.danger }]}>
-                      Clear
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-
-            <Text
-              style={[
-                styles.testMenuSection,
-                { color: colors.subtext, marginTop: 24 },
-              ]}
-            >
-              INFO
-            </Text>
-            <View
-              style={[
-                styles.testInfoCard,
-                { backgroundColor: colors.card, borderColor: colors.border },
-              ]}
-            >
-              <Text style={[styles.testInfoText, { color: colors.subtext }]}>
-                This menu is temporary and for development/testing only. Remove
-                the 🧪 button from the dashboard header once testing is
-                complete.
-              </Text>
-            </View>
-          </ScrollView>
-        </SafeAreaView>
-      </SlideModal>
+        onClose={() => setShowTestMenu(false)}
+        colors={colors}
+        accent={accent}
+        onAlert={showTestAlert}
+      />
     </SafeAreaView>
   );
 }
@@ -774,77 +449,5 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   emptyBtnText: { color: "#fff", fontWeight: "600", fontSize: 15 },
-  // Header action buttons row
   headerActions: { flexDirection: "row", gap: 8, marginTop: 4 },
-  // Test menu modal
-  testModalSafe: { flex: 1 },
-  testModalNavbar: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  testModalSide: { minWidth: 64 },
-  testModalBack: { fontSize: 15, fontWeight: "600" },
-  testModalTitle: {
-    flex: 1,
-    fontSize: 17,
-    fontWeight: "700",
-    textAlign: "center",
-  },
-  testMenuList: { padding: 20, gap: 10 },
-  testMenuSection: {
-    fontSize: 11,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
-    marginBottom: 4,
-  },
-  testMenuItem: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    padding: 14,
-  },
-  testMenuIcon: { fontSize: 22, lineHeight: 28 },
-  testMenuText: { flex: 1, gap: 4 },
-  testMenuLabel: { fontSize: 15, fontWeight: "600" },
-  testMenuSub: { fontSize: 12, lineHeight: 17 },
-  testInfoCard: {
-    borderRadius: 12,
-    borderWidth: 1,
-    padding: 14,
-  },
-  testInfoText: { fontSize: 13, lineHeight: 18 },
-  // Log action buttons (View / Clear)
-  logBtn: {
-    borderWidth: 1,
-    borderRadius: 7,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    alignItems: "center",
-  },
-  logBtnText: { fontSize: 12, fontWeight: "600" },
-  // Crash log detail modal
-  logList: { padding: 16, gap: 10 },
-  logEmpty: { textAlign: "center", paddingTop: 40, fontSize: 14 },
-  logEntry: {
-    borderRadius: 10,
-    borderWidth: 1,
-    borderLeftWidth: 3,
-    padding: 12,
-    gap: 6,
-  },
-  logEntryHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  logLevel: { fontSize: 10, fontWeight: "800", letterSpacing: 0.6 },
-  logTs: { fontSize: 10 },
-  logMessage: { fontSize: 13, lineHeight: 18 },
-  logStack: { fontSize: 10, lineHeight: 14, fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace" },
 });

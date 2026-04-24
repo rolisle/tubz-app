@@ -1,29 +1,28 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Alert,
-  FlatList,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
-
-import { DatePickerModal } from "@/components/ui/date-picker-modal";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { HistoryEntryEditorModal } from "@/components/history-entry-editor-modal";
+import { EditLocationModal } from "@/components/location/edit-location-modal";
+import { HistoryModal } from "@/components/location/history-modal";
+import { LocationHeader } from "@/components/location/location-header";
+import { MachinesSection } from "@/components/location/machines-section";
+import { OpeningHoursModal } from "@/components/location/opening-hours-modal";
+import { SettingsMenuModal } from "@/components/location/settings-menu-modal";
 import { RestockSessionModal } from "@/components/restock-session-modal";
+import { DatePickerModal } from "@/components/ui/date-picker-modal";
 import { GradView } from "@/components/ui/grad-view";
 import { IconSymbol } from "@/components/ui/icon-symbol";
-import { MachineGrid } from "@/components/ui/machine-grid";
-import { OpenStatusBadge } from "@/components/ui/open-status-badge";
-import { SlideModal } from "@/components/ui/slide-modal";
 import { Colors } from "@/constants/theme";
 import { useApp } from "@/context/app-context";
 import { primaryColor, useSettings } from "@/context/settings-context";
@@ -35,18 +34,15 @@ import type {
   RestockMachineEntry,
   WeekDay,
 } from "@/types";
-import { openLocationInMaps } from "@/utils/maps";
+import { confirm, confirmDelete } from "@/utils/confirm";
 import {
-  DAY_LABELS,
   getOpenStatus,
   parseTimeInput,
   WEEK_DAYS,
 } from "@/utils/opening-hours";
 
-const MACHINE_LABELS: Record<MachineType, string> = {
-  sweet: "Sweet Machine 🍬",
-  toy: "Toy Machine 🪀",
-};
+// UK postcode: AN NAA / ANN NAA / AAN NAA / AANN NAA / ANA NAA / AANA NAA
+const UK_POSTCODE = /^[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2}$/i;
 
 function formatDate(iso: string | null): string {
   if (!iso) return "Never";
@@ -58,7 +54,10 @@ function formatDate(iso: string | null): string {
 }
 
 export default function LocationDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  // Expo Router can yield string or string[] for a dynamic param — normalise
+  // to a single string so downstream lookups never choke on an array.
+  const rawId = useLocalSearchParams<{ id: string | string[] }>().id;
+  const id = Array.isArray(rawId) ? rawId[0] : rawId;
   const {
     state,
     updateLocation,
@@ -87,10 +86,13 @@ export default function LocationDetailScreen() {
     [state.locations, id],
   );
 
-  const [name, setName] = useState(location?.name ?? "");
-  const [address, setAddress] = useState(location?.address ?? "");
-  const [city, setCity] = useState(location?.city ?? "");
-  const [postcode, setPostcode] = useState(location?.postcode ?? "");
+  // Edit location form state
+  const [editForm, setEditForm] = useState({
+    name: location?.name ?? "",
+    address: location?.address ?? "",
+    city: location?.city ?? "",
+    postcode: location?.postcode ?? "",
+  });
   const [notes, setNotes] = useState(location?.notes ?? "");
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const accent = useMemo(
@@ -124,9 +126,9 @@ export default function LocationDetailScreen() {
 
   // Opening hours — local time-input state so users can type freely
   const [timeInputs, setTimeInputs] = useState<
-    Record<string, { open: string; close: string }>
+    Record<WeekDay, { open: string; close: string }>
   >(() => {
-    const result: Record<string, { open: string; close: string }> = {};
+    const result = {} as Record<WeekDay, { open: string; close: string }>;
     WEEK_DAYS.forEach((day) => {
       result[day] = {
         open: location?.openingHours?.[day]?.open ?? "09:00",
@@ -140,12 +142,14 @@ export default function LocationDetailScreen() {
   // Reset local form fields whenever the location being viewed changes (e.g. after import)
   useEffect(() => {
     if (!location) return;
-    setName(location.name ?? "");
-    setAddress(location.address ?? "");
-    setCity(location.city ?? "");
-    setPostcode(location.postcode ?? "");
+    setEditForm({
+      name: location.name ?? "",
+      address: location.address ?? "",
+      city: location.city ?? "",
+      postcode: location.postcode ?? "",
+    });
     setNotes(location.notes ?? "");
-    const inputs: Record<string, { open: string; close: string }> = {};
+    const inputs = {} as Record<WeekDay, { open: string; close: string }>;
     WEEK_DAYS.forEach((day) => {
       inputs[day] = {
         open: location.openingHours?.[day]?.open ?? "09:00",
@@ -155,15 +159,14 @@ export default function LocationDetailScreen() {
     setTimeInputs(inputs);
   }, [location?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // UK postcode: AN NAA / ANN NAA / AAN NAA / AANN NAA / ANA NAA / AANA NAA
-  const UK_POSTCODE = /^[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2}$/i;
-
   const openEdit = () => {
-    setName(location?.name ?? "");
-    setAddress(location?.address ?? "");
-    setCity(location?.city ?? "");
-    setPostcode(location?.postcode ?? "");
-    setNotes(location?.notes ?? "");
+    if (!location) return;
+    setEditForm({
+      name: location.name ?? "",
+      address: location.address ?? "",
+      city: location.city ?? "",
+      postcode: location.postcode ?? "",
+    });
     setEditErrors({});
     setShowEditModal(true);
   };
@@ -171,12 +174,12 @@ export default function LocationDetailScreen() {
   const saveEdit = () => {
     if (!location) return;
     const errs: Record<string, string> = {};
-    if (!name.trim()) errs.name = "Name is required.";
-    if (!address.trim()) errs.address = "Address is required.";
-    if (!city.trim()) errs.city = "City is required.";
-    if (!postcode.trim()) {
+    if (!editForm.name.trim()) errs.name = "Name is required.";
+    if (!editForm.address.trim()) errs.address = "Address is required.";
+    if (!editForm.city.trim()) errs.city = "City is required.";
+    if (!editForm.postcode.trim()) {
       errs.postcode = "Postcode is required.";
-    } else if (!UK_POSTCODE.test(postcode.trim())) {
+    } else if (!UK_POSTCODE.test(editForm.postcode.trim())) {
       errs.postcode = "Enter a valid UK postcode.";
     }
     if (Object.keys(errs).length) {
@@ -185,10 +188,10 @@ export default function LocationDetailScreen() {
     }
     updateLocation({
       ...location,
-      name: name.trim(),
-      address: address.trim(),
-      city: city.trim(),
-      postcode: postcode.trim().toUpperCase(),
+      name: editForm.name.trim(),
+      address: editForm.address.trim(),
+      city: editForm.city.trim(),
+      postcode: editForm.postcode.trim().toUpperCase(),
     });
     setShowEditModal(false);
   };
@@ -268,14 +271,8 @@ export default function LocationDetailScreen() {
               marginTop: 8,
             }}
           >
-            <IconSymbol
-              name="arrow.left"
-              size={16}
-              color={primaryColor(settings.accentColor)}
-            />
-            <Text style={{ color: primaryColor(settings.accentColor) }}>
-              Back
-            </Text>
+            <IconSymbol name="arrow.left" size={16} color={accent} />
+            <Text style={{ color: accent }}>Back</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -283,7 +280,6 @@ export default function LocationDetailScreen() {
   }
 
   const openRestockSession = () => {
-    // Initialise all product quantities to 0
     const qtys: Record<string, Record<string, number>> = {};
     location.machines.forEach((m) => {
       qtys[m.id] = {};
@@ -313,7 +309,6 @@ export default function LocationDetailScreen() {
     setShowRestockSession(false);
   };
 
-  // ── History entry editor ──────────────────────────────────────
   const openEditEntry = (originalIndex: number) => {
     const entry = location.restockHistory![originalIndex];
     const qtys: Record<string, Record<string, number>> = {};
@@ -349,29 +344,12 @@ export default function LocationDetailScreen() {
     setShowHistory(true);
   };
 
-  const handleDeleteEntry = (originalIndex: number) => {
-    const doDelete = () => {
-      deleteRestockEntry(location.id, originalIndex);
-      if (editingEntry?.index === originalIndex) setEditingEntry(null);
-    };
-    if (Platform.OS === "web") {
-      if (window.confirm("Delete this restock entry?")) {
-        doDelete();
-        setShowHistory(true);
-      }
-    } else {
-      Alert.alert("Delete entry?", "This cannot be undone.", [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () => {
-            doDelete();
-            setShowHistory(true);
-          },
-        },
-      ]);
-    }
+  const handleDeleteEntry = async (originalIndex: number) => {
+    const ok = await confirmDelete("entry", "This cannot be undone.");
+    if (!ok) return;
+    deleteRestockEntry(location.id, originalIndex);
+    if (editingEntry?.index === originalIndex) setEditingEntry(null);
+    setShowHistory(true);
   };
 
   const handleConfirmDate = (date: Date) => {
@@ -379,57 +357,30 @@ export default function LocationDetailScreen() {
     setShowDatePicker(false);
   };
 
-  const handleDeleteLocation = () => {
-    if (Platform.OS === "web") {
-      if (window.confirm(`Delete "${location.name}"? This cannot be undone.`)) {
-        deleteLocation(location.id);
-        router.back();
-      } else {
-        setShowMenu(true);
-      }
-    } else {
-      Alert.alert(
-        "Delete Location",
-        `Are you sure you want to delete "${location.name}"? This cannot be undone.`,
-        [
-          {
-            text: "Cancel",
-            style: "cancel",
-            onPress: () => setShowMenu(true),
-          },
-          {
-            text: "Delete",
-            style: "destructive",
-            onPress: () => {
-              deleteLocation(location.id);
-              router.back();
-            },
-          },
-        ],
-        { onDismiss: () => setShowMenu(true) },
-      );
+  const handleDeleteLocation = async () => {
+    const ok = await confirmDelete(
+      `"${location.name}"`,
+      "This cannot be undone.",
+    );
+    if (!ok) {
+      setShowMenu(true);
+      return;
     }
+    deleteLocation(location.id);
+    router.back();
   };
 
   const handleAddMachine = (type: MachineType) => {
     addMachine(location.id, type);
   };
 
-  const handleDeleteMachine = (machineId: string) => {
-    if (Platform.OS === "web") {
-      if (window.confirm("Remove this machine from the location?")) {
-        deleteMachine(location.id, machineId);
-      }
-    } else {
-      Alert.alert("Remove Machine", "Remove this machine from the location?", [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Remove",
-          style: "destructive",
-          onPress: () => deleteMachine(location.id, machineId),
-        },
-      ]);
-    }
+  const handleDeleteMachine = async (machineId: string) => {
+    const ok = await confirm(
+      "Remove Machine",
+      "Remove this machine from the location?",
+      { confirmLabel: "Remove", destructive: true },
+    );
+    if (ok) deleteMachine(location.id, machineId);
   };
 
   return (
@@ -448,19 +399,8 @@ export default function LocationDetailScreen() {
             hitSlop={8}
             style={styles.backBtn}
           >
-            <IconSymbol
-              name="arrow.left"
-              size={18}
-              color={primaryColor(settings.accentColor)}
-            />
-            <Text
-              style={[
-                styles.backText,
-                { color: primaryColor(settings.accentColor) },
-              ]}
-            >
-              Back
-            </Text>
+            <IconSymbol name="arrow.left" size={18} color={accent} />
+            <Text style={[styles.backText, { color: accent }]}>Back</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => setShowMenu(true)}
@@ -470,14 +410,7 @@ export default function LocationDetailScreen() {
               { backgroundColor: colors.card, borderColor: colors.border },
             ]}
           >
-            <Text
-              style={[
-                styles.menuBtnIcon,
-                { color: primaryColor(settings.accentColor) },
-              ]}
-            >
-              ⚙️
-            </Text>
+            <Text style={[styles.menuBtnIcon, { color: accent }]}>⚙️</Text>
           </TouchableOpacity>
         </View>
 
@@ -486,42 +419,11 @@ export default function LocationDetailScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Name + address header */}
-          {(() => {
-            const status = openStatus;
-            return (
-              <View style={styles.locationHeader}>
-                <Text
-                  style={[styles.locationName, { color: colors.text }]}
-                  numberOfLines={2}
-                >
-                  {location.name}
-                </Text>
-                {location.address || location.city || location.postcode ? (
-                  <TouchableOpacity
-                    onPress={() => openLocationInMaps(location)}
-                    activeOpacity={0.6}
-                  >
-                    <Text
-                      style={[styles.addressLine, { color: colors.subtext }]}
-                      numberOfLines={1}
-                    >
-                      {[location.address, location.city, location.postcode]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </Text>
-                  </TouchableOpacity>
-                ) : (
-                  <Text
-                    style={[styles.addressEmpty, { color: colors.subtext }]}
-                  >
-                    No address set
-                  </Text>
-                )}
-                {status && <OpenStatusBadge status={status} />}
-              </View>
-            );
-          })()}
+          <LocationHeader
+            location={location}
+            openStatus={openStatus}
+            colors={colors}
+          />
 
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
@@ -537,39 +439,23 @@ export default function LocationDetailScreen() {
               <Text style={[styles.restockMeta, { color: colors.text }]}>
                 Last restocked
               </Text>
-              <Text
-                style={[
-                  styles.restockDate,
-                  { color: primaryColor(settings.accentColor) },
-                ]}
-              >
+              <Text style={[styles.restockDate, { color: accent }]}>
                 {location.lastRestockedAt
                   ? formatDate(location.lastRestockedAt)
                   : "Never"}
               </Text>
             </TouchableOpacity>
-            {/* Restock button */}
             <TouchableOpacity
               style={[
                 styles.restockBtn,
-                {
-                  backgroundColor: colors.card,
-                  borderColor: primaryColor(settings.accentColor),
-                },
+                { backgroundColor: colors.card, borderColor: accent },
               ]}
               onPress={openRestockSession}
             >
-              <Text
-                style={[
-                  styles.restockBtnText,
-                  { color: primaryColor(settings.accentColor) },
-                ]}
-              >
+              <Text style={[styles.restockBtnText, { color: accent }]}>
                 ✓ Restock Now
               </Text>
             </TouchableOpacity>
-
-            {/* Edit date button */}
             <TouchableOpacity
               onPress={() => {
                 setPickerDate(
@@ -669,109 +555,24 @@ export default function LocationDetailScreen() {
             onCancel={() => setShowDatePicker(false)}
           />
 
-          {/* Divider */}
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
-          {/* Machines — grouped by type */}
-          {(["sweet", "toy"] as const).map((type) => {
-            const typeColor = MACHINE_COLORS[type];
-            const typeMachines = location.machines.filter(
-              (m) => m.type === type,
-            );
-            const emoji = type === "sweet" ? "🍬" : "🪀";
-            const machineColors =
-              type === "sweet" ? settings.sweetColor : settings.toyColor;
-            const label = type === "sweet" ? "Sweet Machines" : "Toy Machines";
-            return (
-              <View key={type} style={styles.machineSection}>
-                {/* Section header */}
-                <View style={styles.machineSectionHeader}>
-                  <Text
-                    style={[styles.machineSectionTitle, { color: typeColor }]}
-                  >
-                    {emoji} {label}
-                  </Text>
-                  <TouchableOpacity
-                    style={[
-                      styles.addMachineInlineBtn,
-                      { borderColor: typeColor },
-                    ]}
-                    onPress={() => handleAddMachine(type)}
-                  >
-                    <GradView
-                      colors={machineColors}
-                      style={[StyleSheet.absoluteFill, { opacity: 0.12 }]}
-                    />
-                    <Text
-                      style={[
-                        styles.addMachineInlineBtnText,
-                        { color: typeColor },
-                      ]}
-                    >
-                      + Add
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-
-                {typeMachines.length === 0 && (
-                  <Text style={[styles.sectionNote, { color: colors.subtext }]}>
-                    No {type} machines yet.
-                  </Text>
-                )}
-
-                {typeMachines.map((machine) => (
-                  <View
-                    key={machine.id}
-                    style={[
-                      styles.machineCard,
-                      {
-                        backgroundColor: colors.card,
-                        borderColor: typeColor + "55",
-                        borderLeftColor: typeColor,
-                        borderLeftWidth: 3,
-                      },
-                    ]}
-                  >
-                    <View style={styles.machineHeader}>
-                      <View style={styles.machineTitleRow}>
-                        <Text
-                          style={[styles.machineTitle, { color: typeColor }]}
-                        >
-                          {MACHINE_LABELS[machine.type]}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.machineCount,
-                            {
-                              color:
-                                machine.slots.filter(Boolean).length === 9
-                                  ? colors.danger
-                                  : colors.subtext,
-                            },
-                          ]}
-                        >
-                          {machine.slots.filter(Boolean).length}/9
-                        </Text>
-                      </View>
-                      <TouchableOpacity
-                        onPress={() => handleDeleteMachine(machine.id)}
-                        hitSlop={8}
-                      >
-                        <Text style={{ color: "#ef4444", fontSize: 13 }}>
-                          Remove
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                    <MachineGrid
-                      machine={machine}
-                      products={state.products}
-                      onUpdate={handleMachineUpdate}
-                    />
-                  </View>
-                ))}
-              </View>
-            );
-          })}
+          {(["sweet", "toy"] as const).map((type) => (
+            <MachinesSection
+              key={type}
+              type={type}
+              machines={location.machines.filter((m) => m.type === type)}
+              products={state.products}
+              typeColor={MACHINE_COLORS[type]}
+              gradientColors={
+                type === "sweet" ? settings.sweetColor : settings.toyColor
+              }
+              colors={colors}
+              onAddMachine={handleAddMachine}
+              onDeleteMachine={handleDeleteMachine}
+              onUpdateMachine={handleMachineUpdate}
+            />
+          ))}
 
           {/* Notes */}
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
@@ -804,606 +605,81 @@ export default function LocationDetailScreen() {
           />
         </ScrollView>
 
-        {/* ── History modal (full-screen) ─────────────────────────── */}
-        <SlideModal
-          animation="fade"
+        <HistoryModal
           visible={showHistory}
-          onRequestClose={() => {
+          onClose={() => {
             setShowHistory(false);
             setShowMenu(true);
           }}
-        >
-          <SafeAreaView
-            style={[styles.fsModalSafe, { backgroundColor: colors.background }]}
-          >
-            <View
-              style={[
-                styles.fsModalNavbar,
-                { borderBottomColor: colors.border },
-              ]}
-            >
-              <TouchableOpacity
-                onPress={() => {
-                  setShowHistory(false);
-                  setShowMenu(true);
-                }}
-                hitSlop={8}
-                style={styles.fsModalSide}
-              >
-                <Text style={[styles.fsModalBack, { color: accent }]}>
-                  ‹ Back
-                </Text>
-              </TouchableOpacity>
-              <Text style={[styles.fsModalTitle, { color: colors.text }]}>
-                Restock History
-              </Text>
-              <View style={styles.fsModalSide} />
-            </View>
-            <FlatList
-              data={historyListData}
-              keyExtractor={({ entry, originalIndex }) =>
-                `${entry.timestamp}-${originalIndex}`
-              }
-              contentContainerStyle={styles.historyList}
-              renderItem={({ item: { entry, originalIndex }, index }) => {
-                const total = location.restockHistory?.length ?? 0;
-                const hasProducts = entry.machines?.some(
-                  (m) => m.products.length > 0,
-                );
-                return (
-                  <TouchableOpacity
-                    activeOpacity={0.75}
-                    style={[
-                      styles.historyRow,
-                      { borderBottomColor: colors.border },
-                    ]}
-                    onPress={() => {
-                      setShowHistory(false);
-                      openEditEntry(originalIndex);
-                    }}
-                  >
-                    <Text
-                      style={[styles.historyIndex, { color: colors.subtext }]}
-                    >
-                      #{total - index}
-                    </Text>
-                    <View style={{ flex: 1 }}>
-                      <Text
-                        style={[styles.historyDate, { color: colors.text }]}
-                      >
-                        {new Date(entry.timestamp).toLocaleDateString("en-GB", {
-                          weekday: "short",
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        })}
-                      </Text>
-                      {hasProducts &&
-                        entry.machines.map(
-                          (me) =>
-                            me.products.length > 0 && (
-                              <View key={me.machineId} style={{ marginTop: 4 }}>
-                                <Text
-                                  style={[
-                                    styles.historyMachineLabel,
-                                    { color: colors.subtext },
-                                  ]}
-                                >
-                                  {MACHINE_LABELS[me.machineType]}
-                                </Text>
-                                {me.products.map((p) => {
-                                  const product = state.products.find(
-                                    (pr) => pr.id === p.productId,
-                                  );
-                                  return (
-                                    <Text
-                                      key={p.productId}
-                                      style={[
-                                        styles.historyProductLine,
-                                        { color: colors.text },
-                                      ]}
-                                    >
-                                      · {product?.name ?? p.productId} ×{p.qty}
-                                    </Text>
-                                  );
-                                })}
-                              </View>
-                            ),
-                        )}
-                    </View>
-                    <Text
-                      style={[
-                        styles.historyEditChevron,
-                        { color: colors.subtext },
-                      ]}
-                    >
-                      ›
-                    </Text>
-                  </TouchableOpacity>
-                );
-              }}
-              ListEmptyComponent={
-                <Text style={[styles.historyEmpty, { color: colors.subtext }]}>
-                  No history yet.
-                </Text>
-              }
-            />
-          </SafeAreaView>
-        </SlideModal>
+          rows={historyListData}
+          totalEntries={location.restockHistory?.length ?? 0}
+          products={state.products}
+          onEditEntry={(originalIndex) => {
+            setShowHistory(false);
+            openEditEntry(originalIndex);
+          }}
+          colors={colors}
+          accent={accent}
+        />
 
-        {/* ── Edit location modal ─────────────────────────────────── */}
-        <SlideModal animation="fade" visible={showEditModal} onRequestClose={cancelEdit}>
-          <SafeAreaView
-            style={[styles.fsModalSafe, { backgroundColor: colors.background }]}
-          >
-            <KeyboardAvoidingView
-              style={{ flex: 1 }}
-              behavior={Platform.OS === "ios" ? "padding" : "height"}
-            >
-              <View
-                style={[
-                  styles.fsModalNavbar,
-                  { borderBottomColor: colors.border },
-                ]}
-              >
-                <TouchableOpacity
-                  onPress={cancelEdit}
-                  hitSlop={8}
-                  style={styles.fsModalSide}
-                >
-                  <Text style={[styles.fsModalBack, { color: colors.danger }]}>
-                    Cancel
-                  </Text>
-                </TouchableOpacity>
-                <Text style={[styles.fsModalTitle, { color: colors.text }]}>
-                  Edit Location
-                </Text>
-                <TouchableOpacity
-                  onPress={saveEdit}
-                  hitSlop={8}
-                  style={[styles.fsModalSide, { alignItems: "flex-end" }]}
-                >
-                  <Text style={[styles.fsModalBack, { color: accent }]}>
-                    Save
-                  </Text>
-                </TouchableOpacity>
-              </View>
+        <EditLocationModal
+          visible={showEditModal}
+          onCancel={cancelEdit}
+          onSave={saveEdit}
+          form={editForm}
+          onChangeForm={(patch) => setEditForm((f) => ({ ...f, ...patch }))}
+          errors={editErrors}
+          onClearError={(field) =>
+            setEditErrors((e) => ({ ...e, [field]: "" }))
+          }
+          colors={colors}
+          accent={accent}
+        />
 
-              <ScrollView
-                contentContainerStyle={styles.editSheetContent}
-                keyboardShouldPersistTaps="handled"
-                showsVerticalScrollIndicator={false}
-              >
-                <Text
-                  style={[styles.editFieldLabel, { color: colors.subtext }]}
-                >
-                  Name <Text style={{ color: "#ef4444" }}>*</Text>
-                </Text>
-                <TextInput
-                  style={[
-                    styles.editField,
-                    {
-                      color: colors.text,
-                      borderColor: editErrors.name
-                        ? "#ef4444"
-                        : focusedField === "eName"
-                          ? accent
-                          : colors.border,
-                      backgroundColor: colors.background,
-                    },
-                  ]}
-                  value={name}
-                  onChangeText={(v) => {
-                    setName(v);
-                    setEditErrors((e) => ({ ...e, name: "" }));
-                  }}
-                  onFocus={() => setFocusedField("eName")}
-                  onBlur={() => setFocusedField(null)}
-                  placeholder="Location name"
-                  placeholderTextColor={colors.subtext}
-                  selectionColor={`${accent}44`}
-                  cursorColor={accent}
-                  returnKeyType="next"
-                />
-                {editErrors.name ? (
-                  <Text style={styles.editFieldError}>{editErrors.name}</Text>
-                ) : null}
-
-                <Text
-                  style={[styles.editFieldLabel, { color: colors.subtext }]}
-                >
-                  Address <Text style={{ color: "#ef4444" }}>*</Text>
-                </Text>
-                <TextInput
-                  style={[
-                    styles.editField,
-                    {
-                      color: colors.text,
-                      borderColor: editErrors.address
-                        ? "#ef4444"
-                        : focusedField === "eAddress"
-                          ? accent
-                          : colors.border,
-                      backgroundColor: colors.background,
-                    },
-                  ]}
-                  value={address}
-                  onChangeText={(v) => {
-                    setAddress(v);
-                    setEditErrors((e) => ({ ...e, address: "" }));
-                  }}
-                  onFocus={() => setFocusedField("eAddress")}
-                  onBlur={() => setFocusedField(null)}
-                  placeholder="1st line of address"
-                  placeholderTextColor={colors.subtext}
-                  selectionColor={`${accent}44`}
-                  cursorColor={accent}
-                  returnKeyType="next"
-                />
-                {editErrors.address ? (
-                  <Text style={styles.editFieldError}>
-                    {editErrors.address}
-                  </Text>
-                ) : null}
-
-                <View style={styles.editFieldRow}>
-                  <View style={{ flex: 1 }}>
-                    <TextInput
-                      style={[
-                        styles.editFieldHalf,
-                        {
-                          color: colors.text,
-                          borderColor: editErrors.city
-                            ? "#ef4444"
-                            : focusedField === "eCity"
-                              ? accent
-                              : colors.border,
-                          backgroundColor: colors.background,
-                        },
-                      ]}
-                      value={city}
-                      onChangeText={(v) => {
-                        setCity(v);
-                        setEditErrors((e) => ({ ...e, city: "" }));
-                      }}
-                      onFocus={() => setFocusedField("eCity")}
-                      onBlur={() => setFocusedField(null)}
-                      placeholder="City *"
-                      placeholderTextColor={colors.subtext}
-                      selectionColor={`${accent}44`}
-                      cursorColor={accent}
-                      returnKeyType="next"
-                    />
-                    {editErrors.city ? (
-                      <Text style={styles.editFieldError}>
-                        {editErrors.city}
-                      </Text>
-                    ) : null}
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <TextInput
-                      style={[
-                        styles.editFieldHalf,
-                        {
-                          color: colors.text,
-                          borderColor: editErrors.postcode
-                            ? "#ef4444"
-                            : focusedField === "ePostcode"
-                              ? accent
-                              : colors.border,
-                          backgroundColor: colors.background,
-                        },
-                      ]}
-                      value={postcode}
-                      onChangeText={(v) => {
-                        setPostcode(v);
-                        setEditErrors((e) => ({ ...e, postcode: "" }));
-                      }}
-                      onFocus={() => setFocusedField("ePostcode")}
-                      onBlur={() => setFocusedField(null)}
-                      placeholder="Postcode *"
-                      placeholderTextColor={colors.subtext}
-                      selectionColor={`${accent}44`}
-                      cursorColor={accent}
-                      returnKeyType="done"
-                      autoCapitalize="characters"
-                      autoCorrect={false}
-                    />
-                    {editErrors.postcode ? (
-                      <Text style={styles.editFieldError}>
-                        {editErrors.postcode}
-                      </Text>
-                    ) : null}
-                  </View>
-                </View>
-              </ScrollView>
-            </KeyboardAvoidingView>
-          </SafeAreaView>
-        </SlideModal>
-
-        {/* ── Settings menu (full-screen) ─────────────────────────── */}
-        <SlideModal
-          animation="fade"
+        <SettingsMenuModal
           visible={showMenu}
-          onRequestClose={() => setShowMenu(false)}
-        >
-          <SafeAreaView
-            style={[styles.fsModalSafe, { backgroundColor: colors.background }]}
-          >
-            <View
-              style={[
-                styles.fsModalNavbar,
-                { borderBottomColor: colors.border },
-              ]}
-            >
-              <TouchableOpacity
-                onPress={() => setShowMenu(false)}
-                hitSlop={8}
-                style={styles.fsModalSide}
-              >
-                <Text style={[styles.fsModalBack, { color: accent }]}>
-                  ‹ Back
-                </Text>
-              </TouchableOpacity>
-              <Text style={[styles.fsModalTitle, { color: colors.text }]}>
-                Settings
-              </Text>
-              <View style={styles.fsModalSide} />
-            </View>
-            <ScrollView contentContainerStyle={styles.menuList}>
-              <TouchableOpacity
-                style={[styles.menuItem, { borderBottomColor: colors.border }]}
-                onPress={() => {
-                  setShowMenu(false);
-                  openEdit();
-                }}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.menuItemIcon, { color: colors.subtext }]}>
-                  ✏️
-                </Text>
-                <Text style={[styles.menuItemLabel, { color: colors.text }]}>
-                  Edit address
-                </Text>
-                <Text
-                  style={[styles.menuItemChevron, { color: colors.subtext }]}
-                >
-                  ›
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.menuItem, { borderBottomColor: colors.border }]}
-                onPress={() => {
-                  setShowMenu(false);
-                  setShowOpeningHours(true);
-                }}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.menuItemIcon, { color: colors.subtext }]}>
-                  ⏰
-                </Text>
-                <Text style={[styles.menuItemLabel, { color: colors.text }]}>
-                  Edit opening hours
-                </Text>
-                <Text
-                  style={[styles.menuItemChevron, { color: colors.subtext }]}
-                >
-                  ›
-                </Text>
-              </TouchableOpacity>
-              {(location.restockHistory?.length ?? 0) > 0 && (
-                <TouchableOpacity
-                  style={[
-                    styles.menuItem,
-                    { borderBottomColor: colors.border },
-                  ]}
-                  onPress={() => {
-                    setShowMenu(false);
-                    setShowHistory(true);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text
-                    style={[styles.menuItemIcon, { color: colors.subtext }]}
-                  >
-                    🕓
-                  </Text>
-                  <Text style={[styles.menuItemLabel, { color: colors.text }]}>
-                    Restock history
-                  </Text>
-                  <Text
-                    style={[styles.menuItemMeta, { color: colors.subtext }]}
-                  >
-                    {location.restockHistory?.length}{" "}
-                    {location.restockHistory?.length === 1
-                      ? "entry"
-                      : "entries"}
-                  </Text>
-                  <Text
-                    style={[styles.menuItemChevron, { color: colors.subtext }]}
-                  >
-                    ›
-                  </Text>
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity
-                style={[styles.menuItem, { borderBottomColor: colors.border }]}
-                onPress={() => {
-                  setShowMenu(false);
-                  handleDeleteLocation();
-                }}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.menuItemIcon, { color: "#ef4444" }]}>
-                  🗑️
-                </Text>
-                <Text style={[styles.menuItemLabel, { color: "#ef4444" }]}>
-                  Delete location
-                </Text>
-              </TouchableOpacity>
-            </ScrollView>
-          </SafeAreaView>
-        </SlideModal>
+          onClose={() => setShowMenu(false)}
+          onEditAddress={() => {
+            setShowMenu(false);
+            openEdit();
+          }}
+          onEditOpeningHours={() => {
+            setShowMenu(false);
+            setShowOpeningHours(true);
+          }}
+          onViewHistory={() => {
+            setShowMenu(false);
+            setShowHistory(true);
+          }}
+          onDelete={() => {
+            setShowMenu(false);
+            handleDeleteLocation();
+          }}
+          historyCount={location.restockHistory?.length ?? 0}
+          colors={colors}
+          accent={accent}
+        />
 
-        {/* ── Opening hours modal (full-screen) ───────────────────── */}
-        <SlideModal
-          animation="fade"
+        <OpeningHoursModal
           visible={showOpeningHours}
-          onRequestClose={() => {
+          onClose={() => {
             setShowOpeningHours(false);
             setShowMenu(true);
           }}
-        >
-          <SafeAreaView
-            style={[styles.fsModalSafe, { backgroundColor: colors.background }]}
-          >
-            <KeyboardAvoidingView
-              style={{ flex: 1 }}
-              behavior={Platform.OS === "ios" ? "padding" : "height"}
-            >
-              <View
-                style={[
-                  styles.fsModalNavbar,
-                  { borderBottomColor: colors.border },
-                ]}
-              >
-                <TouchableOpacity
-                  onPress={() => {
-                    setShowOpeningHours(false);
-                    setShowMenu(true);
-                  }}
-                  hitSlop={8}
-                  style={styles.fsModalSide}
-                >
-                  <Text style={[styles.fsModalBack, { color: accent }]}>
-                    ‹ Back
-                  </Text>
-                </TouchableOpacity>
-                <Text style={[styles.fsModalTitle, { color: colors.text }]}>
-                  Opening Hours
-                </Text>
-                <View style={styles.fsModalSide} />
-              </View>
-              <ScrollView
-                contentContainerStyle={styles.hoursModalContent}
-                keyboardShouldPersistTaps="handled"
-                showsVerticalScrollIndicator={false}
-              >
-                {WEEK_DAYS.map((day) => {
-                  const isEnabled = !!location.openingHours?.[day];
-                  return (
-                    <View
-                      key={day}
-                      style={[
-                        styles.hoursRow,
-                        { borderBottomColor: colors.border },
-                      ]}
-                    >
-                      <Text style={[styles.hoursDay, { color: colors.text }]}>
-                        {DAY_LABELS[day]}
-                      </Text>
-                      <Switch
-                        value={isEnabled}
-                        onValueChange={(v) => toggleDay(day, v)}
-                        trackColor={{ true: accent, false: colors.border }}
-                        thumbColor="#fff"
-                      />
-                      {isEnabled ? (
-                        <View style={styles.hoursTimes}>
-                          <TextInput
-                            style={[
-                              styles.hoursTimeInput,
-                              {
-                                color: colors.text,
-                                borderColor:
-                                  focusedField === `${day}_open`
-                                    ? accent
-                                    : colors.border,
-                                backgroundColor: colors.background,
-                              },
-                            ]}
-                            value={timeInputs[day].open}
-                            onChangeText={(v) =>
-                              setTimeInputs((p) => ({
-                                ...p,
-                                [day]: { ...p[day], open: v },
-                              }))
-                            }
-                            onFocus={() => setFocusedField(`${day}_open`)}
-                            onBlur={() => {
-                              setFocusedField(null);
-                              handleTimeBlur(day, "open");
-                            }}
-                            placeholder="09:00"
-                            placeholderTextColor={colors.subtext}
-                            keyboardType="numbers-and-punctuation"
-                            maxLength={5}
-                            returnKeyType="next"
-                            selectionColor={`${accent}44`}
-                            cursorColor={accent}
-                            autoCorrect={false}
-                          />
-                          <Text
-                            style={[
-                              styles.hoursDash,
-                              { color: colors.subtext },
-                            ]}
-                          >
-                            –
-                          </Text>
-                          <TextInput
-                            style={[
-                              styles.hoursTimeInput,
-                              {
-                                color: colors.text,
-                                borderColor:
-                                  focusedField === `${day}_close`
-                                    ? accent
-                                    : colors.border,
-                                backgroundColor: colors.background,
-                              },
-                            ]}
-                            value={timeInputs[day].close}
-                            onChangeText={(v) =>
-                              setTimeInputs((p) => ({
-                                ...p,
-                                [day]: { ...p[day], close: v },
-                              }))
-                            }
-                            onFocus={() => setFocusedField(`${day}_close`)}
-                            onBlur={() => {
-                              setFocusedField(null);
-                              handleTimeBlur(day, "close");
-                            }}
-                            placeholder="17:00"
-                            placeholderTextColor={colors.subtext}
-                            keyboardType="numbers-and-punctuation"
-                            maxLength={5}
-                            returnKeyType="done"
-                            selectionColor={`${accent}44`}
-                            cursorColor={accent}
-                            autoCorrect={false}
-                          />
-                        </View>
-                      ) : (
-                        <Text
-                          style={[
-                            styles.hoursClosed,
-                            { color: colors.subtext },
-                          ]}
-                        >
-                          Closed
-                        </Text>
-                      )}
-                    </View>
-                  );
-                })}
-              </ScrollView>
-            </KeyboardAvoidingView>
-          </SafeAreaView>
-        </SlideModal>
+          openingHours={location.openingHours ?? {}}
+          timeInputs={timeInputs}
+          onChangeTimeInput={(day, field, value) =>
+            setTimeInputs((p) => ({
+              ...p,
+              [day]: { ...p[day], [field]: value },
+            }))
+          }
+          onToggleDay={toggleDay}
+          onTimeBlur={handleTimeBlur}
+          colors={colors}
+          accent={accent}
+        />
 
-        {/* ── History Entry Editor (full-screen) ──────────────────── */}
         <HistoryEntryEditorModal
           editingEntry={editingEntry}
           onClose={() => {
@@ -1450,7 +726,6 @@ export default function LocationDetailScreen() {
           colors={colors}
         />
 
-        {/* ── Restock Session Modal (full-screen) ─────────────────── */}
         <RestockSessionModal
           visible={showRestockSession}
           onClose={() => setShowRestockSession(false)}
@@ -1510,34 +785,6 @@ const styles = StyleSheet.create({
   },
   menuBtnIcon: { fontSize: 18, lineHeight: 22 },
   content: { paddingHorizontal: 20, paddingBottom: 60 },
-  // Location header (read-only)
-  locationHeader: {
-    marginBottom: 2,
-    gap: 4,
-  },
-  locationName: {
-    fontSize: 26,
-    fontWeight: "800",
-    letterSpacing: -0.5,
-    marginBottom: 2,
-  },
-  addressLine: { fontSize: 14 },
-  addressEmpty: { fontSize: 13, fontStyle: "italic" },
-  // Settings menu (full-screen)
-  menuList: { paddingTop: 8, paddingBottom: 40 },
-  menuItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-    paddingHorizontal: 24,
-    paddingVertical: 18,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  menuItemIcon: { fontSize: 20, width: 26, textAlign: "center" },
-  menuItemLabel: { flex: 1, fontSize: 16 },
-  menuItemMeta: { fontSize: 13 },
-  menuItemChevron: { fontSize: 20, fontWeight: "400" },
-  // Notes (inline at bottom)
   notesLabel: {
     fontSize: 11,
     fontWeight: "600",
@@ -1551,59 +798,6 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 15,
     minHeight: 96,
-  },
-  // Opening hours editor
-  hoursModalContent: { paddingHorizontal: 20, paddingBottom: 40 },
-  hoursRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 10,
-    gap: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  hoursDay: { fontSize: 14, fontWeight: "600", width: 36 },
-  hoursTimes: { flex: 1, flexDirection: "row", alignItems: "center", gap: 6 },
-  hoursTimeInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    fontSize: 14,
-    textAlign: "center",
-  },
-  hoursDash: { fontSize: 14 },
-  hoursClosed: { flex: 1, fontSize: 13, fontStyle: "italic" },
-  // Edit location modal (full-screen)
-  editSheetContent: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 48,
-    gap: 6,
-  },
-  editFieldError: { fontSize: 12, color: "#ef4444", marginTop: 3 },
-  editFieldLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-    marginTop: 8,
-  },
-  editField: {
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 15,
-  },
-  editFieldRow: { flexDirection: "row", gap: 10 },
-  editFieldHalf: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 15,
   },
   restockRow: {
     flexDirection: "row",
@@ -1661,78 +855,7 @@ const styles = StyleSheet.create({
   },
   periodPillNum: { fontSize: 15, fontWeight: "700", lineHeight: 18 },
   periodPillUnit: { fontSize: 10, fontWeight: "500", letterSpacing: 0.2 },
-  // Full-screen modal navbar (shared by History & Opening Hours)
-  fsModalSafe: { flex: 1 },
-  fsModalNavbar: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  fsModalSide: { minWidth: 64 },
-  fsModalBack: { fontSize: 15, fontWeight: "600" },
-  fsModalTitle: {
-    flex: 1,
-    fontSize: 17,
-    fontWeight: "700",
-    textAlign: "center",
-  },
-  // History list
-  historyList: { paddingBottom: 40 },
-  historyRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingHorizontal: 20,
-    paddingVertical: 13,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  historyIndex: { fontSize: 12, fontWeight: "600", minWidth: 28 },
-  historyDate: { fontSize: 15 },
-  historyMachineLabel: { fontSize: 12, fontWeight: "600", marginTop: 2 },
-  historyProductLine: { fontSize: 13, paddingLeft: 4 },
-  historyEmpty: { textAlign: "center", paddingTop: 32, fontSize: 14 },
-  historyEditChevron: { fontSize: 20, fontWeight: "300" },
   divider: { height: StyleSheet.hairlineWidth, marginVertical: 20 },
-  sectionNote: { fontSize: 13, marginBottom: 12, lineHeight: 18 },
-  machineCard: {
-    borderRadius: 14,
-    borderWidth: 1,
-    padding: 14,
-    marginBottom: 12,
-    gap: 10,
-  },
-  machineHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  machineTitleRow: { flexDirection: "row", alignItems: "baseline", gap: 6 },
-  machineTitle: { fontSize: 16, fontWeight: "700" },
-  machineCount: { fontSize: 13, fontWeight: "500" },
-  // Machine sections
-  machineSection: { marginBottom: 8 },
-  machineSectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 10,
-    marginTop: 4,
-  },
-  machineSectionTitle: { fontSize: 15, fontWeight: "700" },
-  addMachineInlineBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    borderWidth: 1.5,
-    borderRadius: 8,
-    borderStyle: "dashed",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    overflow: "hidden",
-  },
-  addMachineInlineBtnText: { fontSize: 13, fontWeight: "600" },
   notFound: { flex: 1, alignItems: "center", justifyContent: "center" },
   notFoundText: { fontSize: 16 },
 });

@@ -8,6 +8,8 @@ import {
   useState,
 } from 'react';
 
+import { appendLog } from '@/utils/crash-log';
+
 const STORAGE_KEY = '@tubz_settings_v1';
 
 /* ─── Color type ──────────────────────────────────────────────── */
@@ -99,10 +101,7 @@ interface SettingsContextValue {
   setSetting: <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => void;
 }
 
-const SettingsContext = createContext<SettingsContextValue>({
-  settings: DEFAULTS,
-  setSetting: () => {},
-});
+const SettingsContext = createContext<SettingsContextValue | null>(null);
 
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<AppSettings>(DEFAULTS);
@@ -118,7 +117,13 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
             sweetColor:  migrateColor(parsed.sweetColor,  DEFAULTS.sweetColor),
             toyColor:    migrateColor(parsed.toyColor,    DEFAULTS.toyColor),
           });
-        } catch { /* ignore */ }
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          appendLog({
+            level: 'error',
+            message: `[settings] failed to parse stored settings: ${message}`,
+          });
+        }
       }
       setLoaded(true);
     });
@@ -145,5 +150,9 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 }
 
 export function useSettings() {
-  return useContext(SettingsContext);
+  const ctx = useContext(SettingsContext);
+  if (!ctx) {
+    throw new Error('useSettings must be used within a SettingsProvider');
+  }
+  return ctx;
 }

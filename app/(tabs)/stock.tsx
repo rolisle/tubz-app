@@ -16,12 +16,12 @@ import { Colors } from "@/constants/theme";
 import { useApp } from "@/context/app-context";
 import { primaryColor, useSettings } from "@/context/settings-context";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-import type { ProductCategory } from "@/types";
 import {
   EMPTY_STATE,
   LEVELS,
   SECTIONS,
   STORAGE_KEY,
+  type StockCategory,
   type StockItem,
   type StockLevel,
   type StockState,
@@ -56,7 +56,7 @@ export default function StockScreen() {
   const [showSort, setShowSort] = useState(false);
   const [stock, setStock] = useState<StockState>(EMPTY_STATE);
   const [loaded, setLoaded] = useState(false);
-  const [picker, setPicker] = useState<ProductCategory | null>(null);
+  const [picker, setPicker] = useState<StockCategory | null>(null);
 
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY).then((raw) => {
@@ -77,7 +77,7 @@ export default function StockScreen() {
   }, [stock, loaded]);
 
   const addItem = useCallback(
-    (category: ProductCategory, productId: string) => {
+    (category: StockCategory, productId: string) => {
       setStock((prev) => ({
         ...prev,
         [category]: [
@@ -94,20 +94,8 @@ export default function StockScreen() {
     [],
   );
 
-  const setLevel = useCallback(
-    (category: ProductCategory, productId: string, level: StockLevel) => {
-      setStock((prev) => ({
-        ...prev,
-        [category]: prev[category].map((i) =>
-          i.productId === productId ? { ...i, level } : i,
-        ),
-      }));
-    },
-    [],
-  );
-
   const changeFullCount = useCallback(
-    (category: ProductCategory, productId: string, delta: number) => {
+    (category: StockCategory, productId: string, delta: number) => {
       setStock((prev) => ({
         ...prev,
         [category]: prev[category].map((i) => {
@@ -128,7 +116,7 @@ export default function StockScreen() {
   );
 
   const changeHalfCount = useCallback(
-    (category: ProductCategory, productId: string, delta: number) => {
+    (category: StockCategory, productId: string, delta: number) => {
       setStock((prev) => ({
         ...prev,
         [category]: prev[category].map((i) => {
@@ -145,7 +133,7 @@ export default function StockScreen() {
   );
 
   const removeItem = useCallback(
-    (category: ProductCategory, productId: string) => {
+    (category: StockCategory, productId: string) => {
       setStock((prev) => ({
         ...prev,
         [category]: prev[category].filter((i) => i.productId !== productId),
@@ -156,30 +144,25 @@ export default function StockScreen() {
 
   const totalItems = Object.values(stock).reduce((s, arr) => s + arr.length, 0);
 
+  const productMap = useMemo(() => {
+    const map = new Map<string, (typeof state.products)[number]>();
+    state.products.forEach((p) => map.set(p.id, p));
+    return map;
+  }, [state.products]);
+
   const sections = useMemo(() => {
+    const nameFor = (id: string) => productMap.get(id)?.name ?? id;
     const sortItems = (items: StockItem[]) => {
       const sorted = [...items];
       switch (sortOrder) {
         case "az":
-          return sorted.sort((a, b) => {
-            const na =
-              state.products.find((p) => p.id === a.productId)?.name ??
-              a.productId;
-            const nb =
-              state.products.find((p) => p.id === b.productId)?.name ??
-              b.productId;
-            return na.localeCompare(nb);
-          });
+          return sorted.sort((a, b) =>
+            nameFor(a.productId).localeCompare(nameFor(b.productId)),
+          );
         case "za":
-          return sorted.sort((a, b) => {
-            const na =
-              state.products.find((p) => p.id === a.productId)?.name ??
-              a.productId;
-            const nb =
-              state.products.find((p) => p.id === b.productId)?.name ??
-              b.productId;
-            return nb.localeCompare(na);
-          });
+          return sorted.sort((a, b) =>
+            nameFor(b.productId).localeCompare(nameFor(a.productId)),
+          );
         case "low":
           return sorted.sort((a, b) => stockScore(a) - stockScore(b));
         case "high":
@@ -187,7 +170,7 @@ export default function StockScreen() {
       }
     };
     return SECTIONS.map((sec) => ({ ...sec, data: sortItems(stock[sec.key]) }));
-  }, [stock, sortOrder, state.products]);
+  }, [stock, sortOrder, productMap]);
 
   const renderItem = useCallback(
     ({
@@ -197,28 +180,20 @@ export default function StockScreen() {
       item: StockItem;
       section: (typeof sections)[number];
     }) => {
-      const product = state.products.find((p) => p.id === item.productId);
+      const product = productMap.get(item.productId);
       return (
         <StockRow
           item={item}
           product={product}
           category={section.key}
           colors={colors}
-          onLevelChange={setLevel}
           onFullCountChange={changeFullCount}
           onHalfCountChange={changeHalfCount}
           onRemove={removeItem}
         />
       );
     },
-    [
-      state.products,
-      colors,
-      setLevel,
-      changeFullCount,
-      changeHalfCount,
-      removeItem,
-    ],
+    [productMap, colors, changeFullCount, changeHalfCount, removeItem],
   );
 
   const simpleRenderItem = useCallback(
@@ -230,10 +205,10 @@ export default function StockScreen() {
       section: (typeof sections)[number];
     }) => {
       void section;
-      const product = state.products.find((p) => p.id === item.productId);
+      const product = productMap.get(item.productId);
       return <SimpleRow item={item} product={product} colors={colors} />;
     },
-    [state.products, colors],
+    [productMap, colors],
   );
 
   return (

@@ -3,16 +3,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { DatePickerModal } from "@/components/ui/date-picker-modal";
 import { RestockProductRow } from "@/components/restock-product-row";
+import { FsModalNavbar } from "@/components/ui/fs-modal-navbar";
 import { GradView } from "@/components/ui/grad-view";
 import { SlideModal } from "@/components/ui/slide-modal";
+import { MACHINE_LABELS } from "@/constants/machine-labels";
 import { Colors } from "@/constants/theme";
 import type { AppColor } from "@/context/settings-context";
 import type { MachineType, Product, RestockEntry } from "@/types";
-
-const MACHINE_LABELS: Record<MachineType, string> = {
-  sweet: "Sweet Machine 🍬",
-  toy: "Toy Machine 🪀",
-};
 
 export interface HistoryEntryEditorModalProps {
   editingEntry: { index: number; entry: RestockEntry } | null;
@@ -53,28 +50,24 @@ export function HistoryEntryEditorModal({
     <SlideModal
       visible={!!editingEntry}
       onRequestClose={onClose}
+      animation="fade"
     >
       <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
-        {/* Navbar */}
-        <View style={[styles.navbar, { borderBottomColor: colors.border }]}>
-          <TouchableOpacity onPress={onClose} hitSlop={8}>
-            <Text style={[styles.cancel, { color: colors.subtext }]}>‹ Back</Text>
-          </TouchableOpacity>
-          <View>
-            <Text style={[styles.navTitle, { color: colors.text }]}>Edit Entry</Text>
-            {editingEntry && (
-              <Text style={[styles.navSub, { color: colors.subtext }]}>
-                #{editingEntry.index + 1}
-              </Text>
-            )}
-          </View>
-          <TouchableOpacity
-            style={[styles.confirmBtn, { backgroundColor: accent }]}
-            onPress={onSave}
-          >
-            <Text style={styles.confirmBtnText}>Save</Text>
-          </TouchableOpacity>
-        </View>
+        <FsModalNavbar
+          title="Edit Entry"
+          subtitle={editingEntry ? `#${editingEntry.index + 1}` : undefined}
+          colors={colors}
+          accent={accent}
+          left={{ label: "‹ Back", tone: "muted", onPress: onClose }}
+          rightElement={
+            <TouchableOpacity
+              style={[styles.confirmBtn, { backgroundColor: accent }]}
+              onPress={onSave}
+            >
+              <Text style={styles.confirmBtnText}>Save</Text>
+            </TouchableOpacity>
+          }
+        />
 
         <ScrollView contentContainerStyle={styles.content}>
           {/* Date row */}
@@ -180,17 +173,6 @@ export function HistoryEntryEditorModal({
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  navbar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  cancel: { fontSize: 15, fontWeight: "500" },
-  navTitle: { fontSize: 17, fontWeight: "700", textAlign: "center" },
-  navSub: { fontSize: 12, textAlign: "center" },
   confirmBtn: { borderRadius: 10, paddingHorizontal: 16, paddingVertical: 8 },
   confirmBtnText: { fontSize: 14, fontWeight: "700", color: "#000" },
   content: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 60 },

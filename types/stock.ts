@@ -9,13 +9,19 @@ export interface StockItem {
   halfCount: number;
 }
 
-export type StockState = Record<ProductCategory, StockItem[]>;
+/** Only the categories surfaced in the Stock tab are tracked.
+ *  `ProductCategory` also includes "other" but it has no corresponding
+ *  section; intentionally narrowed here so typed lookups cannot reach a
+ *  bucket that has no UI. */
+export type StockCategory = Exclude<ProductCategory, "other">;
+
+export type StockState = Record<StockCategory, StockItem[]>;
 
 export const STORAGE_KEY = "@tubz_stock_v2";
 
-export const EMPTY_STATE: StockState = { sweet: [], toy: [], other: [] };
+export const EMPTY_STATE: StockState = { sweet: [], toy: [] };
 
-export const SECTIONS: { key: ProductCategory; label: string; emoji: string }[] = [
+export const SECTIONS: { key: StockCategory; label: string; emoji: string }[] = [
   { key: "sweet", label: "Sweets", emoji: "🍬" },
   { key: "toy", label: "Toys", emoji: "🪀" },
 ];

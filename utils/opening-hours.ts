@@ -81,12 +81,35 @@ export function getOpenStatus(
   const todayKey = JS_TO_WEEKDAY[jsDay];
   const todayHours = hours[todayKey];
 
+  // Yesterday's overnight shift may still be active right now
+  // (e.g. open 22:00, close 02:00 — check if we're still before 02:00 today).
+  const prevJsDay = (jsDay + 6) % 7;
+  const prevKey = JS_TO_WEEKDAY[prevJsDay];
+  const prevHours = hours[prevKey];
+  if (prevHours) {
+    const prevOpen = timeToMinutes(prevHours.open);
+    const prevClose = timeToMinutes(prevHours.close);
+    if (prevClose < prevOpen && currentMins < prevClose) {
+      const minsUntilClose = prevClose - currentMins;
+      const color = minsUntilClose <= 60 ? "#f59e0b" : "#22c55e";
+      return {
+        isOpen: true,
+        label: `Closes ${fmt12(prevHours.close)}`,
+        color,
+      };
+    }
+  }
+
   if (todayHours) {
     const openMins = timeToMinutes(todayHours.open);
     const closeMins = timeToMinutes(todayHours.close);
+    const overnight = closeMins < openMins;
+    // For overnight shifts we effectively push close to the next day (+24h);
+    // the `closesToday` flag controls which label we use when counting down.
+    const effectiveClose = overnight ? closeMins + 24 * 60 : closeMins;
 
-    if (currentMins >= openMins && currentMins < closeMins) {
-      const minsUntilClose = closeMins - currentMins;
+    if (currentMins >= openMins && currentMins < effectiveClose) {
+      const minsUntilClose = effectiveClose - currentMins;
       const color = minsUntilClose <= 60 ? "#f59e0b" : "#22c55e";
       return {
         isOpen: true,

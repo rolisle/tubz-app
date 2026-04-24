@@ -3,8 +3,8 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { ProductThumb } from "@/components/ui/product-thumb";
 import { Colors } from "@/constants/theme";
-import type { Product, ProductCategory } from "@/types";
-import type { StockItem, StockLevel } from "@/types/stock";
+import type { Product } from "@/types";
+import type { StockCategory, StockItem } from "@/types/stock";
 
 /* ─── StockPickerRow ─────────────────────────────────────────── */
 
@@ -39,12 +39,11 @@ export const StockPickerRow = memo(function StockPickerRow({
 export interface StockRowProps {
   item: StockItem;
   product: Product | undefined;
-  category: ProductCategory;
+  category: StockCategory;
   colors: (typeof Colors)["light"];
-  onLevelChange: (category: ProductCategory, productId: string, level: StockLevel) => void;
-  onFullCountChange: (category: ProductCategory, productId: string, delta: number) => void;
-  onHalfCountChange: (category: ProductCategory, productId: string, delta: number) => void;
-  onRemove: (category: ProductCategory, productId: string) => void;
+  onFullCountChange: (category: StockCategory, productId: string, delta: number) => void;
+  onHalfCountChange: (category: StockCategory, productId: string, delta: number) => void;
+  onRemove: (category: StockCategory, productId: string) => void;
 }
 
 export const StockRow = memo(function StockRow({
@@ -52,7 +51,6 @@ export const StockRow = memo(function StockRow({
   product,
   category,
   colors,
-  onLevelChange: _onLevelChange,
   onFullCountChange,
   onHalfCountChange,
   onRemove,

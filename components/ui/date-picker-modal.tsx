@@ -212,7 +212,9 @@ export function DatePickerModal({
           </TouchableOpacity>
         </View>
 
-        {/* Picker body */}
+        {/* Picker body — keyed on the incoming value so the native wheel
+            state re-initialises each time the modal is reopened with a
+            different date. */}
         {Platform.OS === "web" ? (
           <WebDatePicker
             value={draft}
@@ -222,6 +224,7 @@ export function DatePickerModal({
           />
         ) : (
           <NativeDatePicker
+            key={value.getTime()}
             value={draft}
             onChange={setDraft}
             colors={colors}

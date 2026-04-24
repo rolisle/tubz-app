@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { type ReactNode, type StyleProp, type ViewStyle } from 'react';
-import { View } from 'react-native';
+import { type ReactNode } from 'react';
+import { View, type StyleProp, type ViewStyle } from 'react-native';
 
 interface GradViewProps {
   colors: string[];

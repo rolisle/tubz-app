@@ -2,16 +2,13 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-nati
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { RestockProductRow } from "@/components/restock-product-row";
+import { FsModalNavbar } from "@/components/ui/fs-modal-navbar";
 import { GradView } from "@/components/ui/grad-view";
 import { SlideModal } from "@/components/ui/slide-modal";
+import { MACHINE_LABELS } from "@/constants/machine-labels";
 import { Colors } from "@/constants/theme";
 import type { AppColor } from "@/context/settings-context";
 import type { Machine, MachineType, Product } from "@/types";
-
-const MACHINE_LABELS: Record<MachineType, string> = {
-  sweet: "Sweet Machine 🍬",
-  toy: "Toy Machine 🪀",
-};
 
 export interface RestockSessionModalProps {
   visible: boolean;
@@ -43,24 +40,23 @@ export function RestockSessionModal({
   colors,
 }: RestockSessionModalProps) {
   return (
-    <SlideModal visible={visible} onRequestClose={onClose}>
+    <SlideModal visible={visible} onRequestClose={onClose} animation="fade">
       <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
-        {/* Navbar */}
-        <View style={[styles.navbar, { borderBottomColor: colors.border }]}>
-          <TouchableOpacity onPress={onClose} hitSlop={8}>
-            <Text style={[styles.cancel, { color: colors.subtext }]}>Cancel</Text>
-          </TouchableOpacity>
-          <View>
-            <Text style={[styles.navTitle, { color: colors.text }]}>Restock</Text>
-            <Text style={[styles.navSub, { color: colors.subtext }]}>{locationName}</Text>
-          </View>
-          <TouchableOpacity
-            style={[styles.confirmBtn, { backgroundColor: accent }]}
-            onPress={onComplete}
-          >
-            <Text style={styles.confirmBtnText}>Done</Text>
-          </TouchableOpacity>
-        </View>
+        <FsModalNavbar
+          title="Restock"
+          subtitle={locationName}
+          colors={colors}
+          accent={accent}
+          left={{ label: "Cancel", tone: "muted", onPress: onClose }}
+          rightElement={
+            <TouchableOpacity
+              style={[styles.confirmBtn, { backgroundColor: accent }]}
+              onPress={onComplete}
+            >
+              <Text style={styles.confirmBtnText}>Done</Text>
+            </TouchableOpacity>
+          }
+        />
 
         <ScrollView contentContainerStyle={styles.content}>
           {machines.length === 0 ? (
@@ -153,17 +149,6 @@ export function RestockSessionModal({
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  navbar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  cancel: { fontSize: 15, fontWeight: "500" },
-  navTitle: { fontSize: 17, fontWeight: "700", textAlign: "center" },
-  navSub: { fontSize: 12, textAlign: "center" },
   confirmBtn: { borderRadius: 10, paddingHorizontal: 16, paddingVertical: 8 },
   confirmBtnText: { fontSize: 14, fontWeight: "700", color: "#000" },
   content: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 60 },

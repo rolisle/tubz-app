@@ -1,11 +1,28 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef } from 'react';
-import type { Dispatch, ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+} from 'react';
+import type { ReactNode } from 'react';
 
 import { DEFAULT_PRODUCTS } from '@/constants/default-products';
-import type { AppState, Location, Machine, MachineType, Product, ProductCategory, RestockEntry, RestockMachineEntry } from '@/types';
-import { uid } from '@/utils/id';
+import type {
+  AppState,
+  Location,
+  Machine,
+  MachineType,
+  Product,
+  ProductCategory,
+  RestockEntry,
+  RestockMachineEntry,
+} from '@/types';
 import { appendLog } from '@/utils/crash-log';
+import { uid } from '@/utils/id';
 import { rescheduleAllNotifications } from '@/utils/notifications';
 
 const STORAGE_KEY = '@tubz:appState';
@@ -36,6 +53,25 @@ type Action =
   | { type: 'DELETE_PRODUCT'; payload: { id: string } };
 
 // ---------------------------------------------------------------------------
+// Reducer helpers
+// ---------------------------------------------------------------------------
+
+function latestTimestamp(history: RestockEntry[]): string | null {
+  if (history.length === 0) return null;
+  let max = history[0].timestamp;
+  let maxMs = new Date(max).getTime();
+  for (let i = 1; i < history.length; i++) {
+    const t = history[i].timestamp;
+    const ms = new Date(t).getTime();
+    if (ms > maxMs) {
+      max = t;
+      maxMs = ms;
+    }
+  }
+  return max;
+}
+
+// ---------------------------------------------------------------------------
 // Reducer
 // ---------------------------------------------------------------------------
 
@@ -51,7 +87,7 @@ function reducer(state: AppState, action: Action): AppState {
       return {
         ...state,
         locations: state.locations.map((l) =>
-          l.id === action.payload.id ? action.payload : l
+          l.id === action.payload.id ? action.payload : l,
         ),
       };
 
@@ -75,7 +111,7 @@ function reducer(state: AppState, action: Action): AppState {
                 lastRestockedAt: action.payload.timestamp,
                 restockHistory: [...(l.restockHistory ?? []), entry],
               }
-            : l
+            : l,
         ),
       };
     }
@@ -87,11 +123,11 @@ function reducer(state: AppState, action: Action): AppState {
           if (l.id !== action.payload.locationId) return l;
           const history = [...(l.restockHistory ?? [])];
           history[action.payload.index] = action.payload.entry;
-          // Keep lastRestockedAt in sync with the most recent entry timestamp
-          const sorted = [...history].sort(
-            (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-          );
-          return { ...l, restockHistory: history, lastRestockedAt: sorted[0]?.timestamp ?? l.lastRestockedAt };
+          return {
+            ...l,
+            restockHistory: history,
+            lastRestockedAt: latestTimestamp(history) ?? l.lastRestockedAt,
+          };
         }),
       };
 
@@ -100,11 +136,14 @@ function reducer(state: AppState, action: Action): AppState {
         ...state,
         locations: state.locations.map((l) => {
           if (l.id !== action.payload.locationId) return l;
-          const history = (l.restockHistory ?? []).filter((_, i) => i !== action.payload.index);
-          const sorted = [...history].sort(
-            (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+          const history = (l.restockHistory ?? []).filter(
+            (_, i) => i !== action.payload.index,
           );
-          return { ...l, restockHistory: history, lastRestockedAt: sorted[0]?.timestamp ?? null };
+          return {
+            ...l,
+            restockHistory: history,
+            lastRestockedAt: latestTimestamp(history),
+          };
         }),
       };
 
@@ -114,7 +153,7 @@ function reducer(state: AppState, action: Action): AppState {
         locations: state.locations.map((l) =>
           l.id === action.payload.locationId
             ? { ...l, machines: [...l.machines, action.payload.machine] }
-            : l
+            : l,
         ),
       };
 
@@ -126,10 +165,10 @@ function reducer(state: AppState, action: Action): AppState {
             ? {
                 ...l,
                 machines: l.machines.map((m) =>
-                  m.id === action.payload.machine.id ? action.payload.machine : m
+                  m.id === action.payload.machine.id ? action.payload.machine : m,
                 ),
               }
-            : l
+            : l,
         ),
       };
 
@@ -140,9 +179,11 @@ function reducer(state: AppState, action: Action): AppState {
           l.id === action.payload.locationId
             ? {
                 ...l,
-                machines: l.machines.filter((m) => m.id !== action.payload.machineId),
+                machines: l.machines.filter(
+                  (m) => m.id !== action.payload.machineId,
+                ),
               }
-            : l
+            : l,
         ),
       };
 
@@ -175,7 +216,7 @@ function reducer(state: AppState, action: Action): AppState {
       return {
         ...state,
         products: state.products.map((p) =>
-          p.id === action.payload.id ? action.payload : p
+          p.id === action.payload.id ? action.payload : p,
         ),
       };
 
@@ -194,52 +235,68 @@ function reducer(state: AppState, action: Action): AppState {
 // Context
 // ---------------------------------------------------------------------------
 
-interface AppContextValue {
+export interface AppStateValue {
   state: AppState;
-  dispatch: Dispatch<Action>;
+}
+
+export interface AppActionsValue {
   replaceState: (next: AppState) => void;
   addLocation: (location: Omit<Location, 'id' | 'createdAt'>) => void;
   updateLocation: (location: Location) => void;
   deleteLocation: (id: string) => void;
   restockLocation: (id: string, machines?: RestockMachineEntry[]) => void;
-  editRestockEntry: (locationId: string, index: number, entry: RestockEntry) => void;
+  editRestockEntry: (
+    locationId: string,
+    index: number,
+    entry: RestockEntry,
+  ) => void;
   deleteRestockEntry: (locationId: string, index: number) => void;
   addMachine: (locationId: string, type: MachineType) => void;
   updateMachine: (locationId: string, machine: Machine) => void;
   deleteMachine: (locationId: string, machineId: string) => void;
-  updateStockCount: (locationId: string, machineId: string, productId: string, delta: number) => void;
-  addProduct: (name: string, emoji?: string, category?: ProductCategory, localImageUri?: string) => void;
+  updateStockCount: (
+    locationId: string,
+    machineId: string,
+    productId: string,
+    delta: number,
+  ) => void;
+  addProduct: (
+    name: string,
+    emoji?: string,
+    category?: ProductCategory,
+    localImageUri?: string,
+  ) => void;
   updateProduct: (product: Product) => void;
   deleteProduct: (id: string) => void;
 }
 
-const AppContext = createContext<AppContextValue | null>(null);
+export type AppContextValue = AppStateValue & AppActionsValue;
 
+const AppStateContext = createContext<AppStateValue | null>(null);
+const AppActionsContext = createContext<AppActionsValue | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
-  // Prevent persisting the blank initial state before hydration completes
   const hasHydrated = useRef(false);
 
-  // Load persisted state on mount; seed default products on first run
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY).then((raw) => {
       if (raw) {
         try {
           const parsed: AppState = JSON.parse(raw);
-          // Ensure all machines have stockCounts (migration for older data)
           const migrated: AppState = {
             ...parsed,
             locations: parsed.locations.map((l) => ({
               ...l,
               stockLevel: undefined,
-              // Migrate restockHistory: string[] → RestockEntry[], or seed from lastRestockedAt
               restockHistory: (() => {
                 const h = l.restockHistory as unknown;
                 if (Array.isArray(h) && h.length > 0) {
                   if (typeof h[0] === 'string') {
-                    // Old format: convert each timestamp string to a RestockEntry
-                    return (h as string[]).map((ts) => ({ timestamp: ts, machines: [] }));
+                    return (h as string[]).map((ts) => ({
+                      timestamp: ts,
+                      machines: [],
+                    }));
                   }
                   return h as RestockEntry[];
                 }
@@ -254,14 +311,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
               })),
             })),
           };
-          // Strip legacy "Tubz " prefix from product names
           const cleanedProducts = migrated.products.map((p) => ({
             ...p,
             name: p.name.startsWith('Tubz ') ? p.name.slice(5) : p.name,
           }));
-          // Merge any new default products not already in saved catalog
           const savedIds = new Set(cleanedProducts.map((p) => p.id));
-          const newDefaults = DEFAULT_PRODUCTS.filter((p) => !savedIds.has(p.id));
+          const newDefaults = DEFAULT_PRODUCTS.filter(
+            (p) => !savedIds.has(p.id),
+          );
           dispatch({
             type: 'LOAD_STATE',
             payload: {
@@ -270,22 +327,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
             },
           });
         } catch {
-          dispatch({ type: 'LOAD_STATE', payload: { ...initialState, products: DEFAULT_PRODUCTS } });
+          dispatch({
+            type: 'LOAD_STATE',
+            payload: { ...initialState, products: DEFAULT_PRODUCTS },
+          });
         }
       } else {
-        dispatch({ type: 'LOAD_STATE', payload: { ...initialState, products: DEFAULT_PRODUCTS } });
+        dispatch({
+          type: 'LOAD_STATE',
+          payload: { ...initialState, products: DEFAULT_PRODUCTS },
+        });
       }
       hasHydrated.current = true;
     });
   }, []);
 
-  // Persist on every state change — but only after initial hydration
   useEffect(() => {
     if (!hasHydrated.current) return;
     AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [state]);
 
-  // Keep scheduled notifications in sync with location restock periods
   useEffect(() => {
     rescheduleAllNotifications(state.locations).catch((e: unknown) => {
       appendLog({
@@ -296,37 +357,61 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   }, [state.locations]);
 
-  // ---------------------------------------------------------------------------
-  // Convenience helpers
-  // ---------------------------------------------------------------------------
+  const replaceState = useCallback(
+    (next: AppState) => dispatch({ type: 'LOAD_STATE', payload: next }),
+    [],
+  );
 
-  const replaceState = useCallback((next: AppState) =>
-    dispatch({ type: 'LOAD_STATE', payload: next }), []);
+  const addLocation = useCallback(
+    (data: Omit<Location, 'id' | 'createdAt'>) => {
+      const location: Location = {
+        restockPeriodWeeks: 4,
+        ...data,
+        id: uid(),
+        createdAt: new Date().toISOString(),
+      };
+      dispatch({ type: 'ADD_LOCATION', payload: location });
+    },
+    [],
+  );
 
-  const addLocation = useCallback((data: Omit<Location, 'id' | 'createdAt'>) => {
-    const location: Location = {
-      restockPeriodWeeks: 4,
-      ...data,
-      id: uid(),
-      createdAt: new Date().toISOString(),
-    };
-    dispatch({ type: 'ADD_LOCATION', payload: location });
-  }, []);
+  const updateLocation = useCallback(
+    (location: Location) =>
+      dispatch({ type: 'UPDATE_LOCATION', payload: location }),
+    [],
+  );
 
-  const updateLocation = useCallback((location: Location) =>
-    dispatch({ type: 'UPDATE_LOCATION', payload: location }), []);
+  const deleteLocation = useCallback(
+    (id: string) => dispatch({ type: 'DELETE_LOCATION', payload: { id } }),
+    [],
+  );
 
-  const deleteLocation = useCallback((id: string) =>
-    dispatch({ type: 'DELETE_LOCATION', payload: { id } }), []);
+  const restockLocation = useCallback(
+    (id: string, machines: RestockMachineEntry[] = []) =>
+      dispatch({
+        type: 'RESTOCK_LOCATION',
+        payload: { id, timestamp: new Date().toISOString(), machines },
+      }),
+    [],
+  );
 
-  const restockLocation = useCallback((id: string, machines: RestockMachineEntry[] = []) =>
-    dispatch({ type: 'RESTOCK_LOCATION', payload: { id, timestamp: new Date().toISOString(), machines } }), []);
+  const editRestockEntry = useCallback(
+    (locationId: string, index: number, entry: RestockEntry) =>
+      dispatch({
+        type: 'EDIT_RESTOCK_ENTRY',
+        payload: { locationId, index, entry },
+      }),
+    [],
+  );
 
-  const editRestockEntry = useCallback((locationId: string, index: number, entry: RestockEntry) =>
-    dispatch({ type: 'EDIT_RESTOCK_ENTRY', payload: { locationId, index, entry } }), []);
-
-  const deleteRestockEntry = useCallback((locationId: string, index: number) =>
-    dispatch({ type: 'DELETE_RESTOCK_ENTRY', payload: { locationId, index } }), []);
+  const deleteRestockEntry = useCallback(
+    (locationId: string, index: number) =>
+      dispatch({
+        type: 'DELETE_RESTOCK_ENTRY',
+        payload: { locationId, index },
+      }),
+    [],
+  );
 
   const addMachine = useCallback((locationId: string, type: MachineType) => {
     const machine: Machine = {
@@ -338,56 +423,126 @@ export function AppProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'ADD_MACHINE', payload: { locationId, machine } });
   }, []);
 
-  const updateMachine = useCallback((locationId: string, machine: Machine) =>
-    dispatch({ type: 'UPDATE_MACHINE', payload: { locationId, machine } }), []);
+  const updateMachine = useCallback(
+    (locationId: string, machine: Machine) =>
+      dispatch({ type: 'UPDATE_MACHINE', payload: { locationId, machine } }),
+    [],
+  );
 
-  const deleteMachine = useCallback((locationId: string, machineId: string) =>
-    dispatch({ type: 'DELETE_MACHINE', payload: { locationId, machineId } }), []);
+  const deleteMachine = useCallback(
+    (locationId: string, machineId: string) =>
+      dispatch({
+        type: 'DELETE_MACHINE',
+        payload: { locationId, machineId },
+      }),
+    [],
+  );
 
-  const updateStockCount = useCallback((locationId: string, machineId: string, productId: string, delta: number) =>
-    dispatch({ type: 'UPDATE_STOCK_COUNT', payload: { locationId, machineId, productId, delta } }), []);
+  const updateStockCount = useCallback(
+    (locationId: string, machineId: string, productId: string, delta: number) =>
+      dispatch({
+        type: 'UPDATE_STOCK_COUNT',
+        payload: { locationId, machineId, productId, delta },
+      }),
+    [],
+  );
 
-  const addProduct = useCallback((name: string, emoji?: string, category?: ProductCategory, localImageUri?: string) => {
-    const product: Product = { id: uid(), name, emoji, category, localImageUri };
-    dispatch({ type: 'ADD_PRODUCT', payload: product });
-  }, []);
+  const addProduct = useCallback(
+    (
+      name: string,
+      emoji?: string,
+      category?: ProductCategory,
+      localImageUri?: string,
+    ) => {
+      const product: Product = {
+        id: uid(),
+        name,
+        emoji,
+        category,
+        localImageUri,
+      };
+      dispatch({ type: 'ADD_PRODUCT', payload: product });
+    },
+    [],
+  );
 
-  const updateProduct = useCallback((product: Product) =>
-    dispatch({ type: 'UPDATE_PRODUCT', payload: product }), []);
+  const updateProduct = useCallback(
+    (product: Product) =>
+      dispatch({ type: 'UPDATE_PRODUCT', payload: product }),
+    [],
+  );
 
-  const deleteProduct = useCallback((id: string) =>
-    dispatch({ type: 'DELETE_PRODUCT', payload: { id } }), []);
+  const deleteProduct = useCallback(
+    (id: string) => dispatch({ type: 'DELETE_PRODUCT', payload: { id } }),
+    [],
+  );
 
-  const value = useMemo(() => ({
-    state,
-    dispatch,
-    replaceState,
-    addLocation,
-    updateLocation,
-    deleteLocation,
-    restockLocation,
-    editRestockEntry,
-    deleteRestockEntry,
-    addMachine,
-    updateMachine,
-    deleteMachine,
-    updateStockCount,
-    addProduct,
-    updateProduct,
-    deleteProduct,
-  }), [state, dispatch, replaceState, addLocation, updateLocation, deleteLocation,
-    restockLocation, editRestockEntry, deleteRestockEntry, addMachine, updateMachine,
-    deleteMachine, updateStockCount, addProduct, updateProduct, deleteProduct]);
+  // Actions are all useCallback-stable, so this memo value never changes once
+  // mounted — giving action-only consumers re-render immunity to state churn.
+  const actions = useMemo<AppActionsValue>(
+    () => ({
+      replaceState,
+      addLocation,
+      updateLocation,
+      deleteLocation,
+      restockLocation,
+      editRestockEntry,
+      deleteRestockEntry,
+      addMachine,
+      updateMachine,
+      deleteMachine,
+      updateStockCount,
+      addProduct,
+      updateProduct,
+      deleteProduct,
+    }),
+    [
+      replaceState,
+      addLocation,
+      updateLocation,
+      deleteLocation,
+      restockLocation,
+      editRestockEntry,
+      deleteRestockEntry,
+      addMachine,
+      updateMachine,
+      deleteMachine,
+      updateStockCount,
+      addProduct,
+      updateProduct,
+      deleteProduct,
+    ],
+  );
+
+  const stateValue = useMemo<AppStateValue>(() => ({ state }), [state]);
 
   return (
-    <AppContext.Provider value={value}>
-      {children}
-    </AppContext.Provider>
+    <AppActionsContext.Provider value={actions}>
+      <AppStateContext.Provider value={stateValue}>
+        {children}
+      </AppStateContext.Provider>
+    </AppActionsContext.Provider>
   );
 }
 
-export function useApp(): AppContextValue {
-  const ctx = useContext(AppContext);
-  if (!ctx) throw new Error('useApp must be used within AppProvider');
+export function useAppState(): AppStateValue {
+  const ctx = useContext(AppStateContext);
+  if (!ctx) throw new Error('useAppState must be used within AppProvider');
   return ctx;
+}
+
+export function useAppActions(): AppActionsValue {
+  const ctx = useContext(AppActionsContext);
+  if (!ctx) throw new Error('useAppActions must be used within AppProvider');
+  return ctx;
+}
+
+/**
+ * Combined hook that returns both state and actions. Subscribes to state
+ * changes; prefer `useAppActions` in components that only dispatch.
+ */
+export function useApp(): AppContextValue {
+  const { state } = useAppState();
+  const actions = useAppActions();
+  return useMemo(() => ({ state, ...actions }), [state, actions]);
 }

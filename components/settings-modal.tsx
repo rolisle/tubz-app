@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { FsModalNavbar } from "@/components/ui/fs-modal-navbar";
 import { GradView } from "@/components/ui/grad-view";
 import { SlideModal } from "@/components/ui/slide-modal";
 import { Colors } from "@/constants/theme";
@@ -25,6 +26,7 @@ import {
   TOY_PRESETS,
   useSettings,
 } from "@/context/settings-context";
+import { confirm } from "@/utils/confirm";
 import { exportData, importData } from "@/utils/data-transfer";
 
 /* ─── SwatchRow ──────────────────────────────────────────────── */
@@ -33,7 +35,7 @@ interface SwatchRowProps {
   label: string;
   presets: { label: string; value: AppColor }[];
   current: AppColor;
-  onChange: (v: AppColor) => void;
+  settingKey: keyof AppSettings;
   colors: (typeof Colors)["light"];
 }
 
@@ -41,9 +43,10 @@ const SwatchRow = memo(function SwatchRow({
   label,
   presets,
   current,
-  onChange,
+  settingKey,
   colors,
 }: SwatchRowProps) {
+  const { setSetting } = useSettings();
   return (
     <View style={styles.swatchSection}>
       <Text style={[styles.swatchLabel, { color: colors.subtext }]}>
@@ -55,7 +58,7 @@ const SwatchRow = memo(function SwatchRow({
           return (
             <TouchableOpacity
               key={p.label}
-              onPress={() => onChange(p.value)}
+              onPress={() => setSetting(settingKey, p.value)}
               activeOpacity={0.75}
               style={[
                 styles.swatch,
@@ -89,7 +92,7 @@ export interface SettingsModalProps {
 }
 
 export function SettingsModal({ visible, onClose, colors }: SettingsModalProps) {
-  const { settings, setSetting } = useSettings();
+  const { settings } = useSettings();
   const { state, replaceState } = useApp();
 
   const sections: {
@@ -105,18 +108,12 @@ export function SettingsModal({ visible, onClose, colors }: SettingsModalProps) 
   return (
     <SlideModal animation="fade" visible={visible} onRequestClose={onClose}>
       <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
-        {/* Navbar */}
-        <View style={[styles.navbar, { borderBottomColor: colors.border }]}>
-          <View style={styles.navSide} />
-          <Text style={[styles.navTitle, { color: colors.text }]}>⚙️ Settings</Text>
-          <TouchableOpacity
-            onPress={onClose}
-            hitSlop={8}
-            style={[styles.navSide, { alignItems: "flex-end" }]}
-          >
-            <Text style={[styles.navDone, { color: colors.subtext }]}>Done</Text>
-          </TouchableOpacity>
-        </View>
+        <FsModalNavbar
+          title="⚙️ Settings"
+          colors={colors}
+          accent={primaryColor(settings.accentColor)}
+          right={{ label: "Done", tone: "muted", onPress: onClose }}
+        />
 
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
           <Text style={[styles.sectionLabel, { color: colors.text }]}>Theme</Text>
@@ -127,7 +124,7 @@ export function SettingsModal({ visible, onClose, colors }: SettingsModalProps) 
               label={s.label}
               presets={s.presets}
               current={settings[s.key]}
-              onChange={(v) => setSetting(s.key, v)}
+              settingKey={s.key}
               colors={colors}
             />
           ))}
@@ -204,24 +201,12 @@ export function SettingsModal({ visible, onClose, colors }: SettingsModalProps) 
               onPress={async () => {
                 try {
                   const payload = await importData();
-                  const confirmed =
-                    Platform.OS === "web"
-                      ? window.confirm(
-                          `Replace all data with this export?\n` +
-                            `(${payload.locations.length} locations, ${payload.products.length} products)\n\n` +
-                            `This cannot be undone.`,
-                        )
-                      : await new Promise<boolean>((res) =>
-                          Alert.alert(
-                            "Replace all data?",
-                            `This will replace all locations and products with the imported data.\n\n` +
-                              `${payload.locations.length} locations · ${payload.products.length} products\n\nThis cannot be undone.`,
-                            [
-                              { text: "Cancel", style: "cancel", onPress: () => res(false) },
-                              { text: "Import", style: "destructive", onPress: () => res(true) },
-                            ],
-                          ),
-                        );
+                  const confirmed = await confirm(
+                    "Replace all data?",
+                    `This will replace all locations and products with the imported data.\n\n` +
+                      `${payload.locations.length} locations · ${payload.products.length} products\n\nThis cannot be undone.`,
+                    { confirmLabel: "Import", destructive: true },
+                  );
                   if (confirmed) {
                     replaceState({
                       locations: payload.locations,
@@ -253,16 +238,6 @@ export function SettingsModal({ visible, onClose, colors }: SettingsModalProps) 
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  navbar: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  navSide: { minWidth: 64 },
-  navTitle: { flex: 1, fontSize: 17, fontWeight: "700", textAlign: "center" },
-  navDone: { fontSize: 15, fontWeight: "500" },
   scrollContent: { paddingBottom: 40 },
   sectionLabel: {
     fontSize: 13,

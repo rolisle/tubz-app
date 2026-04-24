@@ -2,6 +2,8 @@
 
 A stock and restock management app for Tubz vending machines, built with [Expo](https://expo.dev) and React Native. Runs on iOS, Android, and web.
 
+**Release history:** see [CHANGELOG.md](CHANGELOG.md) (kept in step with `app.json` `expo.version` and `android.versionCode`).
+
 ### Recent updates
 
 - **Restock notifications:** scheduling updated so short restock windows (e.g. **1 week**) still receive a local notification on the **due date**, instead of a fragile near-immediate fire that could be dropped when state reschedules. Longer windows still get the 7-day-ahead reminder when there is room for it
@@ -179,11 +181,12 @@ assets/
 
 ## Data Persistence
 
-| Data                          | AsyncStorage key   |
-| ----------------------------- | ------------------ |
-| Locations, machines, products | `@tubz:appState`   |
-| Restock planner               | `@tubz_restock_v1` |
-| Stock inventory               | `@tubz_stock_v2`   |
-| Theme settings                | `@tubz:settings`   |
+| Data                          | AsyncStorage key     |
+| ----------------------------- | -------------------- |
+| Locations, machines, products | `@tubz:appState`     |
+| Restock planner               | `@tubz_restock_v1`   |
+| Stock inventory               | `@tubz_stock_v2`     |
+| Theme / accent settings       | `@tubz_settings_v1`  |
+| Crash log                     | `@tubz:crashLog`     |
 
 No external database or login is required. All data is stored locally on the device.

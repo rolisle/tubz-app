@@ -11,12 +11,10 @@ import * as DocumentPicker from 'expo-document-picker';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import type { AppState } from '../types';
-import { parseExport } from './parse-export';
+import { parseExport, type TubzExport } from './parse-export';
 
 export type { TubzExport } from './parse-export';
 export { parseExport } from './parse-export';
-
-import type { TubzExport } from './parse-export';
 
 /** Serialise state to JSON, write to cache, share via OS sheet. */
 export async function exportData(state: AppState): Promise<void> {
@@ -33,9 +31,10 @@ export async function exportData(state: AppState): Promise<void> {
   file.write(json);
 
   const canShare = await Sharing.isAvailableAsync();
-  if (canShare) {
-    await Sharing.shareAsync(file.uri, { mimeType: 'application/json', dialogTitle: 'Export Tubz data' });
+  if (!canShare) {
+    throw new Error('Sharing is not available on this device.');
   }
+  await Sharing.shareAsync(file.uri, { mimeType: 'application/json', dialogTitle: 'Export Tubz data' });
 }
 
 /**
