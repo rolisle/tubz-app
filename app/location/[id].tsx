@@ -806,6 +806,7 @@ export default function LocationDetailScreen() {
 
         {/* ── History modal (full-screen) ─────────────────────────── */}
         <SlideModal
+          animation="fade"
           visible={showHistory}
           onRequestClose={() => {
             setShowHistory(false);
@@ -931,7 +932,7 @@ export default function LocationDetailScreen() {
         </SlideModal>
 
         {/* ── Edit location modal ─────────────────────────────────── */}
-        <SlideModal visible={showEditModal} onRequestClose={cancelEdit}>
+        <SlideModal animation="fade" visible={showEditModal} onRequestClose={cancelEdit}>
           <SafeAreaView
             style={[styles.fsModalSafe, { backgroundColor: colors.background }]}
           >
@@ -1122,6 +1123,7 @@ export default function LocationDetailScreen() {
 
         {/* ── Settings menu (full-screen) ─────────────────────────── */}
         <SlideModal
+          animation="fade"
           visible={showMenu}
           onRequestClose={() => setShowMenu(false)}
         >
@@ -1245,6 +1247,7 @@ export default function LocationDetailScreen() {
 
         {/* ── Opening hours modal (full-screen) ───────────────────── */}
         <SlideModal
+          animation="fade"
           visible={showOpeningHours}
           onRequestClose={() => {
             setShowOpeningHours(false);

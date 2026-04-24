@@ -2,9 +2,10 @@ import { useRouter } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import {
   FlatList,
-  Modal,
-  Pressable,
+  KeyboardAvoidingView,
+  Platform,
   SectionList,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -15,6 +16,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { LocationCard } from "@/components/location-card";
 import { GradView } from "@/components/ui/grad-view";
+import { SlideModal } from "@/components/ui/slide-modal";
 import { Colors } from "@/constants/theme";
 import { useApp } from "@/context/app-context";
 import {
@@ -101,6 +103,15 @@ function AddLocationModal({ visible, onClose, colors }: AddLocationModalProps) {
 
   const [submitted, setSubmitted] = useState(false);
 
+  const handleClose = () => {
+    setName("");
+    setAddress("");
+    setCity("");
+    setPostcode("");
+    setSubmitted(false);
+    onClose();
+  };
+
   const handleAdd = () => {
     setSubmitted(true);
     if (!isValid) return;
@@ -113,12 +124,7 @@ function AddLocationModal({ visible, onClose, colors }: AddLocationModalProps) {
       machines: [],
       notes: undefined,
     });
-    setName("");
-    setAddress("");
-    setCity("");
-    setPostcode("");
-    setSubmitted(false);
-    onClose();
+    handleClose();
   };
 
   const inputStyle = (value: string, field: string, invalid = false) => [
@@ -136,121 +142,118 @@ function AddLocationModal({ visible, onClose, colors }: AddLocationModalProps) {
   ];
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      <Pressable style={styles.overlay} onPress={onClose} />
-      <View
-        style={[
-          styles.sheet,
-          { backgroundColor: colors.card, borderColor: colors.border },
-        ]}
-      >
-        <View style={styles.sheetHandle} />
-        <Text style={[styles.sheetTitle, { color: colors.text }]}>
-          New Location
-        </Text>
+    <SlideModal animation="fade" visible={visible} onRequestClose={handleClose}>
+      <SafeAreaView style={[styles.fsModalSafe, { backgroundColor: colors.background }]}>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
+          {/* Navbar */}
+          <View style={[styles.fsModalNavbar, { borderBottomColor: colors.border }]}>
+            <TouchableOpacity onPress={handleClose} hitSlop={8} style={styles.fsModalSide}>
+              <Text style={[styles.fsModalBack, { color: colors.danger }]}>Cancel</Text>
+            </TouchableOpacity>
+            <Text style={[styles.fsModalTitle, { color: colors.text }]}>New Location</Text>
+            <TouchableOpacity
+              onPress={handleAdd}
+              hitSlop={8}
+              style={[styles.fsModalSide, { alignItems: "flex-end" }]}
+            >
+              <Text style={[styles.fsModalBack, { color: isValid ? accent : colors.subtext }]}>
+                Add
+              </Text>
+            </TouchableOpacity>
+          </View>
 
-        <Text style={[styles.fieldLabel, { color: colors.subtext }]}>
-          Name <Text style={{ color: colors.danger }}>*</Text>
-        </Text>
-        <TextInput
-          style={inputStyle(name, "name", !name.trim())}
-          placeholder="e.g. Westfield Food Court"
-          placeholderTextColor={colors.subtext}
-          value={name}
-          onChangeText={setName}
-          onFocus={() => setFocusedField("name")}
-          onBlur={() => setFocusedField(null)}
-          selectionColor={`${accent}44`}
-          cursorColor={accent}
-          autoFocus
-          returnKeyType="next"
-        />
-        {submitted && !name.trim() && (
-          <Text style={styles.errorText}>Name is required</Text>
-        )}
-
-        <Text style={[styles.fieldLabel, { color: colors.subtext }]}>
-          Address <Text style={{ color: colors.danger }}>*</Text>
-        </Text>
-        <TextInput
-          style={inputStyle(address, "address", !address.trim())}
-          placeholder="1st line of address"
-          placeholderTextColor={colors.subtext}
-          value={address}
-          onChangeText={setAddress}
-          onFocus={() => setFocusedField("address")}
-          onBlur={() => setFocusedField(null)}
-          selectionColor={`${accent}44`}
-          cursorColor={accent}
-          returnKeyType="next"
-        />
-        {submitted && !address.trim() && (
-          <Text style={styles.errorText}>Address is required</Text>
-        )}
-
-        <View style={styles.inputRow}>
-          <View style={styles.inputFlex}>
+          <ScrollView
+            contentContainerStyle={styles.fsModalContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <Text style={[styles.fieldLabel, { color: colors.subtext }]}>
+              Name <Text style={{ color: colors.danger }}>*</Text>
+            </Text>
             <TextInput
-              style={inputStyle(city, "city", !city.trim())}
-              placeholder="City"
+              style={inputStyle(name, "name", !name.trim())}
+              placeholder="e.g. Westfield Food Court"
               placeholderTextColor={colors.subtext}
-              value={city}
-              onChangeText={setCity}
-              onFocus={() => setFocusedField("city")}
+              value={name}
+              onChangeText={setName}
+              onFocus={() => setFocusedField("name")}
+              onBlur={() => setFocusedField(null)}
+              selectionColor={`${accent}44`}
+              cursorColor={accent}
+              autoFocus
+              returnKeyType="next"
+            />
+            {submitted && !name.trim() && (
+              <Text style={styles.errorText}>Name is required</Text>
+            )}
+
+            <Text style={[styles.fieldLabel, { color: colors.subtext }]}>
+              Address <Text style={{ color: colors.danger }}>*</Text>
+            </Text>
+            <TextInput
+              style={inputStyle(address, "address", !address.trim())}
+              placeholder="1st line of address"
+              placeholderTextColor={colors.subtext}
+              value={address}
+              onChangeText={setAddress}
+              onFocus={() => setFocusedField("address")}
               onBlur={() => setFocusedField(null)}
               selectionColor={`${accent}44`}
               cursorColor={accent}
               returnKeyType="next"
             />
-            {submitted && !city.trim() && (
-              <Text style={styles.errorText}>Required</Text>
+            {submitted && !address.trim() && (
+              <Text style={styles.errorText}>Address is required</Text>
             )}
-          </View>
-          <View style={styles.inputPostcode}>
-            <TextInput
-              style={inputStyle(postcode, "postcode", !postcodeValid)}
-              placeholder="Postcode"
-              placeholderTextColor={colors.subtext}
-              value={postcode}
-              onChangeText={setPostcode}
-              onFocus={() => setFocusedField("postcode")}
-              onBlur={() => setFocusedField(null)}
-              selectionColor={`${accent}44`}
-              cursorColor={accent}
-              returnKeyType="done"
-              onSubmitEditing={handleAdd}
-              autoCapitalize="characters"
-            />
-            {submitted && !postcode.trim() && (
-              <Text style={styles.errorText}>Required</Text>
-            )}
-            {submitted && postcode.trim() && !postcodeValid && (
-              <Text style={styles.errorText}>Invalid UK postcode</Text>
-            )}
-          </View>
-        </View>
 
-        <TouchableOpacity
-          style={[
-            styles.addBtn,
-            { backgroundColor: isValid ? "#a2e62e" : colors.border },
-          ]}
-          onPress={handleAdd}
-          activeOpacity={isValid ? 0.75 : 1}
-        >
-          <Text
-            style={[styles.addBtnText, !isValid && { color: colors.subtext }]}
-          >
-            Add Location
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </Modal>
+            <View style={styles.inputRow}>
+              <View style={styles.inputFlex}>
+                <TextInput
+                  style={inputStyle(city, "city", !city.trim())}
+                  placeholder="City *"
+                  placeholderTextColor={colors.subtext}
+                  value={city}
+                  onChangeText={setCity}
+                  onFocus={() => setFocusedField("city")}
+                  onBlur={() => setFocusedField(null)}
+                  selectionColor={`${accent}44`}
+                  cursorColor={accent}
+                  returnKeyType="next"
+                />
+                {submitted && !city.trim() && (
+                  <Text style={styles.errorText}>Required</Text>
+                )}
+              </View>
+              <View style={styles.inputPostcode}>
+                <TextInput
+                  style={inputStyle(postcode, "postcode", !postcodeValid)}
+                  placeholder="Postcode *"
+                  placeholderTextColor={colors.subtext}
+                  value={postcode}
+                  onChangeText={setPostcode}
+                  onFocus={() => setFocusedField("postcode")}
+                  onBlur={() => setFocusedField(null)}
+                  selectionColor={`${accent}44`}
+                  cursorColor={accent}
+                  returnKeyType="done"
+                  onSubmitEditing={handleAdd}
+                  autoCapitalize="characters"
+                />
+                {submitted && !postcode.trim() && (
+                  <Text style={styles.errorText}>Required</Text>
+                )}
+                {submitted && postcode.trim() && !postcodeValid && (
+                  <Text style={styles.errorText}>Invalid UK postcode</Text>
+                )}
+              </View>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </SlideModal>
   );
 }
 
@@ -499,35 +502,26 @@ const styles = StyleSheet.create({
   emptyEmoji: { fontSize: 36, marginBottom: 4 },
   emptyTitle: { fontSize: 17, fontWeight: "700" },
   emptyNote: { fontSize: 14, textAlign: "center" },
-  // Modal
-  overlay: {
+  // Full-screen modal
+  fsModalSafe: { flex: 1 },
+  fsModalNavbar: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  fsModalSide: { minWidth: 64 },
+  fsModalBack: { fontSize: 15, fontWeight: "600" },
+  fsModalTitle: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
-  },
-  sheet: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    borderTopWidth: 1,
-    padding: 24,
-    paddingBottom: 40,
-    gap: 4,
-  },
-  sheetHandle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "#ccc",
-    alignSelf: "center",
-    marginBottom: 12,
-  },
-  sheetTitle: {
-    fontSize: 20,
+    fontSize: 17,
     fontWeight: "700",
-    marginBottom: 16,
+    textAlign: "center",
+  },
+  fsModalContent: {
+    padding: 20,
+    gap: 4,
   },
   fieldLabel: {
     fontSize: 12,
@@ -559,15 +553,4 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   headerAddBtnText: { fontSize: 13, fontWeight: "600" },
-  addBtn: {
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: "center",
-    marginTop: 16,
-  },
-  addBtnText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "700",
-  },
 });

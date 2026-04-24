@@ -427,6 +427,7 @@ export default function DashboardScreen() {
 
       {/* ── Crash Log detail modal ────────────────────────────── */}
       <SlideModal
+        animation="fade"
         visible={showCrashLog}
         onRequestClose={() => setShowCrashLog(false)}
       >
@@ -531,6 +532,7 @@ export default function DashboardScreen() {
 
       {/* ── Test Menu (temp) ─────────────────────────────────── */}
       <SlideModal
+        animation="fade"
         visible={showTestMenu}
         onRequestClose={() => setShowTestMenu(false)}
       >
