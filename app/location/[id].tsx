@@ -763,11 +763,10 @@ export default function LocationDetailScreen() {
           restockQtys={restockQtys}
           onChangeQty={(machineId, productId, delta) => {
             setRestockQtys((prev) => {
-              const max =
-                location.machines.find((m) => m.id === machineId)?.type ===
-                "toy"
-                  ? 12
-                  : 9;
+              const machine = location.machines.find((m) => m.id === machineId);
+              const slotCount = machine?.slots.filter((s) => s === productId).length ?? 1;
+              const capacityPerSlot = machine?.type === "toy" ? 12 : 9;
+              const max = slotCount * capacityPerSlot;
               const current = prev[machineId]?.[productId] ?? 0;
               return {
                 ...prev,

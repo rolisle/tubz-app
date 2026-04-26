@@ -69,12 +69,17 @@ export function RestockSessionModal({
             </View>
           ) : (
             machines.map((machine) => {
-              const productIds = Array.from(new Set(machine.slots.filter(Boolean) as string[]));
+              // Count how many slots each product occupies — this is the max restockable for that product
+              const slotCounts = new Map<string, number>();
+              for (const id of machine.slots) {
+                if (id) slotCounts.set(id, (slotCounts.get(id) ?? 0) + 1);
+              }
+              const productIds = Array.from(slotCounts.keys());
               const machineColorStr = machineColors[machine.type];
               const machineColorSetting = machine.type === "sweet"
                 ? machineColorSettings.sweet
                 : machineColorSettings.toy;
-              const max = machine.type === "toy" ? 12 : 9;
+              const capacityPerSlot = machine.type === "toy" ? 12 : 9;
               const totalQty = productIds.reduce(
                 (s, pid) => s + (restockQtys[machine.id]?.[pid] ?? 0), 0
               );
@@ -121,6 +126,7 @@ export function RestockSessionModal({
                       productIds.map((pid) => {
                         const product = products.find((p) => p.id === pid);
                         const qty = restockQtys[machine.id]?.[pid] ?? 0;
+                        const max = (slotCounts.get(pid) ?? 1) * capacityPerSlot;
                         return (
                           <RestockProductRow
                             key={pid}
