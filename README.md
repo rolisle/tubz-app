@@ -4,10 +4,19 @@ A stock and restock management app for Tubz vending machines, built with [Expo](
 
 **Release history:** see [CHANGELOG.md](CHANGELOG.md) (kept in step with `app.json` `expo.version` and `android.versionCode`).
 
-### Recent updates
+### Recent updates (1.0.6)
 
-- **Restock notifications:** scheduling updated so short restock windows (e.g. **1 week**) still receive a local notification on the **due date**, instead of a fragile near-immediate fire that could be dropped when state reschedules. Longer windows still get the 7-day-ahead reminder when there is room for it
-- **Dashboard test menu (🧪):** next to the settings control — temporary panel to fire sample “Restock Due” notifications for QA; intended to be removed when no longer needed
+- **Stock → Overview:** **Top selling Sweets / Toys** from restock history (top 5 + expand to all); labels clearly separate from your **Sweets / Toys** inventory sections; whole overview scrolls as one list
+- **Location restock session:** **Done** checkbox per line; **double-tap** product (image + name) to snap between **full** capacity (per slot rules) and **zero**
+- **Machine slot picker:** search + **A–Z** product list
+- **Opening hours:** **mobile time picker** for times; web keeps typed entry
+- **Settings** (app + location menu): **faster fade** animations
+- **Removed:** standalone **Edit date** for last restocked on the location screen (date still updates via restock / history)
+
+### Earlier (1.0.5 and before)
+
+- **Restock notifications:** short restock windows still get a reliable local notification on the **due date**; longer windows keep the 7-day-ahead reminder when possible
+- **Dashboard test menu (🧪):** temporary QA panel for sample notifications (remove when no longer needed)
 
 ## Features
 
@@ -29,7 +38,7 @@ A stock and restock management app for Tubz vending machines, built with [Expo](
 - Tap the 🔎 icon on any location card to open the address in Google Maps
 - Tap the address line inside a location to open it in Google Maps
 - **Open/Closed status badge** on each location card and inside the location detail, powered by configurable opening hours
-- Track when each location was last restocked (editable date) with full restock history
+- Track when each location was last restocked (updates when you restock or edit history) with full restock history
 - Set a **restock period** (1–12 weeks) per location; new locations default to 4 weeks
 - Location detail uses a ⚙️ menu (top right) with options: Edit address, Edit opening hours, Restock history, Delete
 
@@ -73,6 +82,7 @@ A stock and restock management app for Tubz vending machines, built with [Expo](
 ### Stock
 
 - General inventory tracker — separate from machine slots
+- **Overview** also shows **Top selling Sweets / Toys** (from location restock history), top 5 each with optional expand to all ranked products
 - Sections for Sweets and Toys; add any product from the catalog (searchable picker)
 - Three stock levels per product: **Full**, **½ Box**, **Empty**
 - Full and ½ Box each have their own counter (track multiple boxes)

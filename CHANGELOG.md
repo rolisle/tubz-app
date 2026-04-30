@@ -12,6 +12,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [1.0.6] - 2026-04-30
+
+**Android `versionCode`:** 6
+
+### Added
+
+- **Stock → Overview:** **Top selling Sweets** / **Top selling Toys** — ranks products by total units restocked across all locations (from restock history); shows top 5 per category with **Show all** to expand; podium styling for the top three; headers labelled distinctly from the inventory sections below.
+- **Location → Restock session:** **Done** checkbox per line (same idea as the Restock tab) and **double-tap** the product image + name to jump between **full slot capacity** and **zero** when the line is not done; short tip shown at the top of the modal.
+- **Location → machine slot picker:** **Search** products (same pattern as the Restock tab) and pick a product from an **A–Z** sorted list.
+- **Location → opening hours:** **Mobile time picker** (hour/minute controls) for open/close times; web still uses time-friendly entry.
+
+### Fixed
+
+- **Stock → Overview** scroll: Top Sellers and inventory now share one **`SectionList`** header so you can scroll through the whole overview.
+- **Opening hours** on mobile: time chosen in the picker now **saves correctly** (avoided reading stale state immediately after update).
+- **Location restock session:** quantities and caps respect **multiple slots of the same product** (one row per product; max = slot count × 9 sweets / × 12 toys).
+
+### Changed
+
+- **Location:** removed the standalone **Edit date** control for “last restocked”; the date still updates when you complete a restock or edit history.
+- **Settings** modals (app ⚙️ and location gear menu): slightly **faster fade** open/close.
+
+---
+
 ## [1.0.5] - 2026-04-24
 
 **Android `versionCode`:** 5
