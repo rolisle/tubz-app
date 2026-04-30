@@ -4,7 +4,14 @@ A stock and restock management app for Tubz vending machines, built with [Expo](
 
 **Release history:** see [CHANGELOG.md](CHANGELOG.md) (kept in step with `app.json` `expo.version` and `android.versionCode`).
 
-### Recent updates (1.0.6)
+### Recent updates (1.0.7)
+
+- **Location → Restock every:** the **1 week** pill is **“Remind me / in 1 week”** until selected, then **“1 week / due”** — it anchors the next due date to **one week from when you tap** (on-device). **Restock now** clears that anchor so later cycles use **last restocked + period**; export/import carry an optional **`restockPeriodAnchorAt`** field.
+- **Dashboard → Upcoming restocks:** locations using the 1-week reminder can appear with a real due date **even if never restocked**.
+- **Web:** dashboard test menu avoids loading **`expo-notifications`** in the browser (Expo push lab is **native-only**), so **`expo export --platform web`** and static rendering no longer hit **`localStorage`** errors from the push registration hook.
+- **Android:** local scheduling without **`@react-native-firebase/app`**; device builds use **`google-services.json`** where push credentials apply; **ProGuard** keep rules preserve `expo.modules` classes needed by notifications in release builds.
+
+### Earlier (1.0.6)
 
 - **Stock → Overview:** **Top selling Sweets / Toys** from restock history (top 5 + expand to all); labels clearly separate from your **Sweets / Toys** inventory sections; whole overview scrolls as one list
 - **Location restock session:** **Done** checkbox per line; **double-tap** product (image + name) to snap between **full** capacity (per slot rules) and **zero**
@@ -26,7 +33,7 @@ A stock and restock management app for Tubz vending machines, built with [Expo](
 - **Upcoming Restocks** — locations with a restock period set, sorted by soonest due date; never-restocked locations shown at the bottom
 - **Recent Restocks** — up to 8 locations sorted by most recently restocked
 - Settings icon (⚙️) opens the theme settings modal
-- **Test menu** (🧪) — temporary developer control next to the settings icon. Opens a small panel to trigger sample restock notifications (e.g. a notification in a few seconds, or one scheduled for late today) so you can verify push behaviour on a device. Remove this entry point when you no longer need it
+- **Test menu** (🧪) — temporary developer control next to the settings icon. Opens a panel to trigger **sample local** restock notifications and (on **iOS/Android builds only**) an optional **Expo push** test that talks to Expo’s push API. On **web**, the Expo push section is a stub and does not load `expo-notifications`. Remove this entry point when you no longer need it
 - Tap any restock card to navigate directly to that location
 
 ### Locations
@@ -39,7 +46,7 @@ A stock and restock management app for Tubz vending machines, built with [Expo](
 - Tap the address line inside a location to open it in Google Maps
 - **Open/Closed status badge** on each location card and inside the location detail, powered by configurable opening hours
 - Track when each location was last restocked (updates when you restock or edit history) with full restock history
-- Set a **restock period** (1–12 weeks) per location; new locations default to 4 weeks
+- Set a **restock period** (1–12 weeks) per location; new locations default to 4 weeks. The **1 week** option is a **“remind me in one week from now”** control (see changelog 1.0.7); other values use **last restocked** (or **created** if never restocked) + N weeks for due date
 - Location detail uses a ⚙️ menu (top right) with options: Edit address, Edit opening hours, Restock history, Delete
 
 ### Opening Hours
@@ -104,7 +111,8 @@ A stock and restock management app for Tubz vending machines, built with [Expo](
 
 - Local push notifications for locations with a restock period set
 - **7-day lead time:** when the due date is more than 7 days away, the notification is scheduled for one week *before* that due date (so you get a heads-up a week in advance)
-- **Short restock periods (e.g. 1 week):** there is no day left for a “7 days before” reminder, so the notification is scheduled for the **due date** itself instead. That keeps one-week (and other tight) cycles reliable; previously an “almost immediate” trigger could be cancelled on the next data save
+- **1 week with “Remind me” pill:** when you use the anchored **1 week** option, the due date is **one week from when you selected it** (unless you restock or clear the period); the notification still prefers a **7-day heads-up** when that date is in the future, otherwise it fires on **due date**.
+- **Short periods without that anchor (e.g. legacy 1 week):** if there is no day left for a “7 days before” reminder, the notification is scheduled for the **due date** itself so it is not cancelled by the next reschedule
 - If the 7-day warning window is already in the past but the due date is still in the future, the notification is scheduled for the **due date** (not a few seconds from now), so it is not lost when the app reschedules after each change
 - Permissions requested on first launch (iOS/Android only; no-op on web)
 - Notifications are automatically rescheduled when restock periods or last-restocked dates change
