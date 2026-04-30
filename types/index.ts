@@ -54,6 +54,11 @@ export interface Location {
   /** Array of restock sessions; older format (string[]) is migrated on load */
   restockHistory?: RestockEntry[];
   restockPeriodWeeks?: number;
+  /**
+   * When `restockPeriodWeeks === 1`, optional anchor for “remind me in 1 week” — due date is
+   * anchor + 7 days. Cleared after a restock. Older data without this uses lastRestockedAt/createdAt.
+   */
+  restockPeriodAnchorAt?: string;
   openingHours?: OpeningHours;
   machines: Machine[];
   createdAt: string;

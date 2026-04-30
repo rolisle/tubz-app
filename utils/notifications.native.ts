@@ -267,12 +267,24 @@ export async function scheduleShortDelayNotificationTest(
   }
 }
 
+/** Base date for the current restock cycle (due = base + period weeks). */
+function periodBaseForDue(location: Location): Date {
+  if (
+    location.restockPeriodWeeks === 1 &&
+    location.restockPeriodAnchorAt
+  ) {
+    return new Date(location.restockPeriodAnchorAt);
+  }
+  if (location.lastRestockedAt) {
+    return new Date(location.lastRestockedAt);
+  }
+  return new Date(location.createdAt);
+}
+
 /** Calculate the ISO date when a location's restock is due. */
 function dueDate(location: Location): Date | null {
   if (!location.restockPeriodWeeks) return null;
-  const base = location.lastRestockedAt
-    ? new Date(location.lastRestockedAt)
-    : new Date(location.createdAt);
+  const base = periodBaseForDue(location);
   const due = new Date(base);
   due.setDate(due.getDate() + location.restockPeriodWeeks * 7);
   return due;
