@@ -107,6 +107,9 @@ export default function LocationDetailScreen() {
   const [restockQtys, setRestockQtys] = useState<
     Record<string, Record<string, number>>
   >({});
+  const [restockDone, setRestockDone] = useState<
+    Record<string, Record<string, boolean>>
+  >({});
 
   // Restock history editor
   const [editingEntry, setEditingEntry] = useState<{
@@ -297,16 +300,20 @@ export default function LocationDetailScreen() {
 
   const openRestockSession = () => {
     const qtys: Record<string, Record<string, number>> = {};
+    const done: Record<string, Record<string, boolean>> = {};
     location.machines.forEach((m) => {
       qtys[m.id] = {};
+      done[m.id] = {};
       const productIds = Array.from(
         new Set(m.slots.filter(Boolean) as string[]),
       );
       productIds.forEach((pid) => {
         qtys[m.id][pid] = 0;
+        done[m.id][pid] = false;
       });
     });
     setRestockQtys(qtys);
+    setRestockDone(done);
     setShowRestockSession(true);
   };
 
@@ -725,6 +732,7 @@ export default function LocationDetailScreen() {
             toy: settings.toyColor,
           }}
           restockQtys={restockQtys}
+          restockDone={restockDone}
           onChangeQty={(machineId, productId, delta) => {
             setRestockQtys((prev) => {
               const machine = location.machines.find((m) => m.id === machineId);
@@ -737,6 +745,32 @@ export default function LocationDetailScreen() {
                 [machineId]: {
                   ...prev[machineId],
                   [productId]: Math.min(max, Math.max(0, current + delta)),
+                },
+              };
+            });
+          }}
+          onToggleDone={(machineId, productId) => {
+            setRestockDone((prev) => ({
+              ...prev,
+              [machineId]: {
+                ...prev[machineId],
+                [productId]: !prev[machineId]?.[productId],
+              },
+            }));
+          }}
+          onSnapQty={(machineId, productId) => {
+            setRestockQtys((prev) => {
+              const machine = location.machines.find((m) => m.id === machineId);
+              const slotCount = machine?.slots.filter((s) => s === productId).length ?? 1;
+              const capacityPerSlot = machine?.type === "toy" ? 12 : 9;
+              const max = slotCount * capacityPerSlot;
+              const current = prev[machineId]?.[productId] ?? 0;
+              const next = current < max ? max : 0;
+              return {
+                ...prev,
+                [machineId]: {
+                  ...prev[machineId],
+                  [productId]: next,
                 },
               };
             });

@@ -89,7 +89,13 @@ function renderTopSellerRow(
       <Text
         style={[topStyles.rank, { color: isPodium ? medal! : colors.subtext }]}
       >
-        {index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : `#${index + 1}`}
+        {index === 0
+          ? "🥇"
+          : index === 1
+            ? "🥈"
+            : index === 2
+              ? "🥉"
+              : `#${index + 1}`}
       </Text>
       <View style={topStyles.thumb}>
         {src ? (
@@ -119,7 +125,9 @@ function renderTopSellerRow(
           {entry.sessionCount !== 1 ? "s" : ""}
         </Text>
       </View>
-      <Text style={[topStyles.total, { color: totalColor }]}>{entry.total}</Text>
+      <Text style={[topStyles.total, { color: totalColor }]}>
+        {entry.total}
+      </Text>
     </View>
   );
 }
@@ -144,8 +152,7 @@ function TopSellersByCategory({
     toy: false,
   });
 
-  const anyData =
-    buckets.sweet.length > 0 || buckets.toy.length > 0;
+  const anyData = buckets.sweet.length > 0 || buckets.toy.length > 0;
 
   if (!anyData) {
     return (
@@ -178,7 +185,7 @@ function TopSellersByCategory({
           <View key={sec.key}>
             <View style={styles.sectionHeader}>
               <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                {sec.emoji} {sec.label}
+                {sec.emoji} Top selling {sec.label}
               </Text>
             </View>
             {entries.length === 0 ? (
@@ -191,9 +198,7 @@ function TopSellersByCategory({
                   },
                 ]}
               >
-                <Text
-                  style={[topStyles.emptyText, { color: colors.subtext }]}
-                >
+                <Text style={[topStyles.emptyText, { color: colors.subtext }]}>
                   No {sec.label.toLowerCase()} restocks recorded yet.
                 </Text>
               </View>
@@ -221,10 +226,15 @@ function TopSellersByCategory({
                     }
                     activeOpacity={0.7}
                   >
-                    <Text style={[topStyles.expandBtnText, { color: colors.subtext }]}>
+                    <Text
+                      style={[
+                        topStyles.expandBtnText,
+                        { color: colors.subtext },
+                      ]}
+                    >
                       {isExpanded
                         ? "Show top 5 only"
-                        : `Show all ${entries.length} (${entries.length - TOP_SELLERS_COLLAPSED} more)`}
+                        : `Show all ${entries.length}`}
                     </Text>
                   </TouchableOpacity>
                 ) : null}
@@ -417,8 +427,7 @@ export default function StockScreen() {
         const seenToy = new Set<string>();
         for (const machine of entry.machines) {
           const map = machine.machineType === "sweet" ? sweet : toy;
-          const seen =
-            machine.machineType === "sweet" ? seenSweet : seenToy;
+          const seen = machine.machineType === "sweet" ? seenSweet : seenToy;
           for (const p of machine.products) {
             if (p.qty <= 0) continue;
             const cur = map.get(p.productId) ?? { total: 0, sessionCount: 0 };
@@ -504,6 +513,37 @@ export default function StockScreen() {
       return <SimpleRow item={item} product={product} colors={colors} />;
     },
     [productMap, colors],
+  );
+
+  const overviewListHeader = useMemo(
+    () => (
+      <>
+        <TopSellersByCategory
+          buckets={topSellersBuckets}
+          products={state.products}
+          colors={colors}
+        />
+        <View
+          style={[
+            styles.legend,
+            styles.legendInListContent,
+            { borderColor: colors.border, backgroundColor: colors.card },
+          ]}
+        >
+          {LEVELS.map((lvl) => (
+            <View key={lvl.value} style={styles.legendItem}>
+              <View
+                style={[styles.legendDot, { backgroundColor: lvl.color }]}
+              />
+              <Text style={[styles.legendLabel, { color: colors.subtext }]}>
+                {lvl.label}
+              </Text>
+            </View>
+          ))}
+        </View>
+      </>
+    ),
+    [topSellersBuckets, state.products, colors],
   );
 
   return (
@@ -630,64 +670,37 @@ export default function StockScreen() {
       </View>
 
       {viewMode === "simple" ? (
-        /* ── Overview ── */
-        <>
-          {/* Top sellers by machine type (sweet / toy) */}
-          <View style={styles.overviewTopBlock}>
-            <TopSellersByCategory
-              buckets={topSellersBuckets}
-              products={state.products}
-              colors={colors}
-            />
-          </View>
-
-          <View
-            style={[
-              styles.legend,
-              { borderColor: colors.border, backgroundColor: colors.card },
-            ]}
-          >
-            {LEVELS.map((lvl) => (
-              <View key={lvl.value} style={styles.legendItem}>
-                <View
-                  style={[styles.legendDot, { backgroundColor: lvl.color }]}
-                />
-                <Text style={[styles.legendLabel, { color: colors.subtext }]}>
-                  {lvl.label}
-                </Text>
-              </View>
-            ))}
-          </View>
-          <SectionList
-            sections={sections}
-            keyExtractor={(item) => item.productId}
-            stickySectionHeadersEnabled={false}
-            contentContainerStyle={styles.content}
-            showsVerticalScrollIndicator={false}
-            renderSectionHeader={({ section }) => (
-              <View style={styles.sectionHeader}>
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                  {section.emoji} {section.label}
-                </Text>
-              </View>
-            )}
-            renderItem={simpleRenderItem}
-            renderSectionFooter={({ section }) =>
-              section.data.length === 0 ? (
-                <TouchableOpacity
-                  onPress={() => setPicker(section.key)}
-                  style={[styles.emptySection, { borderColor: colors.border }]}
+        <SectionList
+          sections={sections}
+          keyExtractor={(item) => item.productId}
+          stickySectionHeadersEnabled={false}
+          style={styles.listFill}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          ListHeaderComponent={overviewListHeader}
+          renderSectionHeader={({ section }) => (
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                {section.emoji} {section.label}
+              </Text>
+            </View>
+          )}
+          renderItem={simpleRenderItem}
+          renderSectionFooter={({ section }) =>
+            section.data.length === 0 ? (
+              <TouchableOpacity
+                onPress={() => setPicker(section.key)}
+                style={[styles.emptySection, { borderColor: colors.border }]}
+              >
+                <Text
+                  style={[styles.emptySectionText, { color: colors.subtext }]}
                 >
-                  <Text
-                    style={[styles.emptySectionText, { color: colors.subtext }]}
-                  >
-                    Tap + Add to track {section.label.toLowerCase()} stock
-                  </Text>
-                </TouchableOpacity>
-              ) : null
-            }
-          />
-        </>
+                  Tap + Add to track {section.label.toLowerCase()} stock
+                </Text>
+              </TouchableOpacity>
+            ) : null
+          }
+        />
       ) : (
         /* ── Detail ── */
         <>
@@ -712,6 +725,7 @@ export default function StockScreen() {
             sections={sections}
             keyExtractor={(item) => item.productId}
             stickySectionHeadersEnabled={false}
+            style={styles.listFill}
             contentContainerStyle={styles.content}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
@@ -783,6 +797,7 @@ export default function StockScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
+  listFill: { flex: 1 },
   header: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -839,12 +854,12 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
   },
+  /** Inside SectionList `content` (already inset); avoid double horizontal margin */
+  legendInListContent: { marginHorizontal: 0 },
   legendItem: { flexDirection: "row", alignItems: "center", gap: 6 },
   legendDot: { width: 8, height: 8, borderRadius: 4 },
   legendLabel: { fontSize: 12, fontWeight: "500" },
   content: { paddingHorizontal: 20, paddingBottom: 60 },
-  /** Matches SectionList `content` horizontal padding so headers align with 🍬 Sweet / 🪀 Toy */
-  overviewTopBlock: { paddingHorizontal: 20 },
   // Section
   sectionHeader: {
     flexDirection: "row",

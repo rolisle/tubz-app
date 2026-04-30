@@ -20,7 +20,10 @@ export interface RestockSessionModalProps {
   machineColors: Record<MachineType, string>;
   machineColorSettings: { sweet: AppColor; toy: AppColor };
   restockQtys: Record<string, Record<string, number>>;
+  restockDone: Record<string, Record<string, boolean>>;
   onChangeQty: (machineId: string, productId: string, delta: number) => void;
+  onToggleDone: (machineId: string, productId: string) => void;
+  onSnapQty: (machineId: string, productId: string) => void;
   accent: string;
   colors: (typeof Colors)["light"];
 }
@@ -35,7 +38,10 @@ export function RestockSessionModal({
   machineColors,
   machineColorSettings,
   restockQtys,
+  restockDone,
   onChangeQty,
+  onToggleDone,
+  onSnapQty,
   accent,
   colors,
 }: RestockSessionModalProps) {
@@ -68,7 +74,13 @@ export function RestockSessionModal({
               </Text>
             </View>
           ) : (
-            machines.map((machine) => {
+            <>
+              <Text style={[styles.sessionTip, { color: colors.subtext }]}>
+                Double-tap the product (image and name) to jump to full quantity or
+                back to zero. Use the circle to mark a line complete — it disables
+                editing until you clear it.
+              </Text>
+            {machines.map((machine) => {
               // Count how many slots each product occupies — this is the max restockable for that product
               const slotCounts = new Map<string, number>();
               for (const id of machine.slots) {
@@ -127,6 +139,7 @@ export function RestockSessionModal({
                         const product = products.find((p) => p.id === pid);
                         const qty = restockQtys[machine.id]?.[pid] ?? 0;
                         const max = (slotCounts.get(pid) ?? 1) * capacityPerSlot;
+                        const done = restockDone[machine.id]?.[pid] ?? false;
                         return (
                           <RestockProductRow
                             key={pid}
@@ -136,6 +149,10 @@ export function RestockSessionModal({
                             max={max}
                             machineType={machine.type}
                             colors={colors}
+                            done={done}
+                            onToggleDone={() => onToggleDone(machine.id, pid)}
+                            accent={accent}
+                            onDoubleTapSnap={() => onSnapQty(machine.id, pid)}
                             onDecrement={() => onChangeQty(machine.id, pid, -1)}
                             onIncrement={() => onChangeQty(machine.id, pid, +1)}
                           />
@@ -145,7 +162,8 @@ export function RestockSessionModal({
                   </View>
                 </View>
               );
-            })
+            })}
+            </>
           )}
         </ScrollView>
       </SafeAreaView>
@@ -158,6 +176,12 @@ const styles = StyleSheet.create({
   confirmBtn: { borderRadius: 10, paddingHorizontal: 16, paddingVertical: 8 },
   confirmBtnText: { fontSize: 14, fontWeight: "700", color: "#000" },
   content: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 60 },
+  sessionTip: {
+    fontSize: 12,
+    lineHeight: 18,
+    marginBottom: 12,
+    paddingHorizontal: 2,
+  },
   emptyWrap: { alignItems: "center", paddingTop: 60, gap: 8 },
   emptyEmoji: { fontSize: 48, marginBottom: 4 },
   emptyTitle: { fontSize: 18, fontWeight: "700" },
