@@ -30,9 +30,9 @@ import {
   type StockState,
 } from "@/types/stock";
 
-/* ─── Top Products section ───────────────────────────────────── */
+/* ─── Top Sellers (by machine type from restock history)────────── */
 
-const TOP_N = 10;
+const TOP_SELLERS_COLLAPSED = 5;
 
 const MEDAL_GOLD = "#ca8a04";
 const MEDAL_SILVER = "#64748b";
@@ -50,12 +50,86 @@ interface TopEntry {
   sessionCount: number;
 }
 
-function TopProducts({
-  entries,
+function renderTopSellerRow(
+  entry: TopEntry,
+  index: number,
+  peak: number,
+  productMap: Map<string, Product>,
+  colors: (typeof Colors)["light"],
+) {
+  const product = productMap.get(entry.productId);
+  const name = product?.name ?? "Unknown product";
+  const pct = peak > 0 ? entry.total / peak : 0;
+  const src = product?.localImageUri
+    ? { uri: product.localImageUri }
+    : product
+      ? PRODUCT_IMAGES[product.id]
+      : undefined;
+
+  const isPodium = index < 3;
+  const medal = isPodium ? medalColor(index) : null;
+  const rowTint = isPodium ? medal + "18" : "transparent";
+  const barFillColor = isPodium ? medal! : colors.subtext;
+  const totalColor = isPodium ? medal! : colors.subtext;
+  const nameColor = isPodium ? colors.text : colors.subtext;
+
+  return (
+    <View
+      key={entry.productId}
+      style={[
+        topStyles.row,
+        {
+          borderBottomColor: colors.border,
+          backgroundColor: rowTint,
+          borderLeftWidth: isPodium ? 3 : 0,
+          borderLeftColor: isPodium ? medal! : "transparent",
+        },
+      ]}
+    >
+      <Text
+        style={[topStyles.rank, { color: isPodium ? medal! : colors.subtext }]}
+      >
+        {index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : `#${index + 1}`}
+      </Text>
+      <View style={topStyles.thumb}>
+        {src ? (
+          <Image source={src} style={topStyles.thumbImg} resizeMode="contain" />
+        ) : (
+          <Text style={topStyles.thumbEmoji}>{product?.emoji ?? "📦"}</Text>
+        )}
+      </View>
+      <View style={topStyles.info}>
+        <Text style={[topStyles.name, { color: nameColor }]} numberOfLines={1}>
+          {name}
+        </Text>
+        <View style={[topStyles.barTrack, { backgroundColor: colors.border }]}>
+          <View
+            style={[
+              topStyles.barFill,
+              {
+                width: `${pct * 100}%` as `${number}%`,
+                backgroundColor: barFillColor,
+                opacity: isPodium ? 1 : 0.65,
+              },
+            ]}
+          />
+        </View>
+        <Text style={[topStyles.sessions, { color: colors.subtext }]}>
+          {entry.sessionCount} session
+          {entry.sessionCount !== 1 ? "s" : ""}
+        </Text>
+      </View>
+      <Text style={[topStyles.total, { color: totalColor }]}>{entry.total}</Text>
+    </View>
+  );
+}
+
+function TopSellersByCategory({
+  buckets,
   products,
   colors,
 }: {
-  entries: TopEntry[];
+  buckets: Record<StockCategory, TopEntry[]>;
   products: Product[];
   colors: (typeof Colors)["light"];
 }) {
@@ -65,7 +139,15 @@ function TopProducts({
     return m;
   }, [products]);
 
-  if (entries.length === 0) {
+  const [expanded, setExpanded] = useState<Record<StockCategory, boolean>>({
+    sweet: false,
+    toy: false,
+  });
+
+  const anyData =
+    buckets.sweet.length > 0 || buckets.toy.length > 0;
+
+  if (!anyData) {
     return (
       <View
         style={[
@@ -81,107 +163,77 @@ function TopProducts({
     );
   }
 
-  const peak = entries[0].total;
-
   return (
-    <View
-      style={[
-        topStyles.card,
-        { backgroundColor: colors.card, borderColor: colors.border },
-      ]}
-    >
-      {entries.map((entry, i) => {
-        const product = productMap.get(entry.productId);
-        const name = product?.name ?? "Unknown product";
-        const pct = peak > 0 ? entry.total / peak : 0;
-        const src = product?.localImageUri
-          ? { uri: product.localImageUri }
-          : product
-            ? PRODUCT_IMAGES[product.id]
-            : undefined;
-
-        const isPodium = i < 3;
-        const medal = isPodium ? medalColor(i) : null;
-        const rowTint = isPodium ? medal + "18" : "transparent";
-        const barFillColor = isPodium ? medal! : colors.subtext;
-        const totalColor = isPodium ? medal! : colors.subtext;
-        const nameColor = isPodium ? colors.text : colors.subtext;
+    <>
+      {SECTIONS.map((sec) => {
+        const entries = buckets[sec.key];
+        const isExpanded = expanded[sec.key];
+        const visible = isExpanded
+          ? entries
+          : entries.slice(0, TOP_SELLERS_COLLAPSED);
+        const canExpand = entries.length > TOP_SELLERS_COLLAPSED;
+        const peak = entries[0]?.total ?? 1;
 
         return (
-          <View
-            key={entry.productId}
-            style={[
-              topStyles.row,
-              {
-                borderBottomColor: colors.border,
-                backgroundColor: rowTint,
-                borderLeftWidth: isPodium ? 3 : 0,
-                borderLeftColor: isPodium ? medal! : "transparent",
-              },
-              i === entries.length - 1 && { borderBottomWidth: 0 },
-            ]}
-          >
-            {/* Rank */}
-            <Text
-              style={[
-                topStyles.rank,
-                { color: isPodium ? medal! : colors.subtext },
-              ]}
-            >
-              {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `#${i + 1}`}
-            </Text>
-
-            {/* Thumb */}
-            <View style={topStyles.thumb}>
-              {src ? (
-                <Image
-                  source={src}
-                  style={topStyles.thumbImg}
-                  resizeMode="contain"
-                />
-              ) : (
-                <Text style={topStyles.thumbEmoji}>
-                  {product?.emoji ?? "📦"}
-                </Text>
-              )}
-            </View>
-
-            {/* Name + bar */}
-            <View style={topStyles.info}>
-              <Text
-                style={[topStyles.name, { color: nameColor }]}
-                numberOfLines={1}
-              >
-                {name}
+          <View key={sec.key}>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                {sec.emoji} {sec.label}
               </Text>
+            </View>
+            {entries.length === 0 ? (
               <View
-                style={[topStyles.barTrack, { backgroundColor: colors.border }]}
+                style={[
+                  topStyles.emptyCard,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.border,
+                  },
+                ]}
               >
-                <View
-                  style={[
-                    topStyles.barFill,
-                    {
-                      width: `${pct * 100}%` as `${number}%`,
-                      backgroundColor: barFillColor,
-                      opacity: isPodium ? 1 : 0.65,
-                    },
-                  ]}
-                />
+                <Text
+                  style={[topStyles.emptyText, { color: colors.subtext }]}
+                >
+                  No {sec.label.toLowerCase()} restocks recorded yet.
+                </Text>
               </View>
-              <Text style={[topStyles.sessions, { color: colors.subtext }]}>
-                {entry.sessionCount} session
-                {entry.sessionCount !== 1 ? "s" : ""}
-              </Text>
-            </View>
-
-            {/* Total */}
-            <Text style={[topStyles.total, { color: totalColor }]}>
-              {entry.total}
-            </Text>
+            ) : (
+              <View
+                style={[
+                  topStyles.card,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
+              >
+                {visible.map((entry, i) =>
+                  renderTopSellerRow(entry, i, peak, productMap, colors),
+                )}
+                {canExpand ? (
+                  <TouchableOpacity
+                    style={[
+                      topStyles.expandBtn,
+                      { borderTopColor: colors.border },
+                    ]}
+                    onPress={() =>
+                      setExpanded((prev) => ({
+                        ...prev,
+                        [sec.key]: !prev[sec.key],
+                      }))
+                    }
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[topStyles.expandBtnText, { color: colors.subtext }]}>
+                      {isExpanded
+                        ? "Show top 5 only"
+                        : `Show all ${entries.length} (${entries.length - TOP_SELLERS_COLLAPSED} more)`}
+                    </Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            )}
           </View>
         );
       })}
-    </View>
+    </>
   );
 }
 
@@ -222,6 +274,13 @@ const topStyles = StyleSheet.create({
   barFill: { height: 3, borderRadius: 2 },
   sessions: { fontSize: 10 },
   total: { fontSize: 16, fontWeight: "800", minWidth: 32, textAlign: "right" },
+  expandBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    alignItems: "center",
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  expandBtnText: { fontSize: 13, fontWeight: "600" },
 });
 
 /* ─── Main screen ────────────────────────────────────────────── */
@@ -338,36 +397,46 @@ export default function StockScreen() {
 
   const totalItems = Object.values(stock).reduce((s, arr) => s + arr.length, 0);
 
-  const topProducts = useMemo<TopEntry[]>(() => {
-    const totals = new Map<string, { total: number; sessionCount: number }>();
+  const topSellersBuckets = useMemo(() => {
+    type Agg = { total: number; sessionCount: number };
+    const sweet = new Map<string, Agg>();
+    const toy = new Map<string, Agg>();
+
+    const toSorted = (m: Map<string, Agg>): TopEntry[] =>
+      Array.from(m.entries())
+        .map(([productId, { total, sessionCount }]) => ({
+          productId,
+          total,
+          sessionCount,
+        }))
+        .sort((a, b) => b.total - a.total);
+
     for (const loc of state.locations) {
       for (const entry of loc.restockHistory ?? []) {
-        const seenInSession = new Set<string>();
+        const seenSweet = new Set<string>();
+        const seenToy = new Set<string>();
         for (const machine of entry.machines) {
+          const map = machine.machineType === "sweet" ? sweet : toy;
+          const seen =
+            machine.machineType === "sweet" ? seenSweet : seenToy;
           for (const p of machine.products) {
             if (p.qty <= 0) continue;
-            const cur = totals.get(p.productId) ?? {
-              total: 0,
-              sessionCount: 0,
-            };
+            const cur = map.get(p.productId) ?? { total: 0, sessionCount: 0 };
             cur.total += p.qty;
-            if (!seenInSession.has(p.productId)) {
+            if (!seen.has(p.productId)) {
               cur.sessionCount += 1;
-              seenInSession.add(p.productId);
+              seen.add(p.productId);
             }
-            totals.set(p.productId, cur);
+            map.set(p.productId, cur);
           }
         }
       }
     }
-    return Array.from(totals.entries())
-      .map(([productId, { total, sessionCount }]) => ({
-        productId,
-        total,
-        sessionCount,
-      }))
-      .sort((a, b) => b.total - a.total)
-      .slice(0, TOP_N);
+
+    return {
+      sweet: toSorted(sweet),
+      toy: toSorted(toy),
+    } as Record<StockCategory, TopEntry[]>;
   }, [state.locations]);
 
   const productMap = useMemo(() => {
@@ -563,15 +632,10 @@ export default function StockScreen() {
       {viewMode === "simple" ? (
         /* ── Overview ── */
         <>
-          {/* Top sellers — same horizontal inset + header as SectionList sections */}
+          {/* Top sellers by machine type (sweet / toy) */}
           <View style={styles.overviewTopBlock}>
-            <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                📊 Top Sellers
-              </Text>
-            </View>
-            <TopProducts
-              entries={topProducts}
+            <TopSellersByCategory
+              buckets={topSellersBuckets}
               products={state.products}
               colors={colors}
             />
