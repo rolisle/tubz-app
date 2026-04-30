@@ -488,6 +488,7 @@ export default function LocationDetailScreen() {
                     updateLocation({
                       ...location,
                       restockPeriodWeeks: undefined,
+                      restockPeriodAnchorAt: undefined,
                     })
                   }
                 >
@@ -509,10 +510,19 @@ export default function LocationDetailScreen() {
                   <TouchableOpacity
                     key={w}
                     onPress={() =>
-                      updateLocation({ ...location, restockPeriodWeeks: w })
+                      updateLocation({
+                        ...location,
+                        restockPeriodWeeks: w,
+                        ...(w === 1
+                          ? {
+                              restockPeriodAnchorAt: new Date().toISOString(),
+                            }
+                          : { restockPeriodAnchorAt: undefined }),
+                      })
                     }
                     style={[
                       styles.periodPill,
+                      w === 1 && styles.periodPillReminder,
                       {
                         borderColor: active ? accent : colors.border,
                         overflow: "hidden",
@@ -525,22 +535,68 @@ export default function LocationDetailScreen() {
                         style={StyleSheet.absoluteFill}
                       />
                     )}
-                    <Text
-                      style={[
-                        styles.periodPillNum,
-                        { color: active ? "#fff" : colors.text },
-                      ]}
-                    >
-                      {w}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.periodPillUnit,
-                        { color: active ? "#ffffffbb" : colors.subtext },
-                      ]}
-                    >
-                      {w === 1 ? "wk" : "wks"}
-                    </Text>
+                    {w === 1 ? (
+                      active ? (
+                        <>
+                          <Text
+                            style={[
+                              styles.periodPillReminderLine,
+                              { color: active ? "#fff" : colors.text },
+                            ]}
+                          >
+                            1 week
+                          </Text>
+                          <Text
+                            style={[
+                              styles.periodPillReminderSub,
+                              {
+                                color: active ? "#ffffffbb" : colors.subtext,
+                              },
+                            ]}
+                          >
+                            due
+                          </Text>
+                        </>
+                      ) : (
+                        <>
+                          <Text
+                            style={[
+                              styles.periodPillReminderLine,
+                              { color: colors.text },
+                            ]}
+                          >
+                            Remind me
+                          </Text>
+                          <Text
+                            style={[
+                              styles.periodPillReminderSub,
+                              { color: colors.subtext },
+                            ]}
+                          >
+                            in 1 week
+                          </Text>
+                        </>
+                      )
+                    ) : (
+                      <>
+                        <Text
+                          style={[
+                            styles.periodPillNum,
+                            { color: active ? "#fff" : colors.text },
+                          ]}
+                        >
+                          {w}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.periodPillUnit,
+                            { color: active ? "#ffffffbb" : colors.subtext },
+                          ]}
+                        >
+                          wks
+                        </Text>
+                      </>
+                    )}
                   </TouchableOpacity>
                 );
               })}
@@ -864,6 +920,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 7,
     minWidth: 46,
+  },
+  periodPillReminder: {
+    minWidth: 102,
+    paddingHorizontal: 12,
+  },
+  periodPillReminderLine: {
+    fontSize: 11,
+    fontWeight: "700",
+    lineHeight: 13,
+    textAlign: "center",
+  },
+  periodPillReminderSub: {
+    fontSize: 10,
+    fontWeight: "600",
+    marginTop: 1,
+    lineHeight: 12,
+    textAlign: "center",
   },
   periodPillNum: { fontSize: 15, fontWeight: "700", lineHeight: 18 },
   periodPillUnit: { fontSize: 10, fontWeight: "500", letterSpacing: 0.2 },

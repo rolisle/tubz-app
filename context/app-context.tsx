@@ -110,6 +110,7 @@ function reducer(state: AppState, action: Action): AppState {
                 ...l,
                 lastRestockedAt: action.payload.timestamp,
                 restockHistory: [...(l.restockHistory ?? []), entry],
+                restockPeriodAnchorAt: undefined,
               }
             : l,
         ),

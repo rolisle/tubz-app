@@ -30,8 +30,23 @@ function todayLabel() {
 function restockDue(loc: {
   lastRestockedAt: string | null;
   restockPeriodWeeks?: number;
+  restockPeriodAnchorAt?: string;
+  createdAt: string;
 }) {
   if (!loc.restockPeriodWeeks) return null;
+
+  if (loc.restockPeriodWeeks === 1 && loc.restockPeriodAnchorAt) {
+    const due = new Date(loc.restockPeriodAnchorAt);
+    due.setDate(due.getDate() + 7);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    due.setHours(0, 0, 0, 0);
+    const daysUntil = Math.round(
+      (due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
+    );
+    return { dueDate: due, daysUntil };
+  }
+
   if (!loc.lastRestockedAt) return { dueDate: null, daysUntil: null };
   const due = new Date(loc.lastRestockedAt);
   due.setDate(due.getDate() + loc.restockPeriodWeeks * 7);
@@ -106,17 +121,15 @@ export default function DashboardScreen() {
   );
 
   const upcomingRestocks = useMemo(() => {
-    // Only show locations that have a restock period set
     const scheduled = state.locations.filter((l) => l.restockPeriodWeeks);
-    // Split into: has been restocked (sort by due date asc) and never restocked (append at end)
-    const withDue = scheduled
-      .filter((l) => l.lastRestockedAt)
-      .map((l) => ({ loc: l, info: restockDue(l)! }))
-      .sort((a, b) => a.info.daysUntil! - b.info.daysUntil!);
-    const neverRestocked = scheduled
-      .filter((l) => !l.lastRestockedAt)
-      .map((l) => ({ loc: l, info: { dueDate: null, daysUntil: null } }));
-    return [...withDue, ...neverRestocked];
+    const mapped = scheduled.map((l) => ({
+      loc: l,
+      info: restockDue(l)!,
+    }));
+    const withDue = mapped.filter((x) => x.info.daysUntil !== null);
+    const withoutDue = mapped.filter((x) => x.info.daysUntil === null);
+    withDue.sort((a, b) => a.info.daysUntil! - b.info.daysUntil!);
+    return [...withDue, ...withoutDue];
   }, [state.locations]);
 
   const recentRestocks = useMemo(

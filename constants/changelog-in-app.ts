@@ -31,6 +31,7 @@ export const CHANGELOG_IN_APP: ChangelogRelease[] = [
     changed: [
       "Location: removed the standalone Edit date control for “last restocked”; the date still updates when you complete a restock or edit history.",
       "Settings modals (app ⚙️ and location gear menu): slightly faster fade open/close.",
+      "Location → Restock every: the 1-week option reads “Remind me · in 1 week” and sets due one week from when you tap it; when selected it shows “1 week · due”. Tapping it again refreshes that one-week countdown. A normal restock clears that reminder anchor so the next cycle follows last restocked + period.",
     ],
   },
   {

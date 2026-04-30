@@ -103,7 +103,7 @@ export const ExpoPushLab = memo(function ExpoPushLab({
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
-    if (!visible || Platform.OS === "web") return;
+    if (!visible) return;
 
     setRegistering(true);
     setRegisterError(null);
@@ -152,22 +152,6 @@ export const ExpoPushLab = memo(function ExpoPushLab({
       setSending(false);
     }
   }, [expoPushToken, onAlert]);
-
-  if (Platform.OS === "web") {
-    return (
-      <View
-        style={[
-          styles.card,
-          { backgroundColor: colors.card, borderColor: colors.border },
-        ]}
-      >
-        <Text style={[styles.cardTitle, { color: colors.text }]}>Expo push</Text>
-        <Text style={[styles.monoSmall, { color: colors.subtext }]}>
-          Expo Push only runs on iOS/Android device builds, not in the browser.
-        </Text>
-      </View>
-    );
-  }
 
   return (
     <View
@@ -238,7 +222,11 @@ const styles = StyleSheet.create({
   hint: { fontSize: 12, lineHeight: 17 },
   rowCenter: { flexDirection: "row", alignItems: "center", gap: 10 },
   status: { fontSize: 13 },
-  monoSmall: { fontSize: 11, lineHeight: 15, fontFamily: Platform.select({ ios: "Menlo", android: "monospace", default: "monospace" }) },
+  monoSmall: {
+    fontSize: 11,
+    lineHeight: 15,
+    fontFamily: Platform.select({ ios: "Menlo", android: "monospace", default: "monospace" }),
+  },
   errorText: { fontSize: 13, lineHeight: 18 },
   primaryBtn: {
     borderWidth: 1,
