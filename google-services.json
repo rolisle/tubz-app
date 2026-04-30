@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1014825431491",
+    "project_id": "tubzapp",
+    "storage_bucket": "tubzapp.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1014825431491:android:153eb0a42906b6d387cd76",
+        "android_client_info": {
+          "package_name": "com.rolisle.tubzapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDxP9iHE9xTqFcHomHDgPUWhDKPwHxI0OU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

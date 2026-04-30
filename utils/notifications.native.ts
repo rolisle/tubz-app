@@ -1,4 +1,6 @@
 import { Asset } from "expo-asset";
+import Constants from "expo-constants";
+import * as IntentLauncher from "expo-intent-launcher";
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import { breadcrumb } from "./crash-log";
@@ -6,21 +8,37 @@ import type { Location } from "../types";
 
 export const RESTOCK_CHANNEL_ID = "restock-reminders";
 
+/** Android: FCM / Expo push often uses the `default` channel — ensure it exists with high importance. */
+export const DEFAULT_ANDROID_NOTIFICATION_CHANNEL_ID = "default";
+
 /**
- * Create (or update) the Android notification channel for restock reminders.
- * Safe to call multiple times — Android is idempotent for channels with the
- * same id. Must be called before any notification is scheduled on Android 8+,
- * otherwise notifications are silently dropped.
+ * Create (or update) Android notification channels used by local + remote notifications.
+ * Must run before scheduling; without channels, notifications are silently dropped on Android 8+.
  */
 export async function ensureNotificationChannel(): Promise<void> {
   if (Platform.OS !== "android") return;
-  await Notifications.setNotificationChannelAsync(RESTOCK_CHANNEL_ID, {
+
+  const restock = {
     name: "Restock Reminders",
-    importance: Notifications.AndroidImportance.HIGH,
+    importance: Notifications.AndroidImportance.MAX,
     vibrationPattern: [0, 250, 250, 250],
     lightColor: "#9cfc68",
     showBadge: false,
-  });
+  };
+
+  const general = {
+    name: "default",
+    importance: Notifications.AndroidImportance.MAX,
+    vibrationPattern: [0, 250, 250, 250],
+    lightColor: "#9cfc68",
+    showBadge: false,
+  };
+
+  await Notifications.setNotificationChannelAsync(RESTOCK_CHANNEL_ID, restock);
+  await Notifications.setNotificationChannelAsync(
+    DEFAULT_ANDROID_NOTIFICATION_CHANNEL_ID,
+    general,
+  );
 }
 
 // Preload the app icon so we can attach it to notifications.
@@ -52,21 +70,201 @@ Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowBanner: true,
     shouldShowList: true,
-    shouldPlaySound: false,
+    shouldPlaySound: true,
     shouldSetBadge: false,
   }),
 });
+
+function notificationAccessAllowed(
+  s: Notifications.NotificationPermissionsStatus,
+): boolean {
+  if (s.granted) return true;
+  if (
+    Platform.OS === "ios" &&
+    s.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL
+  ) {
+    return true;
+  }
+  return false;
+}
 
 /** Request permission – call once at startup. Returns true if granted. */
 export async function requestNotificationPermission(): Promise<boolean> {
   // Notifications are not supported on web
   if (Platform.OS === "web") return false;
 
-  const { status: existing } = await Notifications.getPermissionsAsync();
-  if (existing === "granted") return true;
+  const existing = await Notifications.getPermissionsAsync();
+  if (notificationAccessAllowed(existing)) return true;
 
-  const { status } = await Notifications.requestPermissionsAsync();
-  return status === "granted";
+  const result = await Notifications.requestPermissionsAsync({
+    ios: {
+      allowAlert: true,
+      allowBadge: true,
+      allowSound: true,
+    },
+    android: {},
+  });
+  return notificationAccessAllowed(result);
+}
+
+/**
+ * Android: open system UI to allow exact alarms for this package. There is no
+ * modal-style prompt — `SCHEDULE_EXACT_ALARM` is special access. As of Android
+ * 14 many builds require this (or USE_EXACT_ALARM in the manifest) or
+ * expo-notifications falls back to inexact alarms that often never fire on time.
+ */
+export async function openAndroidExactAlarmSettings(): Promise<void> {
+  if (Platform.OS !== "android") return;
+  const pkg = Constants.expoConfig?.android?.package;
+  if (!pkg) return;
+  try {
+    await IntentLauncher.startActivityAsync(
+      IntentLauncher.ActivityAction.REQUEST_SCHEDULE_EXACT_ALARM,
+      { data: `package:${pkg}` },
+    );
+  } catch (e) {
+    console.warn("[notifications] openAndroidExactAlarmSettings:", e);
+  }
+}
+
+/** Read-only snapshot for Settings → notification self-tests. */
+export type NotificationDiagnostics = {
+  permitted: boolean;
+  status: string;
+  scheduledTotal: number;
+  /** Count of `restock-*` jobs (real location reminders). */
+  restockScheduled: number;
+};
+
+export async function getNotificationDiagnostics(): Promise<NotificationDiagnostics | null> {
+  if (Platform.OS === "web") return null;
+
+  const p = await Notifications.getPermissionsAsync();
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  const restockScheduled = scheduled.filter((n) =>
+    n.identifier.startsWith("restock-"),
+  ).length;
+
+  return {
+    permitted: notificationAccessAllowed(p),
+    status: String(p.status),
+    scheduledTotal: scheduled.length,
+    restockScheduled,
+  };
+}
+
+const SETTINGS_IMMEDIATE_TEST_ID = "tubz-settings-immediate-test";
+const SETTINGS_DELAY_TEST_ID = "tubz-settings-delay-test";
+
+/**
+ * Present a local notification right now (`trigger: null`). Does not use the
+ * alarm scheduler — sanity check for permission + channel + handler.
+ */
+export async function presentImmediateLocalNotification(): Promise<{
+  ok: boolean;
+  error?: string;
+}> {
+  if (Platform.OS === "web") {
+    return { ok: false, error: "Not available on web." };
+  }
+
+  try {
+    if (!(await requestNotificationPermission())) {
+      return { ok: false, error: "Notification permission not granted." };
+    }
+    await ensureNotificationChannel();
+    const iconUri = await getIconUri();
+
+    await Notifications.cancelScheduledNotificationAsync(
+      SETTINGS_IMMEDIATE_TEST_ID,
+    ).catch(() => {});
+
+    await Notifications.scheduleNotificationAsync({
+      identifier: SETTINGS_IMMEDIATE_TEST_ID,
+      content: {
+        title: "Tubz · instant test",
+        body: "Immediate notification (no alarm clock). If you see this, alerts are working.",
+        data: { settingsTest: "immediate" },
+        ...(Platform.OS === "android"
+          ? { channelId: DEFAULT_ANDROID_NOTIFICATION_CHANNEL_ID }
+          : {}),
+        ...(Platform.OS === "ios" && iconUri
+          ? {
+              attachments: [
+                { identifier: "app-icon", url: iconUri, type: "public.png" },
+              ],
+            }
+          : {}),
+      },
+      trigger: null,
+    });
+    breadcrumb(
+      `presentImmediateLocalNotification: ok id=${SETTINGS_IMMEDIATE_TEST_ID}`,
+    );
+    return { ok: true };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { ok: false, error: msg };
+  }
+}
+
+/**
+ * Schedule a one-shot notification in a few seconds (uses the same alarm path
+ * as restock reminders — useful to confirm delayed delivery).
+ */
+export async function scheduleShortDelayNotificationTest(
+  seconds: number,
+): Promise<{ ok: boolean; error?: string }> {
+  if (Platform.OS === "web") {
+    return { ok: false, error: "Not available on web." };
+  }
+
+  const sec = Math.min(120, Math.max(1, Math.floor(seconds)));
+
+  try {
+    if (!(await requestNotificationPermission())) {
+      return { ok: false, error: "Notification permission not granted." };
+    }
+    await ensureNotificationChannel();
+    const iconUri = await getIconUri();
+
+    await Notifications.cancelScheduledNotificationAsync(SETTINGS_DELAY_TEST_ID).catch(
+      () => {},
+    );
+
+    await Notifications.scheduleNotificationAsync({
+      identifier: SETTINGS_DELAY_TEST_ID,
+      content: {
+        title: "Tubz · delayed test",
+        body: `Fires in about ${sec}s — uses the same scheduler as restock reminders.`,
+        data: { settingsTest: "delay", seconds: sec },
+        ...(Platform.OS === "android"
+          ? { channelId: DEFAULT_ANDROID_NOTIFICATION_CHANNEL_ID }
+          : {}),
+        ...(Platform.OS === "ios" && iconUri
+          ? {
+              attachments: [
+                { identifier: "app-icon", url: iconUri, type: "public.png" },
+              ],
+            }
+          : {}),
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+        seconds: sec,
+        repeats: false,
+      },
+    });
+    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+    const listed = scheduled.some((n) => n.identifier === SETTINGS_DELAY_TEST_ID);
+    breadcrumb(
+      `scheduleShortDelayNotificationTest: ${sec}s listed=${listed} totalScheduled=${scheduled.length}`,
+    );
+    return { ok: true };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { ok: false, error: msg };
+  }
 }
 
 /** Calculate the ISO date when a location's restock is due. */
@@ -93,16 +291,33 @@ export async function cancelLocationNotification(
 /**
  * Schedule (or reschedule) a notification for a single location.
  *
- * Fires 7 days before the restock due date. If that trigger is already in
- * the past but the due date is still in the future, fires immediately.
- * Skips locations with no restock period set.
+ * Fires 7 days before the restock due date. If that window is already past
+ * but the due date is still in the future (e.g. 1-week period), fires on the
+ * due date instead of a near-immediate time that the next reschedule could cancel.
  */
 export async function scheduleLocationNotification(
   location: Location,
 ): Promise<void> {
+  return scheduleLocationNotificationWithPermission(location, false);
+}
+
+async function scheduleLocationNotificationWithPermission(
+  location: Location,
+  hasPermission: boolean,
+): Promise<void> {
   if (Platform.OS === "web") return;
 
   try {
+    if (!hasPermission) {
+      const allowed = await requestNotificationPermission();
+      if (!allowed) {
+        breadcrumb(
+          `scheduleLocationNotification: permission denied, skip "${location.name}"`,
+        );
+        return;
+      }
+    }
+
     // Ensure the Android channel exists before every schedule attempt.
     // This is idempotent, so calling it here (rather than only at startup)
     // removes the race condition between app-context hydration and _layout.tsx
@@ -174,13 +389,67 @@ export async function scheduleLocationNotification(
   }
 }
 
+/** Dashboard test menu — identifiers must NOT use `restock-` so `rescheduleAllNotifications` never cancels them. */
+export async function scheduleTestRestockReminder(
+  identifier: string,
+  fireAt: Date,
+  body: string,
+): Promise<void> {
+  if (Platform.OS === "web") return;
+
+  try {
+    const allowed = await requestNotificationPermission();
+    if (!allowed) {
+      breadcrumb("scheduleTestRestockReminder: permission denied");
+      return;
+    }
+    await ensureNotificationChannel();
+    await Notifications.cancelScheduledNotificationAsync(identifier).catch(
+      () => {},
+    );
+
+    const iconUri = await getIconUri();
+    breadcrumb(
+      `scheduleTestRestockReminder: "${identifier}" at ${fireAt.toISOString()}`,
+    );
+    await Notifications.scheduleNotificationAsync({
+      identifier,
+      content: {
+        title: "📦 Restock Due Soon",
+        body,
+        data: { test: true },
+        ...(Platform.OS === "android" ? { channelId: RESTOCK_CHANNEL_ID } : {}),
+        ...(Platform.OS === "ios" && iconUri
+          ? {
+              attachments: [
+                { identifier: "app-icon", url: iconUri, type: "public.png" },
+              ],
+            }
+          : {}),
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date: fireAt,
+      },
+    });
+  } catch (e) {
+    console.warn("[notifications] scheduleTestRestockReminder failed:", e);
+  }
+}
+
 /** Cancel all restock-* notifications and reschedule from scratch. */
 export async function rescheduleAllNotifications(
   locations: Location[],
 ): Promise<void> {
   if (Platform.OS === "web") return;
 
-  // Cancel only restock-* identifiers so other notification types are unaffected
+  const allowed = await requestNotificationPermission();
+  if (!allowed) {
+    breadcrumb("rescheduleAllNotifications: permission not granted; skipping");
+    return;
+  }
+
+  // Only touch `restock-*` (real locations). Test / dev reminders use other prefixes.
   const scheduled = await Notifications.getAllScheduledNotificationsAsync();
   await Promise.all(
     scheduled
@@ -196,6 +465,6 @@ export async function rescheduleAllNotifications(
   await Promise.all(
     locations
       .filter((l) => l.restockPeriodWeeks)
-      .map((l) => scheduleLocationNotification(l)),
+      .map((l) => scheduleLocationNotificationWithPermission(l, true)),
   );
 }
