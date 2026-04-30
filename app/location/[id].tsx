@@ -20,7 +20,6 @@ import { MachinesSection } from "@/components/location/machines-section";
 import { OpeningHoursModal } from "@/components/location/opening-hours-modal";
 import { SettingsMenuModal } from "@/components/location/settings-menu-modal";
 import { RestockSessionModal } from "@/components/restock-session-modal";
-import { DatePickerModal } from "@/components/ui/date-picker-modal";
 import { GradView } from "@/components/ui/grad-view";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
@@ -98,10 +97,6 @@ export default function LocationDetailScreen() {
   const accent = useMemo(
     () => primaryColor(settings.accentColor),
     [settings.accentColor],
-  );
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [pickerDate, setPickerDate] = useState<Date>(
-    location?.lastRestockedAt ? new Date(location.lastRestockedAt) : new Date(),
   );
   const [showHistory, setShowHistory] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -326,7 +321,6 @@ export default function LocationDetailScreen() {
       }))
       .filter((me) => me.products.length > 0);
     restockLocation(location.id, machineEntries);
-    setPickerDate(new Date());
     setShowRestockSession(false);
   };
 
@@ -371,11 +365,6 @@ export default function LocationDetailScreen() {
     deleteRestockEntry(location.id, originalIndex);
     if (editingEntry?.index === originalIndex) setEditingEntry(null);
     setShowHistory(true);
-  };
-
-  const handleConfirmDate = (date: Date) => {
-    updateLocation({ ...location, lastRestockedAt: date.toISOString() });
-    setShowDatePicker(false);
   };
 
   const handleDeleteLocation = async () => {
@@ -477,24 +466,6 @@ export default function LocationDetailScreen() {
                 ✓ Restock Now
               </Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => {
-                setPickerDate(
-                  location.lastRestockedAt
-                    ? new Date(location.lastRestockedAt)
-                    : new Date(),
-                );
-                setShowDatePicker(true);
-              }}
-              style={[
-                styles.editDateBtn,
-                { borderColor: colors.border, backgroundColor: colors.card },
-              ]}
-            >
-              <Text style={[styles.editDateBtnText, { color: colors.subtext }]}>
-                Edit date
-              </Text>
-            </TouchableOpacity>
           </View>
 
           {/* Restock period */}
@@ -568,13 +539,6 @@ export default function LocationDetailScreen() {
               })}
             </ScrollView>
           </View>
-
-          <DatePickerModal
-            visible={showDatePicker}
-            value={pickerDate}
-            onConfirm={handleConfirmDate}
-            onCancel={() => setShowDatePicker(false)}
-          />
 
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
@@ -835,13 +799,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
   },
   restockDate: { fontSize: 14, fontWeight: "600" },
-  editDateBtn: {
-    borderRadius: 8,
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  editDateBtnText: { fontSize: 12, fontWeight: "500" },
   restockBtn: {
     borderRadius: 8,
     borderWidth: 1,

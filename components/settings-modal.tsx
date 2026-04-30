@@ -106,7 +106,13 @@ export function SettingsModal({ visible, onClose, colors }: SettingsModalProps) 
   ];
 
   return (
-    <SlideModal animation="fade" visible={visible} onRequestClose={onClose}>
+    <SlideModal
+      animation="fade"
+      visible={visible}
+      onRequestClose={onClose}
+      enterDuration={160}
+      exitDuration={120}
+    >
       <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
         <FsModalNavbar
           title="⚙️ Settings"

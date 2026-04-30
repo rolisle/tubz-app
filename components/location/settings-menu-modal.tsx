@@ -30,7 +30,13 @@ export const SettingsMenuModal = memo(function SettingsMenuModal({
   accent,
 }: SettingsMenuModalProps) {
   return (
-    <SlideModal animation="fade" visible={visible} onRequestClose={onClose}>
+    <SlideModal
+      animation="fade"
+      visible={visible}
+      onRequestClose={onClose}
+      enterDuration={160}
+      exitDuration={120}
+    >
       <SafeAreaView
         style={[styles.fsModalSafe, { backgroundColor: colors.background }]}
       >
