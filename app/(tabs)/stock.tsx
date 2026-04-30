@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  Image,
   SectionList,
   StyleSheet,
   Text,
@@ -10,12 +11,14 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { SimpleRow } from "@/components/simple-row";
-import { StockRow, StockPickerRow } from "@/components/stock-row";
+import { StockPickerRow, StockRow } from "@/components/stock-row";
 import { ProductPickerModal } from "@/components/ui/product-picker-modal";
+import { PRODUCT_IMAGES } from "@/constants/product-images";
 import { Colors } from "@/constants/theme";
 import { useApp } from "@/context/app-context";
 import { primaryColor, useSettings } from "@/context/settings-context";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import type { Product } from "@/types";
 import {
   EMPTY_STATE,
   LEVELS,
@@ -26,6 +29,200 @@ import {
   type StockLevel,
   type StockState,
 } from "@/types/stock";
+
+/* ─── Top Products section ───────────────────────────────────── */
+
+const TOP_N = 10;
+
+const MEDAL_GOLD = "#ca8a04";
+const MEDAL_SILVER = "#64748b";
+const MEDAL_BRONZE = "#b45309";
+
+function medalColor(index: number): string {
+  if (index === 0) return MEDAL_GOLD;
+  if (index === 1) return MEDAL_SILVER;
+  return MEDAL_BRONZE;
+}
+
+interface TopEntry {
+  productId: string;
+  total: number;
+  sessionCount: number;
+}
+
+function TopProducts({
+  entries,
+  products,
+  colors,
+}: {
+  entries: TopEntry[];
+  products: Product[];
+  colors: (typeof Colors)["light"];
+}) {
+  const productMap = useMemo(() => {
+    const m = new Map<string, Product>();
+    products.forEach((p) => m.set(p.id, p));
+    return m;
+  }, [products]);
+
+  if (entries.length === 0) {
+    return (
+      <View
+        style={[
+          topStyles.emptyCard,
+          { backgroundColor: colors.card, borderColor: colors.border },
+        ]}
+      >
+        <Text style={[topStyles.emptyText, { color: colors.subtext }]}>
+          No restock history yet. Complete a restock session to see top
+          products.
+        </Text>
+      </View>
+    );
+  }
+
+  const peak = entries[0].total;
+
+  return (
+    <View
+      style={[
+        topStyles.card,
+        { backgroundColor: colors.card, borderColor: colors.border },
+      ]}
+    >
+      {entries.map((entry, i) => {
+        const product = productMap.get(entry.productId);
+        const name = product?.name ?? "Unknown product";
+        const pct = peak > 0 ? entry.total / peak : 0;
+        const src = product?.localImageUri
+          ? { uri: product.localImageUri }
+          : product
+            ? PRODUCT_IMAGES[product.id]
+            : undefined;
+
+        const isPodium = i < 3;
+        const medal = isPodium ? medalColor(i) : null;
+        const rowTint = isPodium ? medal + "18" : "transparent";
+        const barFillColor = isPodium ? medal! : colors.subtext;
+        const totalColor = isPodium ? medal! : colors.subtext;
+        const nameColor = isPodium ? colors.text : colors.subtext;
+
+        return (
+          <View
+            key={entry.productId}
+            style={[
+              topStyles.row,
+              {
+                borderBottomColor: colors.border,
+                backgroundColor: rowTint,
+                borderLeftWidth: isPodium ? 3 : 0,
+                borderLeftColor: isPodium ? medal! : "transparent",
+              },
+              i === entries.length - 1 && { borderBottomWidth: 0 },
+            ]}
+          >
+            {/* Rank */}
+            <Text
+              style={[
+                topStyles.rank,
+                { color: isPodium ? medal! : colors.subtext },
+              ]}
+            >
+              {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `#${i + 1}`}
+            </Text>
+
+            {/* Thumb */}
+            <View style={topStyles.thumb}>
+              {src ? (
+                <Image
+                  source={src}
+                  style={topStyles.thumbImg}
+                  resizeMode="contain"
+                />
+              ) : (
+                <Text style={topStyles.thumbEmoji}>
+                  {product?.emoji ?? "📦"}
+                </Text>
+              )}
+            </View>
+
+            {/* Name + bar */}
+            <View style={topStyles.info}>
+              <Text
+                style={[topStyles.name, { color: nameColor }]}
+                numberOfLines={1}
+              >
+                {name}
+              </Text>
+              <View
+                style={[topStyles.barTrack, { backgroundColor: colors.border }]}
+              >
+                <View
+                  style={[
+                    topStyles.barFill,
+                    {
+                      width: `${pct * 100}%` as `${number}%`,
+                      backgroundColor: barFillColor,
+                      opacity: isPodium ? 1 : 0.65,
+                    },
+                  ]}
+                />
+              </View>
+              <Text style={[topStyles.sessions, { color: colors.subtext }]}>
+                {entry.sessionCount} session
+                {entry.sessionCount !== 1 ? "s" : ""}
+              </Text>
+            </View>
+
+            {/* Total */}
+            <Text style={[topStyles.total, { color: totalColor }]}>
+              {entry.total}
+            </Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+const topStyles = StyleSheet.create({
+  emptyCard: {
+    marginBottom: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 16,
+  },
+  emptyText: { fontSize: 13, textAlign: "center", lineHeight: 20 },
+  card: {
+    marginBottom: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  rank: { fontSize: 15, width: 28, textAlign: "center" },
+  thumb: {
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  thumbImg: { width: 36, height: 36 },
+  thumbEmoji: { fontSize: 24 },
+  info: { flex: 1, gap: 3 },
+  name: { fontSize: 13, fontWeight: "600" },
+  barTrack: { height: 3, borderRadius: 2, overflow: "hidden" },
+  barFill: { height: 3, borderRadius: 2 },
+  sessions: { fontSize: 10 },
+  total: { fontSize: 16, fontWeight: "800", minWidth: 32, textAlign: "right" },
+});
 
 /* ─── Main screen ────────────────────────────────────────────── */
 
@@ -76,23 +273,20 @@ export default function StockScreen() {
     if (loaded) AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(stock));
   }, [stock, loaded]);
 
-  const addItem = useCallback(
-    (category: StockCategory, productId: string) => {
-      setStock((prev) => ({
-        ...prev,
-        [category]: [
-          ...prev[category],
-          {
-            productId,
-            level: "full" as StockLevel,
-            fullCount: 1,
-            halfCount: 0,
-          },
-        ],
-      }));
-    },
-    [],
-  );
+  const addItem = useCallback((category: StockCategory, productId: string) => {
+    setStock((prev) => ({
+      ...prev,
+      [category]: [
+        ...prev[category],
+        {
+          productId,
+          level: "full" as StockLevel,
+          fullCount: 1,
+          halfCount: 0,
+        },
+      ],
+    }));
+  }, []);
 
   const changeFullCount = useCallback(
     (category: StockCategory, productId: string, delta: number) => {
@@ -144,8 +338,40 @@ export default function StockScreen() {
 
   const totalItems = Object.values(stock).reduce((s, arr) => s + arr.length, 0);
 
+  const topProducts = useMemo<TopEntry[]>(() => {
+    const totals = new Map<string, { total: number; sessionCount: number }>();
+    for (const loc of state.locations) {
+      for (const entry of loc.restockHistory ?? []) {
+        const seenInSession = new Set<string>();
+        for (const machine of entry.machines) {
+          for (const p of machine.products) {
+            if (p.qty <= 0) continue;
+            const cur = totals.get(p.productId) ?? {
+              total: 0,
+              sessionCount: 0,
+            };
+            cur.total += p.qty;
+            if (!seenInSession.has(p.productId)) {
+              cur.sessionCount += 1;
+              seenInSession.add(p.productId);
+            }
+            totals.set(p.productId, cur);
+          }
+        }
+      }
+    }
+    return Array.from(totals.entries())
+      .map(([productId, { total, sessionCount }]) => ({
+        productId,
+        total,
+        sessionCount,
+      }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, TOP_N);
+  }, [state.locations]);
+
   const productMap = useMemo(() => {
-    const map = new Map<string, (typeof state.products)[number]>();
+    const map = new Map<string, Product>();
     state.products.forEach((p) => map.set(p.id, p));
     return map;
   }, [state.products]);
@@ -234,9 +460,7 @@ export default function StockScreen() {
             { borderColor: accent, backgroundColor: colors.card },
           ]}
         >
-          <Text style={[styles.addBtnText, { color: accent }]}>
-            ↕ Sort
-          </Text>
+          <Text style={[styles.addBtnText, { color: accent }]}>↕ Sort</Text>
         </TouchableOpacity>
       </View>
 
@@ -339,6 +563,20 @@ export default function StockScreen() {
       {viewMode === "simple" ? (
         /* ── Overview ── */
         <>
+          {/* Top sellers — same horizontal inset + header as SectionList sections */}
+          <View style={styles.overviewTopBlock}>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                📊 Top Sellers
+              </Text>
+            </View>
+            <TopProducts
+              entries={topProducts}
+              products={state.products}
+              colors={colors}
+            />
+          </View>
+
           <View
             style={[
               styles.legend,
@@ -462,7 +700,10 @@ export default function StockScreen() {
                 key={product.id}
                 product={product}
                 added={added}
-                onPress={() => { addItem(picker, product.id); setPicker(null); }}
+                onPress={() => {
+                  addItem(picker, product.id);
+                  setPicker(null);
+                }}
                 colors={rowColors}
               />
             );
@@ -538,13 +779,16 @@ const styles = StyleSheet.create({
   legendDot: { width: 8, height: 8, borderRadius: 4 },
   legendLabel: { fontSize: 12, fontWeight: "500" },
   content: { paddingHorizontal: 20, paddingBottom: 60 },
+  /** Matches SectionList `content` horizontal padding so headers align with 🍬 Sweet / 🪀 Toy */
+  overviewTopBlock: { paddingHorizontal: 20 },
   // Section
   sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    paddingHorizontal: 20,
     paddingTop: 16,
-    paddingBottom: 8,
+    paddingBottom: 12,
   },
   sectionTitle: { fontSize: 18, fontWeight: "700" },
   addBtn: {
