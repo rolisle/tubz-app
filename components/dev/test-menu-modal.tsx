@@ -3,11 +3,15 @@ import { Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { CrashLogModal } from "@/components/dev/crash-log-modal";
+import { ExpoPushLab } from "@/components/dev/expo-push-lab";
 import { FsModalNavbar } from "@/components/ui/fs-modal-navbar";
 import { SlideModal } from "@/components/ui/slide-modal";
 import { Colors } from "@/constants/theme";
 import { type CrashEntry, clearLogs, getLogs } from "@/utils/crash-log";
-import { scheduleLocationNotification } from "@/utils/notifications";
+import {
+  openAndroidExactAlarmSettings,
+  scheduleTestRestockReminder,
+} from "@/utils/notifications";
 
 export interface TestMenuModalProps {
   visible: boolean;
@@ -31,26 +35,27 @@ export const TestMenuModal = memo(function TestMenuModal({
     if (visible) getLogs().then(setCrashLogs);
   }, [visible]);
 
+  const openExactAlarmSettings = useCallback(async () => {
+    if (Platform.OS !== "android") return;
+    await openAndroidExactAlarmSettings();
+    onClose();
+    onAlert(
+      "System screen opened",
+      "Enable Alarms & reminders (or similar) for Tubz app, then try the test notification again. Rebuild the app if you installed before this update.",
+    );
+  }, [onAlert, onClose]);
+
   const testNotificationNow = useCallback(async () => {
     if (Platform.OS === "web") {
       onAlert("Not supported", "Push notifications are not available on web.");
       return;
     }
-    const testDue = new Date(Date.now() + 10_000);
-    const testLastRestocked = new Date(
-      testDue.getTime() - 7 * 24 * 60 * 60 * 1000,
+    const fireAt = new Date(Date.now() + 10_000);
+    await scheduleTestRestockReminder(
+      "tubz-test-now",
+      fireAt,
+      "Test Location is due for a restock soon (test).",
     );
-    await scheduleLocationNotification({
-      id: "test-now",
-      name: "Test Location",
-      address: "1 Test Street",
-      city: "Testville",
-      postcode: "TE1 1ST",
-      createdAt: new Date().toISOString(),
-      lastRestockedAt: testLastRestocked.toISOString(),
-      restockPeriodWeeks: 1,
-      machines: [],
-    });
     onClose();
     onAlert(
       "Test notification scheduled",
@@ -72,18 +77,11 @@ export const TestMenuModal = memo(function TestMenuModal({
       59,
       0,
     );
-    const lastRestocked = new Date(dueToday.getTime() - 7 * 24 * 60 * 60 * 1000);
-    await scheduleLocationNotification({
-      id: "test-today",
-      name: "Test Location (Due Today)",
-      address: "",
-      city: "",
-      postcode: "",
-      createdAt: new Date().toISOString(),
-      lastRestockedAt: lastRestocked.toISOString(),
-      restockPeriodWeeks: 1,
-      machines: [],
-    });
+    await scheduleTestRestockReminder(
+      "tubz-test-today",
+      dueToday,
+      "Test Location (Due Today) — restock due (test).",
+    );
     onClose();
     onAlert(
       "Scheduled: due today",
@@ -112,6 +110,28 @@ export const TestMenuModal = memo(function TestMenuModal({
             <Text style={[styles.section, { color: colors.subtext }]}>
               NOTIFICATIONS
             </Text>
+            {Platform.OS === "android" && (
+              <TouchableOpacity
+                style={[
+                  styles.item,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
+                onPress={openExactAlarmSettings}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.icon}>⏱️</Text>
+                <View style={styles.text}>
+                  <Text style={[styles.label, { color: colors.text }]}>
+                    Allow exact alarms (Android)
+                  </Text>
+                  <Text style={[styles.sub, { color: colors.subtext }]}>
+                    Opens system settings. Restock reminders use exact times; on
+                    Android 12+ they may not fire until this is allowed (or after
+                    a rebuild with the latest app permissions).
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
               style={[
                 styles.item,
@@ -151,6 +171,21 @@ export const TestMenuModal = memo(function TestMenuModal({
                 </Text>
               </View>
             </TouchableOpacity>
+
+            <Text
+              style={[
+                styles.section,
+                { color: colors.subtext, marginTop: 16 },
+              ]}
+            >
+              EXPO PUSH (REMOTE)
+            </Text>
+            <ExpoPushLab
+              visible={visible}
+              colors={colors}
+              accent={accent}
+              onAlert={onAlert}
+            />
 
             <Text
               style={[

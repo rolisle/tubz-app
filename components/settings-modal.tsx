@@ -1,5 +1,6 @@
+import Constants from "expo-constants";
 import { LinearGradient } from "expo-linear-gradient";
-import { memo } from "react";
+import { memo, useCallback, useEffect, useState } from "react";
 import {
   Alert,
   Platform,
@@ -11,6 +12,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { ChangelogPanel } from "@/components/changelog-panel";
 import { FsModalNavbar } from "@/components/ui/fs-modal-navbar";
 import { GradView } from "@/components/ui/grad-view";
 import { SlideModal } from "@/components/ui/slide-modal";
@@ -28,6 +30,12 @@ import {
 } from "@/context/settings-context";
 import { confirm } from "@/utils/confirm";
 import { exportData, importData } from "@/utils/data-transfer";
+import {
+  getNotificationDiagnostics,
+  openAndroidExactAlarmSettings,
+  presentImmediateLocalNotification,
+  scheduleShortDelayNotificationTest,
+} from "@/utils/notifications";
 
 /* ─── SwatchRow ──────────────────────────────────────────────── */
 
@@ -94,6 +102,58 @@ export interface SettingsModalProps {
 export function SettingsModal({ visible, onClose, colors }: SettingsModalProps) {
   const { settings } = useSettings();
   const { state, replaceState } = useApp();
+  const [panel, setPanel] = useState<"main" | "changelog">("main");
+  const appVersion = Constants.expoConfig?.version ?? "—";
+
+  useEffect(() => {
+    if (!visible) setPanel("main");
+  }, [visible]);
+
+  const showNotificationDiagnostics = useCallback(async () => {
+    if (Platform.OS === "web") {
+      Alert.alert("Notifications", "Not available in the browser build.");
+      return;
+    }
+    const d = await getNotificationDiagnostics();
+    if (!d) return;
+    Alert.alert(
+      "Notification diagnostics",
+      [
+        `Alerts allowed: ${d.permitted ? "Yes" : "No"}`,
+        `System status: ${d.status}`,
+        `Scheduled jobs (all): ${d.scheduledTotal}`,
+        `Restock reminders (restock-*): ${d.restockScheduled}`,
+      ].join("\n"),
+    );
+  }, []);
+
+  const runImmediateNotificationTest = useCallback(async () => {
+    const r = await presentImmediateLocalNotification();
+    if (r.ok) {
+      Alert.alert(
+        "Instant test",
+        "You should see a banner or an entry in the notification list. This path does not wait on the alarm clock.",
+      );
+    } else {
+      Alert.alert("Instant test failed", r.error ?? "Unknown error");
+    }
+  }, []);
+
+  const runFiveSecondNotificationTest = useCallback(async () => {
+    const r = await scheduleShortDelayNotificationTest(5);
+    if (r.ok) {
+      Alert.alert(
+        "5-second test",
+        "Background or lock the device. A second test notification should appear in about five seconds.",
+      );
+    } else {
+      Alert.alert("5-second test failed", r.error ?? "Unknown error");
+    }
+  }, []);
+
+  const openExactAlarmSettingsFromSettings = useCallback(async () => {
+    await openAndroidExactAlarmSettings();
+  }, []);
 
   const sections: {
     label: string;
@@ -109,134 +169,228 @@ export function SettingsModal({ visible, onClose, colors }: SettingsModalProps) 
     <SlideModal
       animation="fade"
       visible={visible}
-      onRequestClose={onClose}
+      onRequestClose={() => {
+        if (panel === "changelog") setPanel("main");
+        else onClose();
+      }}
       enterDuration={160}
       exitDuration={120}
     >
       <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
-        <FsModalNavbar
-          title="⚙️ Settings"
-          colors={colors}
-          accent={primaryColor(settings.accentColor)}
-          right={{ label: "Done", tone: "muted", onPress: onClose }}
-        />
-
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-          <Text style={[styles.sectionLabel, { color: colors.text }]}>Theme</Text>
-
-          {sections.map((s) => (
-            <SwatchRow
-              key={s.key}
-              label={s.label}
-              presets={s.presets}
-              current={settings[s.key]}
-              settingKey={s.key}
+        {panel === "main" ? (
+          <>
+            <FsModalNavbar
+              title="⚙️ Settings"
+              subtitle={appVersion !== "—" ? `Version ${appVersion}` : undefined}
               colors={colors}
+              accent={primaryColor(settings.accentColor)}
+              right={{ label: "Done", tone: "muted", onPress: onClose }}
             />
-          ))}
 
-          {/* Live preview */}
-          <View style={[styles.previewRow, { borderTopColor: colors.border }]}>
-            <View
-              style={[
-                styles.previewChip,
-                {
-                  backgroundColor: primaryColor(settings.sweetColor) + "22",
-                  borderColor: primaryColor(settings.sweetColor),
-                },
-              ]}
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.scrollContent}
             >
-              <GradView
-                colors={settings.sweetColor}
-                style={[StyleSheet.absoluteFill, { borderRadius: 10, opacity: 0.12 }]}
-              />
-              <Text
-                style={[styles.previewChipText, { color: primaryColor(settings.sweetColor) }]}
+              <Text style={[styles.sectionLabel, { color: colors.text }]}>Theme</Text>
+
+              {sections.map((s) => (
+                <SwatchRow
+                  key={s.key}
+                  label={s.label}
+                  presets={s.presets}
+                  current={settings[s.key]}
+                  settingKey={s.key}
+                  colors={colors}
+                />
+              ))}
+
+              {/* Live preview */}
+              <View style={[styles.previewRow, { borderTopColor: colors.border }]}>
+                <View
+                  style={[
+                    styles.previewChip,
+                    {
+                      backgroundColor: primaryColor(settings.sweetColor) + "22",
+                      borderColor: primaryColor(settings.sweetColor),
+                    },
+                  ]}
+                >
+                  <GradView
+                    colors={settings.sweetColor}
+                    style={[StyleSheet.absoluteFill, { borderRadius: 10, opacity: 0.12 }]}
+                  />
+                  <Text
+                    style={[styles.previewChipText, { color: primaryColor(settings.sweetColor) }]}
+                  >
+                    🍬 Sweet Machine
+                  </Text>
+                </View>
+                <View
+                  style={[
+                    styles.previewChip,
+                    {
+                      backgroundColor: primaryColor(settings.toyColor) + "22",
+                      borderColor: primaryColor(settings.toyColor),
+                    },
+                  ]}
+                >
+                  <GradView
+                    colors={settings.toyColor}
+                    style={[StyleSheet.absoluteFill, { borderRadius: 10, opacity: 0.12 }]}
+                  />
+                  <Text
+                    style={[styles.previewChipText, { color: primaryColor(settings.toyColor) }]}
+                  >
+                    🪀 Toy Machine
+                  </Text>
+                </View>
+              </View>
+
+              <Text style={[styles.sectionLabel, { color: colors.text, marginTop: 20 }]}>
+                About
+              </Text>
+              <TouchableOpacity
+                style={[styles.menuRow, { borderColor: colors.border }]}
+                onPress={() => setPanel("changelog")}
+                activeOpacity={0.7}
               >
-                🍬 Sweet Machine
+                <Text style={[styles.menuRowIcon, { color: colors.subtext }]}>📋</Text>
+                <Text style={[styles.menuRowLabel, { color: colors.text }]}>
+                  What’s new
+                </Text>
+                <Text style={[styles.menuRowChevron, { color: colors.subtext }]}>›</Text>
+              </TouchableOpacity>
+
+              <Text style={[styles.sectionLabel, { color: colors.text, marginTop: 20 }]}>
+                Notifications
               </Text>
-            </View>
-            <View
-              style={[
-                styles.previewChip,
-                {
-                  backgroundColor: primaryColor(settings.toyColor) + "22",
-                  borderColor: primaryColor(settings.toyColor),
-                },
-              ]}
-            >
-              <GradView
-                colors={settings.toyColor}
-                style={[StyleSheet.absoluteFill, { borderRadius: 10, opacity: 0.12 }]}
-              />
-              <Text
-                style={[styles.previewChipText, { color: primaryColor(settings.toyColor) }]}
+              <Text style={[styles.notifSectionHint, { color: colors.subtext }]}>
+                Simple checks on this device (not related to data export).
+              </Text>
+              <TouchableOpacity
+                style={[styles.menuRow, { borderColor: colors.border }]}
+                onPress={showNotificationDiagnostics}
+                activeOpacity={0.7}
               >
-                🪀 Toy Machine
-              </Text>
-            </View>
-          </View>
+                <Text style={[styles.menuRowIcon, { color: colors.subtext }]}>📊</Text>
+                <Text style={[styles.menuRowLabel, { color: colors.text }]}>
+                  Show permission and schedule counts
+                </Text>
+                <Text style={[styles.menuRowChevron, { color: colors.subtext }]}>›</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.menuRow, { borderColor: colors.border }]}
+                onPress={runImmediateNotificationTest}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.menuRowIcon, { color: colors.subtext }]}>⚡</Text>
+                <Text style={[styles.menuRowLabel, { color: colors.text }]}>
+                  Fire instant test notification
+                </Text>
+                <Text style={[styles.menuRowChevron, { color: colors.subtext }]}>›</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.menuRow, { borderColor: colors.border }]}
+                onPress={runFiveSecondNotificationTest}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.menuRowIcon, { color: colors.subtext }]}>⏱️</Text>
+                <Text style={[styles.menuRowLabel, { color: colors.text }]}>
+                  Fire test in ~5 seconds
+                </Text>
+                <Text style={[styles.menuRowChevron, { color: colors.subtext }]}>›</Text>
+              </TouchableOpacity>
+              {Platform.OS === "android" && (
+                <TouchableOpacity
+                  style={[styles.menuRow, { borderColor: colors.border }]}
+                  onPress={openExactAlarmSettingsFromSettings}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.menuRowIcon, { color: colors.subtext }]}>🔔</Text>
+                  <Text style={[styles.menuRowLabel, { color: colors.text }]}>
+                    Android: alarms and reminders access
+                  </Text>
+                  <Text style={[styles.menuRowChevron, { color: colors.subtext }]}>›</Text>
+                </TouchableOpacity>
+              )}
 
-          {/* Data transfer */}
-          <Text style={[styles.sectionLabel, { color: colors.text, marginTop: 20 }]}>
-            Data
-          </Text>
-          <View style={[styles.dataRow, { borderTopColor: colors.border }]}>
-            <TouchableOpacity
-              style={[styles.dataBtn, { backgroundColor: colors.border }]}
-              onPress={async () => {
-                try {
-                  await exportData(state);
-                } catch (e: unknown) {
-                  const msg = e instanceof Error ? e.message : String(e);
-                  if (Platform.OS === "web") {
-                    window.alert("Export failed: " + msg);
-                  } else {
-                    Alert.alert("Export failed", msg);
-                  }
-                }
-              }}
-            >
-              <Text style={[styles.dataBtnText, { color: colors.text }]}>
-                ⬆ Export data
+              {/* Data transfer */}
+              <Text style={[styles.sectionLabel, { color: colors.text, marginTop: 20 }]}>
+                Data
               </Text>
-            </TouchableOpacity>
+              <View style={[styles.dataRow, { borderTopColor: colors.border }]}>
+                <TouchableOpacity
+                  style={[styles.dataBtn, { backgroundColor: colors.border }]}
+                  onPress={async () => {
+                    try {
+                      await exportData(state);
+                    } catch (e: unknown) {
+                      const msg = e instanceof Error ? e.message : String(e);
+                      if (Platform.OS === "web") {
+                        window.alert("Export failed: " + msg);
+                      } else {
+                        Alert.alert("Export failed", msg);
+                      }
+                    }
+                  }}
+                >
+                  <Text style={[styles.dataBtnText, { color: colors.text }]}>
+                    ⬆ Export data
+                  </Text>
+                </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[styles.dataBtn, { backgroundColor: colors.border }]}
-              onPress={async () => {
-                try {
-                  const payload = await importData();
-                  const confirmed = await confirm(
-                    "Replace all data?",
-                    `This will replace all locations and products with the imported data.\n\n` +
-                      `${payload.locations.length} locations · ${payload.products.length} products\n\nThis cannot be undone.`,
-                    { confirmLabel: "Import", destructive: true },
-                  );
-                  if (confirmed) {
-                    replaceState({
-                      locations: payload.locations,
-                      products: payload.products,
-                    });
-                    onClose();
-                  }
-                } catch (e: unknown) {
-                  const msg = e instanceof Error ? e.message : String(e);
-                  if (msg === "Cancelled") return;
-                  if (Platform.OS === "web") {
-                    window.alert("Import failed: " + msg);
-                  } else {
-                    Alert.alert("Import failed", msg);
-                  }
-                }
+                <TouchableOpacity
+                  style={[styles.dataBtn, { backgroundColor: colors.border }]}
+                  onPress={async () => {
+                    try {
+                      const payload = await importData();
+                      const confirmed = await confirm(
+                        "Replace all data?",
+                        `This will replace all locations and products with the imported data.\n\n` +
+                          `${payload.locations.length} locations · ${payload.products.length} products\n\nThis cannot be undone.`,
+                        { confirmLabel: "Import", destructive: true },
+                      );
+                      if (confirmed) {
+                        replaceState({
+                          locations: payload.locations,
+                          products: payload.products,
+                        });
+                        onClose();
+                      }
+                    } catch (e: unknown) {
+                      const msg = e instanceof Error ? e.message : String(e);
+                      if (msg === "Cancelled") return;
+                      if (Platform.OS === "web") {
+                        window.alert("Import failed: " + msg);
+                      } else {
+                        Alert.alert("Import failed", msg);
+                      }
+                    }
+                  }}
+                >
+                  <Text style={[styles.dataBtnText, { color: colors.text }]}>
+                    ⬇ Import data
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </>
+        ) : (
+          <>
+            <FsModalNavbar
+              title="What’s new"
+              colors={colors}
+              accent={primaryColor(settings.accentColor)}
+              left={{
+                label: "‹ Settings",
+                tone: "accent",
+                onPress: () => setPanel("main"),
               }}
-            >
-              <Text style={[styles.dataBtnText, { color: colors.text }]}>
-                ⬇ Import data
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
+              right={{ label: "Done", tone: "muted", onPress: onClose }}
+            />
+            <ChangelogPanel colors={colors} />
+          </>
+        )}
       </SafeAreaView>
     </SlideModal>
   );
@@ -296,4 +450,21 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   dataBtnText: { fontSize: 14, fontWeight: "600" },
+  menuRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginHorizontal: 20,
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  menuRowIcon: { fontSize: 18, marginRight: 12 },
+  menuRowLabel: { flex: 1, fontSize: 16, fontWeight: "500" },
+  menuRowChevron: { fontSize: 22, fontWeight: "300" },
+  notifSectionHint: {
+    paddingHorizontal: 20,
+    fontSize: 12,
+    lineHeight: 17,
+    marginBottom: 6,
+    marginTop: -2,
+  },
 });

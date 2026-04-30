@@ -7,7 +7,7 @@
     "icon": "./assets/images/icon.png",
     "scheme": "tubzapp",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "ios": {
       "supportsTablet": true
     },
@@ -19,10 +19,15 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
+      "googleServicesFile": "./google-services.json",
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.rolisle.tubzapp",
-      "permissions": ["android.permission.SCHEDULE_EXACT_ALARM"]
+      "permissions": [
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.USE_EXACT_ALARM"
+      ]
     },
     "web": {
       "output": "static",
@@ -63,7 +68,7 @@
         {
           "android": {
             "enableMinifyInReleaseBuilds": true,
-            "extraProguardRules": "-keepattributes SourceFile,LineNumberTable"
+            "extraProguardRules": "-keepattributes SourceFile,LineNumberTable\n-keep class com.google.firebase.** { *; }\n-dontwarn com.google.firebase.**\n-keep class com.google.android.gms.** { *; }\n-dontwarn com.google.android.gms.**\n-keep class expo.modules.** { *; }\n-dontwarn expo.modules.**"
           }
         }
       ]
