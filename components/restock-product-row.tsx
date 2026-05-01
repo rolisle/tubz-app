@@ -28,6 +28,8 @@ export interface RestockProductRowProps {
   accent?: string;
   /** When not done: double-tap product (image + name) snaps qty to max, or back to 0 if already at max */
   onDoubleTapSnap?: () => void;
+  /** Swap this line for another catalog product (updates machine slots) */
+  onChangeProduct?: () => void;
 }
 
 export function RestockProductRow({
@@ -43,6 +45,7 @@ export function RestockProductRow({
   onToggleDone,
   accent,
   onDoubleTapSnap,
+  onChangeProduct,
 }: RestockProductRowProps) {
   const lastTapRef = useRef(0);
 
@@ -136,6 +139,13 @@ export function RestockProductRow({
               />
             </View>
           )}
+          {!done && onChangeProduct ? (
+            <TouchableOpacity onPress={onChangeProduct} hitSlop={6}>
+              <Text style={[styles.changeProductLink, { color: accent ?? "#0ea5e9" }]}>
+                Change product
+              </Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
       </Pressable>
 
@@ -218,6 +228,12 @@ const styles = StyleSheet.create({
   },
   info: { flex: 1, gap: 4, minWidth: 0 },
   name: { fontSize: 14, fontWeight: "500" },
+  changeProductLink: {
+    fontSize: 12,
+    fontWeight: "600",
+    marginTop: 4,
+    textDecorationLine: "underline",
+  },
   barTrack: { height: 4, borderRadius: 2, overflow: "hidden" },
   barFill: { height: 4, borderRadius: 2 },
   counter: { flexDirection: "row", alignItems: "center", gap: 6 },

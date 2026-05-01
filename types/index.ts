@@ -38,9 +38,22 @@ export interface RestockMachineEntry {
   products: RestockProduct[];
 }
 
+/** Logged when a slot’s product is changed during a restock session (before Done). */
+export interface RestockProductReplacement {
+  machineId: string;
+  /** Product removed from one slot (missing/restock qty below was what you had entered for it). */
+  replacedProductId: string;
+  /** Product now in that slot. */
+  replacedWithProductId: string;
+  /** Missing/restock quantity recorded for replacedProductId at the moment of the swap. */
+  missingQtyRecorded: number;
+}
+
 export interface RestockEntry {
   timestamp: string;
   machines: RestockMachineEntry[];
+  /** Planogram swaps during this session, with missing-qty snapshot for the replaced product. */
+  productReplacements?: RestockProductReplacement[];
 }
 
 export interface Location {

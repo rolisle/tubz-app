@@ -89,10 +89,49 @@ export function HistoryEntryEditorModal({
             <Text style={[styles.chevron, { color: colors.subtext, fontSize: 22 }]}>›</Text>
           </TouchableOpacity>
 
+          {editingEntry?.entry.productReplacements?.length ? (
+            <View
+              style={[
+                styles.replaceSection,
+                {
+                  borderColor: colors.border,
+                  backgroundColor: colors.card,
+                },
+              ]}
+            >
+              <Text style={[styles.replaceSectionTitle, { color: colors.text }]}>
+                Product swaps (this session)
+              </Text>
+              {editingEntry.entry.productReplacements.map((r, ri) => {
+                const from = products.find((p) => p.id === r.replacedProductId);
+                const to = products.find((p) => p.id === r.replacedWithProductId);
+                return (
+                  <Text
+                    key={`${r.machineId}-${ri}-${r.replacedProductId}`}
+                    style={[styles.replaceLine, { color: colors.subtext }]}
+                  >
+                    {from?.name ?? r.replacedProductId}: missing ×
+                    {r.missingQtyRecorded} — replaced with{" "}
+                    {to?.name ?? r.replacedWithProductId}
+                  </Text>
+                );
+              })}
+            </View>
+          ) : null}
+
           {/* Machine entries */}
-          {editingEntry && editingEntry.entry.machines.length === 0 && (
+          {editingEntry &&
+            editingEntry.entry.machines.length === 0 &&
+            !editingEntry.entry.productReplacements?.length && (
             <Text style={[styles.emptyNote, { color: colors.subtext, textAlign: "left", marginTop: 16 }]}>
               No product data recorded for this session.
+            </Text>
+          )}
+          {editingEntry &&
+            editingEntry.entry.machines.length === 0 &&
+            (editingEntry.entry.productReplacements?.length ?? 0) > 0 && (
+            <Text style={[styles.emptyNote, { color: colors.subtext, textAlign: "left", marginTop: 8 }]}>
+              No quantities logged — only planogram swaps above.
             </Text>
           )}
           {editingEntry?.entry.machines.map((me) => {
@@ -176,6 +215,15 @@ const styles = StyleSheet.create({
   confirmBtn: { borderRadius: 10, paddingHorizontal: 16, paddingVertical: 8 },
   confirmBtnText: { fontSize: 14, fontWeight: "700", color: "#000" },
   content: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 60 },
+  replaceSection: {
+    marginTop: 12,
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 14,
+    gap: 8,
+  },
+  replaceSectionTitle: { fontSize: 12, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5 },
+  replaceLine: { fontSize: 13, lineHeight: 18, fontStyle: "italic" },
   emptyNote: { fontSize: 14, lineHeight: 20, maxWidth: 280 },
   machineCard: {
     borderRadius: 14,

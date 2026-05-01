@@ -1,14 +1,17 @@
+import { useEffect, useState } from "react";
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { RestockProductRow } from "@/components/restock-product-row";
 import { FsModalNavbar } from "@/components/ui/fs-modal-navbar";
 import { GradView } from "@/components/ui/grad-view";
+import { ProductPickerModal } from "@/components/ui/product-picker-modal";
+import { ProductThumb } from "@/components/ui/product-thumb";
 import { SlideModal } from "@/components/ui/slide-modal";
 import { MACHINE_LABELS } from "@/constants/machine-labels";
 import { Colors } from "@/constants/theme";
 import type { AppColor } from "@/context/settings-context";
-import type { Machine, MachineType, Product } from "@/types";
+import type { Machine, MachineType, Product, ProductCategory } from "@/types";
 
 export interface RestockSessionModalProps {
   visible: boolean;
@@ -24,6 +27,12 @@ export interface RestockSessionModalProps {
   onChangeQty: (machineId: string, productId: string, delta: number) => void;
   onToggleDone: (machineId: string, productId: string) => void;
   onSnapQty: (machineId: string, productId: string) => void;
+  /** Replace one slot (first matching position for oldProductId) with newProductId; updates layout + stock counts. */
+  onReplaceProduct: (
+    machineId: string,
+    oldProductId: string,
+    newProductId: string,
+  ) => void;
   accent: string;
   colors: (typeof Colors)["light"];
 }
@@ -42,9 +51,18 @@ export function RestockSessionModal({
   onChangeQty,
   onToggleDone,
   onSnapQty,
+  onReplaceProduct,
   accent,
   colors,
 }: RestockSessionModalProps) {
+  const [replaceFor, setReplaceFor] = useState<
+    { machineId: string; oldProductId: string; category: ProductCategory } | null
+  >(null);
+
+  useEffect(() => {
+    if (!visible) setReplaceFor(null);
+  }, [visible]);
+
   return (
     <SlideModal visible={visible} onRequestClose={onClose} animation="fade">
       <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
@@ -78,7 +96,14 @@ export function RestockSessionModal({
               <Text style={[styles.sessionTip, { color: colors.subtext }]}>
                 Double-tap the product (image and name) to jump to full quantity or
                 back to zero. Use the circle to mark a line complete — it disables
-                editing until you clear it.
+                editing until you clear it.{" "}
+                <Text style={{ fontWeight: "600", color: colors.text }}>
+                  Change product
+                </Text>{" "}
+                swaps one slot (the first position for that product on the
+                machine) for another catalogue item — other slots stay as they
+                are. Layout changes apply when you tap Done; Cancel keeps the
+                original products.
               </Text>
             {machines.map((machine) => {
               // Count how many slots each product occupies — this is the max restockable for that product
@@ -155,6 +180,13 @@ export function RestockSessionModal({
                             onDoubleTapSnap={() => onSnapQty(machine.id, pid)}
                             onDecrement={() => onChangeQty(machine.id, pid, -1)}
                             onIncrement={() => onChangeQty(machine.id, pid, +1)}
+                            onChangeProduct={() =>
+                              setReplaceFor({
+                                machineId: machine.id,
+                                oldProductId: pid,
+                                category: machine.type as ProductCategory,
+                              })
+                            }
                           />
                         );
                       })
@@ -166,6 +198,44 @@ export function RestockSessionModal({
             </>
           )}
         </ScrollView>
+
+        {replaceFor ? (
+          <ProductPickerModal
+            category={replaceFor.category}
+            products={products}
+            title="Change product"
+            emptyMessage="No products match this machine type."
+            onClose={() => setReplaceFor(null)}
+            renderRow={(product, _rowAccent, rowColors) => (
+              <TouchableOpacity
+                style={[
+                  styles.pickerRow,
+                  { borderBottomColor: rowColors.border },
+                ]}
+                onPress={() => {
+                  if (product.id !== replaceFor.oldProductId) {
+                    onReplaceProduct(
+                      replaceFor.machineId,
+                      replaceFor.oldProductId,
+                      product.id,
+                    );
+                  }
+                  setReplaceFor(null);
+                }}
+              >
+                <ProductThumb product={product} size={36} />
+                <Text style={[styles.pickerRowName, { color: rowColors.text }]}>
+                  {product.name}
+                </Text>
+                {product.id === replaceFor.oldProductId ? (
+                  <Text style={[styles.pickerCurrent, { color: rowColors.subtext }]}>
+                    Current
+                  </Text>
+                ) : null}
+              </TouchableOpacity>
+            )}
+          />
+        ) : null}
       </SafeAreaView>
     </SlideModal>
   );
@@ -206,4 +276,14 @@ const styles = StyleSheet.create({
   totalBadgeText: { fontSize: 11, fontWeight: "700" },
   machineBody: { paddingHorizontal: 14, paddingBottom: 6 },
   emptyMachine: { fontSize: 13, paddingVertical: 10 },
+  pickerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  pickerRowName: { flex: 1, fontSize: 14, fontWeight: "500" },
+  pickerCurrent: { fontSize: 11, fontWeight: "600" },
 });
