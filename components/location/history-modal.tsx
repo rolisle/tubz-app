@@ -61,6 +61,8 @@ export const HistoryModal = memo(function HistoryModal({
             const hasProducts = entry.machines?.some(
               (m) => m.products.length > 0,
             );
+            const hasReplacements =
+              (entry.productReplacements?.length ?? 0) > 0;
             return (
               <TouchableOpacity
                 activeOpacity={0.75}
@@ -114,6 +116,28 @@ export const HistoryModal = memo(function HistoryModal({
                           </View>
                         ),
                     )}
+                  {hasReplacements &&
+                    (entry.productReplacements ?? []).map((r, ri) => {
+                      const from = products.find(
+                        (pr) => pr.id === r.replacedProductId,
+                      );
+                      const to = products.find(
+                        (pr) => pr.id === r.replacedWithProductId,
+                      );
+                      return (
+                        <Text
+                          key={`rep-${ri}-${r.replacedProductId}`}
+                          style={[
+                            styles.historyReplaceLine,
+                            { color: colors.subtext },
+                          ]}
+                        >
+                          ↳ {from?.name ?? r.replacedProductId}: missing ×
+                          {r.missingQtyRecorded} — replaced with{" "}
+                          {to?.name ?? r.replacedWithProductId}
+                        </Text>
+                      );
+                    })}
                 </View>
                 <Text
                   style={[
@@ -152,6 +176,13 @@ const styles = StyleSheet.create({
   historyDate: { fontSize: 15 },
   historyMachineLabel: { fontSize: 12, fontWeight: "600", marginTop: 2 },
   historyProductLine: { fontSize: 13, paddingLeft: 4 },
+  historyReplaceLine: {
+    fontSize: 12,
+    paddingLeft: 4,
+    marginTop: 4,
+    lineHeight: 17,
+    fontStyle: "italic",
+  },
   historyEmpty: { textAlign: "center", paddingTop: 32, fontSize: 14 },
   historyEditChevron: { fontSize: 20, fontWeight: "300" },
 });

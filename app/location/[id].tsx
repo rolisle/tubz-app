@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -31,6 +31,7 @@ import type {
   MachineType,
   RestockEntry,
   RestockMachineEntry,
+  RestockProductReplacement,
   WeekDay,
 } from "@/types";
 import { confirm, confirmDelete } from "@/utils/confirm";
@@ -50,6 +51,14 @@ function formatDate(iso: string | null): string {
     month: "short",
     year: "numeric",
   });
+}
+
+function cloneMachinesForRestockSession(machines: Machine[]): Machine[] {
+  return machines.map((m) => ({
+    ...m,
+    slots: [...m.slots],
+    stockCounts: { ...m.stockCounts },
+  }));
 }
 
 export default function LocationDetailScreen() {
@@ -103,10 +112,21 @@ export default function LocationDetailScreen() {
   const [showMenu, setShowMenu] = useState(false);
   const [showOpeningHours, setShowOpeningHours] = useState(false);
   const [showRestockSession, setShowRestockSession] = useState(false);
+  /** Draft machines while restock modal is open — cancel discards; Done persists to location. */
+  const [restockSessionMachines, setRestockSessionMachines] = useState<
+    Machine[] | null
+  >(null);
+  const [restockSessionReplacements, setRestockSessionReplacements] = useState<
+    RestockProductReplacement[]
+  >([]);
   // restockQtys: machineId → productId → quantity being restocked
   const [restockQtys, setRestockQtys] = useState<
     Record<string, Record<string, number>>
   >({});
+  const restockQtysRef = useRef(restockQtys);
+  useEffect(() => {
+    restockQtysRef.current = restockQtys;
+  }, [restockQtys]);
   const [restockDone, setRestockDone] = useState<
     Record<string, Record<string, boolean>>
   >({});
@@ -263,6 +283,85 @@ export default function LocationDetailScreen() {
     [location?.openingHours],
   );
 
+  const replaceProductInRestockSession = useCallback(
+    (machineId: string, oldProductId: string, newProductId: string) => {
+      if (oldProductId === newProductId) return;
+      const missingAtReplace =
+        restockQtysRef.current[machineId]?.[oldProductId] ?? 0;
+      setRestockSessionReplacements((prev) => [
+        ...prev,
+        {
+          machineId,
+          replacedProductId: oldProductId,
+          replacedWithProductId: newProductId,
+          missingQtyRecorded: missingAtReplace,
+        },
+      ]);
+      setRestockSessionMachines((session) => {
+        if (!session) return session;
+        const machine = session.find((m) => m.id === machineId);
+        if (!machine) return session;
+        const slotIndex = machine.slots.findIndex((s) => s === oldProductId);
+        if (slotIndex < 0) return session;
+
+        const newSlots = [...machine.slots];
+        newSlots[slotIndex] = newProductId;
+        const newStockCounts = { ...machine.stockCounts };
+        if (!newSlots.some((s) => s === oldProductId)) {
+          delete newStockCounts[oldProductId];
+        }
+        const updatedMachine = {
+          ...machine,
+          slots: newSlots,
+          stockCounts: newStockCounts,
+        };
+        const nextSession = session.map((m) =>
+          m.id === machineId ? updatedMachine : m,
+        );
+
+        const capacityPerSlot = machine.type === "toy" ? 12 : 9;
+        const oldSlotsAfter = newSlots.filter((s) => s === oldProductId).length;
+        const newSlotsAfter = newSlots.filter((s) => s === newProductId).length;
+        const maxOldAfter = oldSlotsAfter * capacityPerSlot;
+        const maxNewAfter = newSlotsAfter * capacityPerSlot;
+
+        queueMicrotask(() => {
+          setRestockQtys((prev) => {
+            const mq = { ...(prev[machineId] ?? {}) };
+            const oldQ = mq[oldProductId] ?? 0;
+            if (oldSlotsAfter === 0) {
+              delete mq[oldProductId];
+            } else {
+              mq[oldProductId] = Math.min(maxOldAfter, oldQ);
+            }
+            // New SKU fills the swapped slot(s): treat as full refill up to current max.
+            mq[newProductId] = maxNewAfter;
+            return { ...prev, [machineId]: mq };
+          });
+          setRestockDone((prev) => {
+            const md = { ...(prev[machineId] ?? {}) };
+            if (oldSlotsAfter === 0) {
+              delete md[oldProductId];
+            } else {
+              md[oldProductId] = false;
+            }
+            md[newProductId] = false;
+            return { ...prev, [machineId]: md };
+          });
+        });
+
+        return nextSession;
+      });
+    },
+    [],
+  );
+
+  const closeRestockSession = useCallback(() => {
+    setShowRestockSession(false);
+    setRestockSessionMachines(null);
+    setRestockSessionReplacements([]);
+  }, []);
+
   const historyListData = useMemo(
     () =>
       [...(location?.restockHistory ?? [])]
@@ -312,13 +411,16 @@ export default function LocationDetailScreen() {
         done[m.id][pid] = false;
       });
     });
+    setRestockSessionMachines(cloneMachinesForRestockSession(location.machines));
+    setRestockSessionReplacements([]);
     setRestockQtys(qtys);
     setRestockDone(done);
     setShowRestockSession(true);
   };
 
   const completeRestockSession = () => {
-    const machineEntries: RestockMachineEntry[] = location.machines
+    if (!restockSessionMachines) return;
+    const machineEntries: RestockMachineEntry[] = restockSessionMachines
       .map((m) => ({
         machineId: m.id,
         machineType: m.type,
@@ -327,7 +429,16 @@ export default function LocationDetailScreen() {
           .map(([productId, qty]) => ({ productId, qty })),
       }))
       .filter((me) => me.products.length > 0);
-    restockLocation(location.id, machineEntries);
+    const replacementLog =
+      restockSessionReplacements.length > 0
+        ? restockSessionReplacements
+        : undefined;
+    updateLocation({ ...location, machines: restockSessionMachines });
+    if (machineEntries.length > 0 || replacementLog?.length) {
+      restockLocation(location.id, machineEntries, replacementLog);
+    }
+    setRestockSessionMachines(null);
+    setRestockSessionReplacements([]);
     setShowRestockSession(false);
   };
 
@@ -360,6 +471,9 @@ export default function LocationDetailScreen() {
             .filter((p) => p.qty > 0),
         }))
         .filter((me) => me.products.length > 0),
+      ...(editingEntry.entry.productReplacements?.length
+        ? { productReplacements: editingEntry.entry.productReplacements }
+        : {}),
     };
     editRestockEntry(location.id, editingEntry.index, updated);
     setEditingEntry(null);
@@ -777,10 +891,10 @@ export default function LocationDetailScreen() {
 
         <RestockSessionModal
           visible={showRestockSession}
-          onClose={() => setShowRestockSession(false)}
+          onClose={closeRestockSession}
           onComplete={completeRestockSession}
           locationName={location.name}
-          machines={location.machines}
+          machines={restockSessionMachines ?? location.machines}
           products={state.products}
           machineColors={MACHINE_COLORS}
           machineColorSettings={{
@@ -791,7 +905,9 @@ export default function LocationDetailScreen() {
           restockDone={restockDone}
           onChangeQty={(machineId, productId, delta) => {
             setRestockQtys((prev) => {
-              const machine = location.machines.find((m) => m.id === machineId);
+              const machines =
+                restockSessionMachines ?? location.machines;
+              const machine = machines.find((m) => m.id === machineId);
               const slotCount = machine?.slots.filter((s) => s === productId).length ?? 1;
               const capacityPerSlot = machine?.type === "toy" ? 12 : 9;
               const max = slotCount * capacityPerSlot;
@@ -816,7 +932,9 @@ export default function LocationDetailScreen() {
           }}
           onSnapQty={(machineId, productId) => {
             setRestockQtys((prev) => {
-              const machine = location.machines.find((m) => m.id === machineId);
+              const machines =
+                restockSessionMachines ?? location.machines;
+              const machine = machines.find((m) => m.id === machineId);
               const slotCount = machine?.slots.filter((s) => s === productId).length ?? 1;
               const capacityPerSlot = machine?.type === "toy" ? 12 : 9;
               const max = slotCount * capacityPerSlot;
@@ -831,6 +949,7 @@ export default function LocationDetailScreen() {
               };
             });
           }}
+          onReplaceProduct={replaceProductInRestockSession}
           accent={accent}
           colors={colors}
         />

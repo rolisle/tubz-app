@@ -47,6 +47,51 @@ function validateLocation(l: unknown, i: number): Location {
       `locations[${i}].restockPeriodAnchorAt must be a string when present.`,
     );
   }
+  if (l.restockHistory !== undefined) {
+    if (!Array.isArray(l.restockHistory)) {
+      throw new Error(`locations[${i}].restockHistory must be an array when present.`);
+    }
+    l.restockHistory.forEach((entry, j) => {
+      if (!isObject(entry)) {
+        throw new Error(`locations[${i}].restockHistory[${j}] must be an object.`);
+      }
+      const rep = entry.productReplacements;
+      if (rep !== undefined) {
+        if (!Array.isArray(rep)) {
+          throw new Error(
+            `locations[${i}].restockHistory[${j}].productReplacements must be an array.`,
+          );
+        }
+        rep.forEach((r, k) => {
+          if (!isObject(r)) {
+            throw new Error(
+              `locations[${i}].restockHistory[${j}].productReplacements[${k}] invalid.`,
+            );
+          }
+          if (typeof r.machineId !== "string" || !r.machineId) {
+            throw new Error(
+              `locations[${i}].restockHistory[${j}].productReplacements[${k}].machineId invalid.`,
+            );
+          }
+          if (typeof r.replacedProductId !== "string" || !r.replacedProductId) {
+            throw new Error(
+              `locations[${i}].restockHistory[${j}].productReplacements[${k}].replacedProductId invalid.`,
+            );
+          }
+          if (typeof r.replacedWithProductId !== "string" || !r.replacedWithProductId) {
+            throw new Error(
+              `locations[${i}].restockHistory[${j}].productReplacements[${k}].replacedWithProductId invalid.`,
+            );
+          }
+          if (typeof r.missingQtyRecorded !== "number" || !Number.isFinite(r.missingQtyRecorded)) {
+            throw new Error(
+              `locations[${i}].restockHistory[${j}].productReplacements[${k}].missingQtyRecorded invalid.`,
+            );
+          }
+        });
+      }
+    });
+  }
   return l as unknown as Location;
 }
 
