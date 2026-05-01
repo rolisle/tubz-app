@@ -10,6 +10,8 @@ import { Colors } from "@/constants/theme";
 import { type CrashEntry, clearLogs, getLogs } from "@/utils/crash-log";
 import {
   openAndroidExactAlarmSettings,
+  presentImmediateLocalNotification,
+  scheduleShortDelayNotificationTest,
   scheduleTestRestockReminder,
 } from "@/utils/notifications";
 
@@ -44,6 +46,38 @@ export const TestMenuModal = memo(function TestMenuModal({
       "Enable Alarms & reminders (or similar) for Tubz app, then try the test notification again. Rebuild the app if you installed before this update.",
     );
   }, [onAlert, onClose]);
+
+  const runImmediateNotificationTest = useCallback(async () => {
+    if (Platform.OS === "web") {
+      onAlert("Not supported", "Local notification tests are not available on web.");
+      return;
+    }
+    const r = await presentImmediateLocalNotification();
+    if (r.ok) {
+      onAlert(
+        "Instant test",
+        "You should see a banner or an entry in the notification list. This path does not wait on the alarm clock.",
+      );
+    } else {
+      onAlert("Instant test failed", r.error ?? "Unknown error");
+    }
+  }, [onAlert]);
+
+  const runFiveSecondNotificationTest = useCallback(async () => {
+    if (Platform.OS === "web") {
+      onAlert("Not supported", "Local notification tests are not available on web.");
+      return;
+    }
+    const r = await scheduleShortDelayNotificationTest(5);
+    if (r.ok) {
+      onAlert(
+        "5-second test",
+        "Background or lock the device. A second test notification should appear in about five seconds.",
+      );
+    } else {
+      onAlert("5-second test failed", r.error ?? "Unknown error");
+    }
+  }, [onAlert]);
 
   const testNotificationNow = useCallback(async () => {
     if (Platform.OS === "web") {
@@ -132,6 +166,44 @@ export const TestMenuModal = memo(function TestMenuModal({
                 </View>
               </TouchableOpacity>
             )}
+            <TouchableOpacity
+              style={[
+                styles.item,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+              onPress={runImmediateNotificationTest}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.icon}>⚡</Text>
+              <View style={styles.text}>
+                <Text style={[styles.label, { color: colors.text }]}>
+                  Fire instant test notification
+                </Text>
+                <Text style={[styles.sub, { color: colors.subtext }]}>
+                  Shows a banner or notification list entry immediately. Does not
+                  use the alarm clock scheduling path.
+                </Text>
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.item,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+              onPress={runFiveSecondNotificationTest}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.icon}>⏲️</Text>
+              <View style={styles.text}>
+                <Text style={[styles.label, { color: colors.text }]}>
+                  Fire test in ~5 seconds
+                </Text>
+                <Text style={[styles.sub, { color: colors.subtext }]}>
+                  Background or lock the device; a test notification should appear
+                  in about five seconds.
+                </Text>
+              </View>
+            </TouchableOpacity>
             <TouchableOpacity
               style={[
                 styles.item,
