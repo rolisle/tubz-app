@@ -1,7 +1,7 @@
 # Tubz — Privacy Policy
 
 **Effective date:** 15 April 2026
-**Last updated:** 1 May 2026
+**Last updated:** 2 May 2026
 
 This Privacy Policy describes how the Tubz mobile application ("Tubz", "the
 app", "we", "our", or "us") handles information when you use it. By using the
@@ -55,7 +55,10 @@ AsyncStorage / app-private storage):
 - **Products** — product names, emojis, categories, and optional images
   you choose from your photo library.
 - **Restock history** — dates, product lists, and quantities for each
-  restock session.
+  restock session; if you **change product** in a machine slot during a
+  session, the app may also store which SKU was replaced, which SKU took
+  its place, and how many units were missing at the time of the swap —
+  still only on your device (and in exports you create).
 - **Stock levels** — current fullness state per product.
 - **App settings** — theme, accent colour, and notification preferences.
 

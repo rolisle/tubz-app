@@ -12,6 +12,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [1.0.8] - 2026-05-02
+
+**Android `versionCode`:** 8
+
+### Fixed
+
+- **Stock → Overview → Top selling:** when a **location restock** **changes product** in a slot (old SKU → new SKU), rankings now count only the **missing quantity recorded at swap** toward the **old** product. The **new** product’s restock line on that session (often a full tube after auto-fill) no longer adds to top sellers, because that reflects **replacing** the slot, not incremental sales volume.
+
+---
+
 ## [1.0.7] - 2026-05-01
 
 **Android `versionCode`:** 7
