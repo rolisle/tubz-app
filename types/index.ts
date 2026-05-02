@@ -30,6 +30,20 @@ export interface Machine {
 export interface RestockProduct {
   productId: string;
   qty: number;
+  /**
+   * When set, this line is stock for a product that took a slot from the named
+   * SKU (shown separately from primary lines; excluded from top-selling for this productId).
+   */
+  replacesProductId?: string;
+}
+
+/** In-session replacement row (not persisted; serialized to RestockProduct with replacesProductId). */
+export interface RestockSessionReplacementLine {
+  id: string;
+  productId: string;
+  replacesProductId: string;
+  qty: number;
+  done: boolean;
 }
 
 export interface RestockMachineEntry {
