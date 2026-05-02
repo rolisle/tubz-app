@@ -63,6 +63,12 @@ export interface HistoryEntryEditorModalProps {
     lineIndex: number,
     newProductId: string,
   ) => void;
+  /** Append a "new stock in swapped slots" line (same default qty as live restock: one column). */
+  onAddReplacementLine: (
+    machineId: string,
+    replacesProductId: string,
+    newProductId: string,
+  ) => void;
 }
 
 export function HistoryEntryEditorModal({
@@ -85,6 +91,7 @@ export function HistoryEntryEditorModal({
   legacyProductReplacements,
   onChangePrimaryLineProduct,
   onChangeReplacementLineProduct,
+  onAddReplacementLine,
 }: HistoryEntryEditorModalProps) {
   const [replaceFor, setReplaceFor] = useState<
     | {
@@ -102,13 +109,66 @@ export function HistoryEntryEditorModal({
     | null
   >(null);
 
+  const [addReplFlow, setAddReplFlow] = useState<
+    | {
+        step: "replaced";
+        machineId: string;
+        machineType: MachineType;
+      }
+    | {
+        step: "new";
+        machineId: string;
+        machineType: MachineType;
+        replacesProductId: string;
+      }
+    | null
+  >(null);
+
+  const addReplReplacedPickerProducts = useMemo(() => {
+    if (!addReplFlow || addReplFlow.step !== "replaced") return [];
+    const me = draftMachines.find((m) => m.machineId === addReplFlow.machineId);
+    const idSet = new Set(
+      me?.products
+        .filter((p) => !p.replacesProductId)
+        .map((p) => p.productId) ?? [],
+    );
+    const cat = addReplFlow.machineType as ProductCategory;
+    return products
+      .filter((p) => idSet.has(p.id))
+      .filter((p) => !p.category || p.category === cat);
+  }, [addReplFlow, draftMachines, products]);
+
+  /** Original-slot SKUs that already have at least one "new stock" line replacing them. */
+  const addReplPrimaryIdsAlreadyReplaced = useMemo(() => {
+    if (!addReplFlow || addReplFlow.step !== "replaced") return new Set<string>();
+    const me = draftMachines.find((m) => m.machineId === addReplFlow.machineId);
+    const blocked = new Set<string>();
+    for (const p of me?.products ?? []) {
+      if (p.replacesProductId) blocked.add(p.replacesProductId);
+    }
+    return blocked;
+  }, [addReplFlow, draftMachines]);
+
+  const addReplNewPickerProducts = useMemo(() => {
+    if (!addReplFlow || addReplFlow.step !== "new") return [];
+    const cat = addReplFlow.machineType as ProductCategory;
+    return products.filter(
+      (p) =>
+        p.id !== addReplFlow.replacesProductId &&
+        (!p.category || p.category === cat),
+    );
+  }, [addReplFlow, products]);
+
   const draftHasReplacementLines = useMemo(
     () => draftMachines.some((m) => m.products.some((p) => p.replacesProductId)),
     [draftMachines],
   );
 
   useEffect(() => {
-    if (!editingEntry) setReplaceFor(null);
+    if (!editingEntry) {
+      setReplaceFor(null);
+      setAddReplFlow(null);
+    }
   }, [editingEntry]);
 
   const showLegacySwaps =
@@ -157,6 +217,8 @@ export function HistoryEntryEditorModal({
           </TouchableOpacity>
 
           <Text style={[styles.editTip, { color: colors.subtext }]}>
+            <Text style={{ fontWeight: "600", color: colors.text }}>Add new stock (swapped slot)</Text>
+            {` picks which original SKU was removed from a column, then the new SKU (one column, same as live restock). `}
             <Text style={{ fontWeight: "600", color: colors.text }}>Change product</Text>
             {` on original slots updates that row and any "new stock" lines that were replacing that SKU. On `}
             <Text style={{ fontWeight: "600", color: colors.text }}>New stock in swapped slots</Text>
@@ -317,21 +379,25 @@ export function HistoryEntryEditorModal({
                             }
                             onChangeProduct={
                               !isRepl
-                                ? () =>
+                                ? () => {
+                                    setAddReplFlow(null);
                                     setReplaceFor({
                                       kind: "primary",
                                       machineId: me.machineId,
                                       lineIndex,
                                       category: me.machineType as ProductCategory,
-                                    })
+                                    });
+                                  }
                                 : onChangeReplacementLineProduct
-                                  ? () =>
+                                  ? () => {
+                                      setAddReplFlow(null);
                                       setReplaceFor({
                                         kind: "replacement",
                                         machineId: me.machineId,
                                         lineIndex,
                                         category: me.machineType as ProductCategory,
-                                      })
+                                      });
+                                    }
                                   : undefined
                             }
                           />
@@ -340,6 +406,31 @@ export function HistoryEntryEditorModal({
                     })
                   )}
                 </View>
+                {me.products.some((p) => !p.replacesProductId) ? (
+                  <TouchableOpacity
+                    style={[
+                      styles.addLineBtn,
+                      {
+                        borderColor: machineColorStr + "99",
+                        backgroundColor: machineColorStr + "14",
+                      },
+                    ]}
+                    onPress={() => {
+                      setReplaceFor(null);
+                      setAddReplFlow({
+                        step: "replaced",
+                        machineId: me.machineId,
+                        machineType: me.machineType,
+                      });
+                    }}
+                  >
+                    <Text
+                      style={[styles.addLineBtnText, { color: machineColorStr }]}
+                    >
+                      + Add new stock (swapped slot)
+                    </Text>
+                  </TouchableOpacity>
+                ) : null}
               </View>
             );
           })}
@@ -422,6 +513,98 @@ export function HistoryEntryEditorModal({
               </TouchableOpacity>
             )}
           />
+        ) : addReplFlow?.step === "replaced" ? (
+          <ProductPickerModal
+            category={addReplFlow.machineType as ProductCategory}
+            products={addReplReplacedPickerProducts}
+            title="What is it replacing?"
+            emptyMessage="No original-slot products on this machine."
+            onClose={() => setAddReplFlow(null)}
+            renderRow={(product, _rowAccent, rowColors) => {
+              const blocked = addReplPrimaryIdsAlreadyReplaced.has(product.id);
+              if (blocked) {
+                return (
+                  <View
+                    style={[
+                      styles.pickerRow,
+                      styles.pickerRowBlocked,
+                      { borderBottomColor: rowColors.border },
+                    ]}
+                  >
+                    <ProductThumb product={product} size={36} />
+                    <Text
+                      style={[styles.pickerRowName, { color: rowColors.subtext }]}
+                    >
+                      {product.name}
+                    </Text>
+                    <Text
+                      style={[styles.pickerRowBlockedHint, { color: rowColors.subtext }]}
+                    >
+                      Already replacing
+                    </Text>
+                  </View>
+                );
+              }
+              return (
+                <TouchableOpacity
+                  style={[
+                    styles.pickerRow,
+                    { borderBottomColor: rowColors.border },
+                  ]}
+                  onPress={() => {
+                    setAddReplFlow({
+                      step: "new",
+                      machineId: addReplFlow.machineId,
+                      machineType: addReplFlow.machineType,
+                      replacesProductId: product.id,
+                    });
+                  }}
+                >
+                  <ProductThumb product={product} size={36} />
+                  <Text style={[styles.pickerRowName, { color: rowColors.text }]}>
+                    {product.name}
+                  </Text>
+                </TouchableOpacity>
+              );
+            }}
+          />
+        ) : addReplFlow?.step === "new" ? (
+          <ProductPickerModal
+            category={addReplFlow.machineType as ProductCategory}
+            products={addReplNewPickerProducts}
+            title="New product in slot"
+            emptyMessage="No products match this machine type."
+            onClose={() =>
+              setAddReplFlow({
+                step: "replaced",
+                machineId: addReplFlow.machineId,
+                machineType: addReplFlow.machineType,
+              })
+            }
+            renderRow={(product, _rowAccent, rowColors) => (
+              <TouchableOpacity
+                style={[
+                  styles.pickerRow,
+                  { borderBottomColor: rowColors.border },
+                ]}
+                onPress={() => {
+                  if (product.id !== addReplFlow.replacesProductId) {
+                    onAddReplacementLine(
+                      addReplFlow.machineId,
+                      addReplFlow.replacesProductId,
+                      product.id,
+                    );
+                  }
+                  setAddReplFlow(null);
+                }}
+              >
+                <ProductThumb product={product} size={36} />
+                <Text style={[styles.pickerRowName, { color: rowColors.text }]}>
+                  {product.name}
+                </Text>
+              </TouchableOpacity>
+            )}
+          />
         ) : null}
 
         <DatePickerModal
@@ -488,6 +671,17 @@ const styles = StyleSheet.create({
   },
   machineTitle: { fontSize: 15, fontWeight: "700" },
   machineBody: { paddingHorizontal: 14, paddingBottom: 6 },
+  addLineBtn: {
+    marginHorizontal: 14,
+    marginBottom: 12,
+    marginTop: 2,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: "center",
+  },
+  addLineBtnText: { fontSize: 13, fontWeight: "700" },
   dateRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -516,5 +710,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   pickerRowName: { flex: 1, fontSize: 14, fontWeight: "500" },
+  pickerRowBlocked: { opacity: 0.45 },
+  pickerRowBlockedHint: { fontSize: 11, fontWeight: "600", maxWidth: 118 },
   pickerCurrent: { fontSize: 11, fontWeight: "600" },
 });

@@ -41,7 +41,7 @@ import {
   parseTimeInput,
   WEEK_DAYS,
 } from "@/utils/opening-hours";
-import { applyReplacementNewStockProductEdits } from "@/utils/history-planogram-sync";
+import { applyReplacementNewStockProductEdits, applyAddedReplacementLinesToMachines } from "@/utils/history-planogram-sync";
 
 // UK postcode: AN NAA / ANN NAA / AAN NAA / AANN NAA / ANA NAA / AANA NAA
 const UK_POSTCODE = /^[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2}$/i;
@@ -402,6 +402,30 @@ export default function LocationDetailScreen() {
     [],
   );
 
+  const addReplacementLineInHistoryEdit = useCallback(
+    (machineId: string, replacesProductId: string, newProductId: string) => {
+      if (replacesProductId === newProductId) return;
+      setEditDraftMachines((prev) =>
+        prev.map((me) => {
+          if (me.machineId !== machineId) return me;
+          const cap = me.machineType === "toy" ? 12 : 9;
+          return {
+            ...me,
+            products: [
+              ...me.products,
+              {
+                productId: newProductId,
+                qty: cap,
+                replacesProductId,
+              },
+            ],
+          };
+        }),
+      );
+    },
+    [],
+  );
+
   const changeReplacementLineProductInHistoryEdit = useCallback(
     (machineId: string, lineIndex: number, newProductId: string) => {
       setEditDraftMachines((prev) =>
@@ -544,12 +568,20 @@ export default function LocationDetailScreen() {
 
     let machinesPatch: Machine[] | undefined;
     if (isLatestEntry) {
-      const { machines: nextMachines, changed } =
-        applyReplacementNewStockProductEdits(
-          location.machines,
-          editingEntry.entry,
-          updated.machines,
-        );
+      const r1 = applyReplacementNewStockProductEdits(
+        location.machines,
+        editingEntry.entry,
+        updated.machines,
+      );
+      let nextMachines = r1.machines;
+      let changed = r1.changed;
+      const r2 = applyAddedReplacementLinesToMachines(
+        nextMachines,
+        editingEntry.entry,
+        updated.machines,
+      );
+      nextMachines = r2.machines;
+      changed = changed || r2.changed;
       if (changed) machinesPatch = nextMachines;
     }
 
@@ -982,6 +1014,7 @@ export default function LocationDetailScreen() {
           legacyProductReplacements={editingEntry?.entry.productReplacements}
           onChangePrimaryLineProduct={changePrimaryLineProductInHistoryEdit}
           onChangeReplacementLineProduct={changeReplacementLineProductInHistoryEdit}
+          onAddReplacementLine={addReplacementLineInHistoryEdit}
           showDatePicker={showEditEntryDatePicker}
           onShowDatePicker={setShowEditEntryDatePicker}
           machineColors={MACHINE_COLORS}
