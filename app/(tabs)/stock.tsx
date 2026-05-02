@@ -18,7 +18,7 @@ import { Colors } from "@/constants/theme";
 import { useApp } from "@/context/app-context";
 import { primaryColor, useSettings } from "@/context/settings-context";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-import type { Product } from "@/types";
+import type { MachineType, Product } from "@/types";
 import {
   EMPTY_STATE,
   LEVELS,
@@ -423,10 +423,6 @@ export default function StockScreen() {
 
     for (const loc of state.locations) {
       for (const entry of loc.restockHistory ?? []) {
-<<<<<<< Updated upstream
-        const seenSweet = new Set<string>();
-        const seenToy = new Set<string>();
-=======
         type Contrib = { mt: MachineType; productId: string; qty: number };
         const byKey = new Map<string, Contrib>();
 
@@ -439,23 +435,9 @@ export default function StockScreen() {
         };
 
         let hasLineReplacementMarkers = false;
->>>>>>> Stashed changes
         for (const machine of entry.machines) {
-          const map = machine.machineType === "sweet" ? sweet : toy;
-          const seen = machine.machineType === "sweet" ? seenSweet : seenToy;
           for (const p of machine.products) {
             if (p.qty <= 0) continue;
-<<<<<<< Updated upstream
-            const cur = map.get(p.productId) ?? { total: 0, sessionCount: 0 };
-            cur.total += p.qty;
-            if (!seen.has(p.productId)) {
-              cur.sessionCount += 1;
-              seen.add(p.productId);
-            }
-            map.set(p.productId, cur);
-          }
-        }
-=======
             if (p.replacesProductId) {
               hasLineReplacementMarkers = true;
               continue;
@@ -464,7 +446,6 @@ export default function StockScreen() {
           }
         }
 
-        // Legacy entries: product rows only; swaps in productReplacements — same adjustment as before.
         if (
           !hasLineReplacementMarkers &&
           (entry.productReplacements?.length ?? 0) > 0
@@ -494,7 +475,6 @@ export default function StockScreen() {
           cur.sessionCount += 1;
           map.set(c.productId, cur);
         }
->>>>>>> Stashed changes
       }
     }
 

@@ -51,9 +51,16 @@ export interface HistoryEntryEditorModalProps {
   layoutMachines: Machine[];
   /** Older entries only — shown when no line uses `replacesProductId`. */
   legacyProductReplacements?: RestockProductReplacement[];
-  onReplaceProduct: (
+  /** Correct the SKU on an "original slots" row in place (does not add a new-stock line). */
+  onChangePrimaryLineProduct: (
     machineId: string,
-    oldProductId: string,
+    lineIndex: number,
+    newProductId: string,
+  ) => void;
+  /** Change SKU on a "new stock in swapped slots" row (keeps replacesProductId). */
+  onChangeReplacementLineProduct?: (
+    machineId: string,
+    lineIndex: number,
     newProductId: string,
   ) => void;
 }
@@ -76,13 +83,24 @@ export function HistoryEntryEditorModal({
   colors,
   layoutMachines,
   legacyProductReplacements,
-  onReplaceProduct,
+  onChangePrimaryLineProduct,
+  onChangeReplacementLineProduct,
 }: HistoryEntryEditorModalProps) {
-  const [replaceFor, setReplaceFor] = useState<{
-    machineId: string;
-    oldProductId: string;
-    category: ProductCategory;
-  } | null>(null);
+  const [replaceFor, setReplaceFor] = useState<
+    | {
+        kind: "primary";
+        machineId: string;
+        lineIndex: number;
+        category: ProductCategory;
+      }
+    | {
+        kind: "replacement";
+        machineId: string;
+        lineIndex: number;
+        category: ProductCategory;
+      }
+    | null
+  >(null);
 
   const draftHasReplacementLines = useMemo(
     () => draftMachines.some((m) => m.products.some((p) => p.replacesProductId)),
@@ -138,15 +156,11 @@ export function HistoryEntryEditorModal({
             <Text style={[styles.chevron, { color: colors.subtext, fontSize: 22 }]}>›</Text>
           </TouchableOpacity>
 
-<<<<<<< Updated upstream
-          {/* Machine entries */}
-          {editingEntry && editingEntry.entry.machines.length === 0 && (
-=======
           <Text style={[styles.editTip, { color: colors.subtext }]}>
-            <Text style={{ fontWeight: "600", color: colors.text }}>Change product</Text>{" "}
-            adds a row under “New stock in swapped slots” for the new SKU, labelled with
-            what it replaces. Quantities on the original rows stay separate so top selling
-            stays consistent.
+            <Text style={{ fontWeight: "600", color: colors.text }}>Change product</Text>
+            {` on original slots updates that row and any "new stock" lines that were replacing that SKU. On `}
+            <Text style={{ fontWeight: "600", color: colors.text }}>New stock in swapped slots</Text>
+            {`, it keeps the same "replacing" label and only changes the new SKU.`}
           </Text>
 
           {showLegacySwaps ? (
@@ -182,14 +196,10 @@ export function HistoryEntryEditorModal({
           {editingEntry &&
             draftMachines.length === 0 &&
             !showLegacySwaps && (
->>>>>>> Stashed changes
             <Text style={[styles.emptyNote, { color: colors.subtext, textAlign: "left", marginTop: 16 }]}>
               No product data recorded for this session.
             </Text>
           )}
-<<<<<<< Updated upstream
-          {editingEntry?.entry.machines.map((me) => {
-=======
           {editingEntry &&
             draftMachines.length === 0 &&
             showLegacySwaps && (
@@ -199,7 +209,6 @@ export function HistoryEntryEditorModal({
           )}
 
           {draftMachines.map((me) => {
->>>>>>> Stashed changes
             const machineColorStr = machineColors[me.machineType];
             const machineColorSetting = me.machineType === "sweet"
               ? machineColorSettings.sweet
@@ -310,11 +319,20 @@ export function HistoryEntryEditorModal({
                               !isRepl
                                 ? () =>
                                     setReplaceFor({
+                                      kind: "primary",
                                       machineId: me.machineId,
-                                      oldProductId: p.productId,
+                                      lineIndex,
                                       category: me.machineType as ProductCategory,
                                     })
-                                : undefined
+                                : onChangeReplacementLineProduct
+                                  ? () =>
+                                      setReplaceFor({
+                                        kind: "replacement",
+                                        machineId: me.machineId,
+                                        lineIndex,
+                                        category: me.machineType as ProductCategory,
+                                      })
+                                  : undefined
                             }
                           />
                         </View>
@@ -340,7 +358,11 @@ export function HistoryEntryEditorModal({
           <ProductPickerModal
             category={replaceFor.category}
             products={products}
-            title="Change product"
+            title={
+              replaceFor.kind === "primary"
+                ? "Change product"
+                : "Change new stock product"
+            }
             emptyMessage="No products match this machine type."
             onClose={() => setReplaceFor(null)}
             renderRow={(product, _rowAccent, rowColors) => (
@@ -350,12 +372,38 @@ export function HistoryEntryEditorModal({
                   { borderBottomColor: rowColors.border },
                 ]}
                 onPress={() => {
-                  if (product.id !== replaceFor.oldProductId) {
-                    onReplaceProduct(
-                      replaceFor.machineId,
-                      replaceFor.oldProductId,
-                      product.id,
+                  if (replaceFor.kind === "primary") {
+                    const me = draftMachines.find(
+                      (m) => m.machineId === replaceFor.machineId,
                     );
+                    const line = me?.products[replaceFor.lineIndex];
+                    if (
+                      line &&
+                      !line.replacesProductId &&
+                      product.id !== line.productId
+                    ) {
+                      onChangePrimaryLineProduct(
+                        replaceFor.machineId,
+                        replaceFor.lineIndex,
+                        product.id,
+                      );
+                    }
+                  } else if (onChangeReplacementLineProduct) {
+                    const me = draftMachines.find(
+                      (m) => m.machineId === replaceFor.machineId,
+                    );
+                    const line = me?.products[replaceFor.lineIndex];
+                    if (
+                      line &&
+                      line.replacesProductId &&
+                      product.id !== line.productId
+                    ) {
+                      onChangeReplacementLineProduct(
+                        replaceFor.machineId,
+                        replaceFor.lineIndex,
+                        product.id,
+                      );
+                    }
                   }
                   setReplaceFor(null);
                 }}
@@ -364,7 +412,9 @@ export function HistoryEntryEditorModal({
                 <Text style={[styles.pickerRowName, { color: rowColors.text }]}>
                   {product.name}
                 </Text>
-                {product.id === replaceFor.oldProductId ? (
+                {product.id ===
+                draftMachines.find((m) => m.machineId === replaceFor.machineId)
+                  ?.products[replaceFor.lineIndex]?.productId ? (
                   <Text style={[styles.pickerCurrent, { color: rowColors.subtext }]}>
                     Current
                   </Text>
@@ -390,8 +440,6 @@ const styles = StyleSheet.create({
   confirmBtn: { borderRadius: 10, paddingHorizontal: 16, paddingVertical: 8 },
   confirmBtnText: { fontSize: 14, fontWeight: "700", color: "#000" },
   content: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 60 },
-<<<<<<< Updated upstream
-=======
   editTip: {
     fontSize: 12,
     lineHeight: 18,
@@ -423,7 +471,6 @@ const styles = StyleSheet.create({
   },
   replaceSectionTitle: { fontSize: 12, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5 },
   replaceLine: { fontSize: 13, lineHeight: 18, fontStyle: "italic" },
->>>>>>> Stashed changes
   emptyNote: { fontSize: 14, lineHeight: 20, maxWidth: 280 },
   machineCard: {
     borderRadius: 14,
