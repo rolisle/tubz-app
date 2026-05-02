@@ -31,10 +31,7 @@ import type {
   MachineType,
   RestockEntry,
   RestockMachineEntry,
-<<<<<<< Updated upstream
-=======
   RestockSessionReplacementLine,
->>>>>>> Stashed changes
   WeekDay,
 } from "@/types";
 import { confirm, confirmDelete } from "@/utils/confirm";
@@ -44,6 +41,7 @@ import {
   parseTimeInput,
   WEEK_DAYS,
 } from "@/utils/opening-hours";
+import { applyReplacementNewStockProductEdits } from "@/utils/history-planogram-sync";
 
 // UK postcode: AN NAA / ANN NAA / AAN NAA / AANN NAA / ANA NAA / AANA NAA
 const UK_POSTCODE = /^[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2}$/i;
@@ -55,6 +53,14 @@ function formatDate(iso: string | null): string {
     month: "short",
     year: "numeric",
   });
+}
+
+function cloneMachinesForRestockSession(machines: Machine[]): Machine[] {
+  return machines.map((m) => ({
+    ...m,
+    slots: [...m.slots],
+    stockCounts: { ...m.stockCounts },
+  }));
 }
 
 export default function LocationDetailScreen() {
@@ -108,9 +114,7 @@ export default function LocationDetailScreen() {
   const [showMenu, setShowMenu] = useState(false);
   const [showOpeningHours, setShowOpeningHours] = useState(false);
   const [showRestockSession, setShowRestockSession] = useState(false);
-<<<<<<< Updated upstream
   // restockQtys: machineId → productId → quantity being restocked
-=======
   /** Draft machines while restock modal is open — cancel discards; Done persists to location. */
   const [restockSessionMachines, setRestockSessionMachines] = useState<
     Machine[] | null
@@ -122,7 +126,6 @@ export default function LocationDetailScreen() {
     Record<string, RestockSessionReplacementLine[]>
   >({});
   // restockQtys: machineId → productId → quantity (primary rows only)
->>>>>>> Stashed changes
   const [restockQtys, setRestockQtys] = useState<
     Record<string, Record<string, number>>
   >({});
@@ -282,8 +285,6 @@ export default function LocationDetailScreen() {
     [location?.openingHours],
   );
 
-<<<<<<< Updated upstream
-=======
   const replaceProductInRestockSession = useCallback(
     (machineId: string, oldProductId: string, newProductId: string) => {
       if (oldProductId === newProductId) return;
@@ -368,7 +369,6 @@ export default function LocationDetailScreen() {
     setReplacementLines({});
   }, []);
 
->>>>>>> Stashed changes
   const historyListData = useMemo(
     () =>
       [...(location?.restockHistory ?? [])]
@@ -377,24 +377,42 @@ export default function LocationDetailScreen() {
     [location?.restockHistory],
   );
 
-  const replaceProductInHistoryEdit = useCallback(
-    (machineId: string, oldProductId: string, newProductId: string) => {
-      if (oldProductId === newProductId) return;
+  const changePrimaryLineProductInHistoryEdit = useCallback(
+    (machineId: string, lineIndex: number, newProductId: string) => {
       setEditDraftMachines((prev) =>
         prev.map((me) => {
           if (me.machineId !== machineId) return me;
-          const cap = me.machineType === "toy" ? 12 : 9;
-          return {
-            ...me,
-            products: [
-              ...me.products,
-              {
-                productId: newProductId,
-                qty: cap,
-                replacesProductId: oldProductId,
-              },
-            ],
-          };
+          const edited = me.products[lineIndex];
+          if (!edited || edited.replacesProductId) return me;
+          const oldPid = edited.productId;
+          if (oldPid === newProductId) return me;
+          const products = me.products.map((p, i) => {
+            if (i === lineIndex) {
+              return { ...p, productId: newProductId };
+            }
+            if (p.replacesProductId === oldPid) {
+              return { ...p, replacesProductId: newProductId };
+            }
+            return p;
+          });
+          return { ...me, products };
+        }),
+      );
+    },
+    [],
+  );
+
+  const changeReplacementLineProductInHistoryEdit = useCallback(
+    (machineId: string, lineIndex: number, newProductId: string) => {
+      setEditDraftMachines((prev) =>
+        prev.map((me) => {
+          if (me.machineId !== machineId) return me;
+          const products = me.products.map((p, i) => {
+            if (i !== lineIndex) return p;
+            if (!p.replacesProductId || p.productId === newProductId) return p;
+            return { ...p, productId: newProductId };
+          });
+          return { ...me, products };
         }),
       );
     },
@@ -445,30 +463,15 @@ export default function LocationDetailScreen() {
         done[m.id][pid] = false;
       });
     });
-<<<<<<< Updated upstream
-=======
     setPrimarySlotCounts(primary);
     setReplacementLines({});
     setRestockSessionMachines(cloneMachinesForRestockSession(location.machines));
->>>>>>> Stashed changes
     setRestockQtys(qtys);
     setRestockDone(done);
     setShowRestockSession(true);
   };
 
   const completeRestockSession = () => {
-<<<<<<< Updated upstream
-    const machineEntries: RestockMachineEntry[] = location.machines
-      .map((m) => ({
-        machineId: m.id,
-        machineType: m.type,
-        products: Object.entries(restockQtys[m.id] ?? {})
-          .filter(([, qty]) => qty > 0)
-          .map(([productId, qty]) => ({ productId, qty })),
-      }))
-      .filter((me) => me.products.length > 0);
-    restockLocation(location.id, machineEntries);
-=======
     if (!restockSessionMachines) return;
     const machineEntries: RestockMachineEntry[] = restockSessionMachines
       .map((m) => {
@@ -502,7 +505,6 @@ export default function LocationDetailScreen() {
     setRestockSessionMachines(null);
     setPrimarySlotCounts({});
     setReplacementLines({});
->>>>>>> Stashed changes
     setShowRestockSession(false);
   };
 
@@ -531,15 +533,32 @@ export default function LocationDetailScreen() {
           products: me.products.filter((p) => p.qty > 0),
         }))
         .filter((me) => me.products.length > 0),
-<<<<<<< Updated upstream
-=======
       ...(!hasLineReplacements &&
       (editingEntry.entry.productReplacements?.length ?? 0) > 0
         ? { productReplacements: editingEntry.entry.productReplacements }
         : {}),
->>>>>>> Stashed changes
     };
-    editRestockEntry(location.id, editingEntry.index, updated);
+    const historyLen = location.restockHistory?.length ?? 0;
+    const isLatestEntry =
+      historyLen > 0 && editingEntry.index === historyLen - 1;
+
+    let machinesPatch: Machine[] | undefined;
+    if (isLatestEntry) {
+      const { machines: nextMachines, changed } =
+        applyReplacementNewStockProductEdits(
+          location.machines,
+          editingEntry.entry,
+          updated.machines,
+        );
+      if (changed) machinesPatch = nextMachines;
+    }
+
+    editRestockEntry(
+      location.id,
+      editingEntry.index,
+      updated,
+      machinesPatch,
+    );
     setEditingEntry(null);
     setEditDraftMachines([]);
     setShowHistory(true);
@@ -961,7 +980,8 @@ export default function LocationDetailScreen() {
           }}
           layoutMachines={location.machines}
           legacyProductReplacements={editingEntry?.entry.productReplacements}
-          onReplaceProduct={replaceProductInHistoryEdit}
+          onChangePrimaryLineProduct={changePrimaryLineProductInHistoryEdit}
+          onChangeReplacementLineProduct={changeReplacementLineProductInHistoryEdit}
           showDatePicker={showEditEntryDatePicker}
           onShowDatePicker={setShowEditEntryDatePicker}
           machineColors={MACHINE_COLORS}
@@ -976,10 +996,10 @@ export default function LocationDetailScreen() {
 
         <RestockSessionModal
           visible={showRestockSession}
-          onClose={() => setShowRestockSession(false)}
+          onClose={closeRestockSession}
           onComplete={completeRestockSession}
           locationName={location.name}
-          machines={location.machines}
+          machines={restockSessionMachines ?? location.machines}
           products={state.products}
           machineColors={MACHINE_COLORS}
           machineColorSettings={{
@@ -992,14 +1012,9 @@ export default function LocationDetailScreen() {
           restockDone={restockDone}
           onChangeQty={(machineId, productId, delta) => {
             setRestockQtys((prev) => {
-<<<<<<< Updated upstream
-              const machine = location.machines.find((m) => m.id === machineId);
-              const slotCount = machine?.slots.filter((s) => s === productId).length ?? 1;
-=======
               const machine = (restockSessionMachines ?? location.machines).find(
                 (m) => m.id === machineId,
               );
->>>>>>> Stashed changes
               const capacityPerSlot = machine?.type === "toy" ? 12 : 9;
               const slotCount = primarySlotCounts[machineId]?.[productId] ?? 0;
               const max = Math.max(1, slotCount) * capacityPerSlot;
@@ -1024,14 +1039,9 @@ export default function LocationDetailScreen() {
           }}
           onSnapQty={(machineId, productId) => {
             setRestockQtys((prev) => {
-<<<<<<< Updated upstream
-              const machine = location.machines.find((m) => m.id === machineId);
-              const slotCount = machine?.slots.filter((s) => s === productId).length ?? 1;
-=======
               const machine = (restockSessionMachines ?? location.machines).find(
                 (m) => m.id === machineId,
               );
->>>>>>> Stashed changes
               const capacityPerSlot = machine?.type === "toy" ? 12 : 9;
               const slotCount = primarySlotCounts[machineId]?.[productId] ?? 0;
               const max = Math.max(1, slotCount) * capacityPerSlot;
@@ -1046,8 +1056,6 @@ export default function LocationDetailScreen() {
               };
             });
           }}
-<<<<<<< Updated upstream
-=======
           onChangeReplacementQty={(machineId, lineId, delta) => {
             setReplacementLines((prev) => {
               const lines = [...(prev[machineId] ?? [])];
@@ -1091,7 +1099,6 @@ export default function LocationDetailScreen() {
             });
           }}
           onReplaceProduct={replaceProductInRestockSession}
->>>>>>> Stashed changes
           accent={accent}
           colors={colors}
         />

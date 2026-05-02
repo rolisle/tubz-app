@@ -43,7 +43,16 @@ type Action =
   | { type: 'UPDATE_LOCATION'; payload: Location }
   | { type: 'DELETE_LOCATION'; payload: { id: string } }
   | { type: 'RESTOCK_LOCATION'; payload: { id: string; timestamp: string; machines: RestockMachineEntry[]; productReplacements?: RestockProductReplacement[] } }
-  | { type: 'EDIT_RESTOCK_ENTRY'; payload: { locationId: string; index: number; entry: RestockEntry } }
+  | {
+      type: 'EDIT_RESTOCK_ENTRY';
+      payload: {
+        locationId: string;
+        index: number;
+        entry: RestockEntry;
+        /** When set (e.g. latest entry + new-stock line product fix), replaces location machines. */
+        machines?: Machine[];
+      };
+    }
   | { type: 'DELETE_RESTOCK_ENTRY'; payload: { locationId: string; index: number } }
   | { type: 'ADD_MACHINE'; payload: { locationId: string; machine: Machine } }
   | { type: 'UPDATE_MACHINE'; payload: { locationId: string; machine: Machine } }
@@ -132,6 +141,9 @@ function reducer(state: AppState, action: Action): AppState {
             ...l,
             restockHistory: history,
             lastRestockedAt: latestTimestamp(history) ?? l.lastRestockedAt,
+            ...(action.payload.machines
+              ? { machines: action.payload.machines }
+              : {}),
           };
         }),
       };
@@ -258,6 +270,7 @@ export interface AppActionsValue {
     locationId: string,
     index: number,
     entry: RestockEntry,
+    machines?: Machine[],
   ) => void;
   deleteRestockEntry: (locationId: string, index: number) => void;
   addMachine: (locationId: string, type: MachineType) => void;
@@ -414,10 +427,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
 
   const editRestockEntry = useCallback(
-    (locationId: string, index: number, entry: RestockEntry) =>
+    (
+      locationId: string,
+      index: number,
+      entry: RestockEntry,
+      machines?: Machine[],
+    ) =>
       dispatch({
         type: 'EDIT_RESTOCK_ENTRY',
-        payload: { locationId, index, entry },
+        payload: { locationId, index, entry, machines },
       }),
     [],
   );

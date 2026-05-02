@@ -28,13 +28,10 @@ export interface RestockProductRowProps {
   accent?: string;
   /** When not done: double-tap product (image + name) snaps qty to max, or back to 0 if already at max */
   onDoubleTapSnap?: () => void;
-<<<<<<< Updated upstream
-=======
   /** Swap this line for another catalog product (updates machine slots) */
   onChangeProduct?: () => void;
   /** Shown under the product name (e.g. “Replacing Candy X”) */
   replacingLabel?: string;
->>>>>>> Stashed changes
 }
 
 export function RestockProductRow({
@@ -50,11 +47,8 @@ export function RestockProductRow({
   onToggleDone,
   accent,
   onDoubleTapSnap,
-<<<<<<< Updated upstream
-=======
   onChangeProduct,
   replacingLabel,
->>>>>>> Stashed changes
 }: RestockProductRowProps) {
   const lastTapRef = useRef(0);
 
@@ -148,8 +142,6 @@ export function RestockProductRow({
               />
             </View>
           )}
-<<<<<<< Updated upstream
-=======
           {replacingLabel ? (
             <Text style={[styles.replacingLabel, { color: colors.subtext }]}>
               {replacingLabel}
@@ -157,12 +149,16 @@ export function RestockProductRow({
           ) : null}
           {!done && onChangeProduct ? (
             <TouchableOpacity onPress={onChangeProduct} hitSlop={6}>
-              <Text style={[styles.changeProductLink, { color: accent ?? "#0ea5e9" }]}>
+              <Text
+                style={[
+                  styles.changeProductLink,
+                  { color: accent ?? "#0ea5e9" },
+                ]}
+              >
                 Change product
               </Text>
             </TouchableOpacity>
           ) : null}
->>>>>>> Stashed changes
         </View>
       </Pressable>
 
@@ -181,7 +177,9 @@ export function RestockProductRow({
               },
             ]}
           >
-            <Text style={[styles.counterBtnText, { color: colors.text }]}>−</Text>
+            <Text style={[styles.counterBtnText, { color: colors.text }]}>
+              −
+            </Text>
           </TouchableOpacity>
           <Text style={[styles.counterVal, { color: colors.text }]}>
             {qty}
@@ -202,7 +200,9 @@ export function RestockProductRow({
               },
             ]}
           >
-            <Text style={[styles.counterBtnText, { color: colors.text }]}>＋</Text>
+            <Text style={[styles.counterBtnText, { color: colors.text }]}>
+              ＋
+            </Text>
           </TouchableOpacity>
         </View>
       )}
@@ -234,7 +234,13 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "700",
   },
-  tapZone: { flex: 1, flexDirection: "row", alignItems: "center", gap: 10, minWidth: 0 },
+  tapZone: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    minWidth: 0,
+  },
   thumb: { width: 44, height: 44, borderRadius: 8 },
   thumbEmoji: {
     fontSize: 30,
@@ -245,8 +251,6 @@ const styles = StyleSheet.create({
   },
   info: { flex: 1, gap: 4, minWidth: 0 },
   name: { fontSize: 14, fontWeight: "500" },
-<<<<<<< Updated upstream
-=======
   replacingLabel: { fontSize: 11, fontWeight: "600", marginTop: 2 },
   changeProductLink: {
     fontSize: 12,
@@ -254,7 +258,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
     textDecorationLine: "underline",
   },
->>>>>>> Stashed changes
   barTrack: { height: 4, borderRadius: 2, overflow: "hidden" },
   barFill: { height: 4, borderRadius: 2 },
   counter: { flexDirection: "row", alignItems: "center", gap: 6 },
@@ -272,6 +275,11 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
     fontWeight: "500",
   },
-  counterVal: { fontSize: 15, fontWeight: "700", minWidth: 32, textAlign: "center" },
+  counterVal: {
+    fontSize: 15,
+    fontWeight: "700",
+    minWidth: 32,
+    textAlign: "center",
+  },
   counterMax: { fontSize: 11, fontWeight: "400" },
 });
