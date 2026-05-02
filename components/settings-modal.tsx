@@ -33,8 +33,6 @@ import { exportData, importData } from "@/utils/data-transfer";
 import {
   getNotificationDiagnostics,
   openAndroidExactAlarmSettings,
-  presentImmediateLocalNotification,
-  scheduleShortDelayNotificationTest,
 } from "@/utils/notifications";
 
 /* ─── SwatchRow ──────────────────────────────────────────────── */
@@ -125,30 +123,6 @@ export function SettingsModal({ visible, onClose, colors }: SettingsModalProps) 
         `Restock reminders (restock-*): ${d.restockScheduled}`,
       ].join("\n"),
     );
-  }, []);
-
-  const runImmediateNotificationTest = useCallback(async () => {
-    const r = await presentImmediateLocalNotification();
-    if (r.ok) {
-      Alert.alert(
-        "Instant test",
-        "You should see a banner or an entry in the notification list. This path does not wait on the alarm clock.",
-      );
-    } else {
-      Alert.alert("Instant test failed", r.error ?? "Unknown error");
-    }
-  }, []);
-
-  const runFiveSecondNotificationTest = useCallback(async () => {
-    const r = await scheduleShortDelayNotificationTest(5);
-    if (r.ok) {
-      Alert.alert(
-        "5-second test",
-        "Background or lock the device. A second test notification should appear in about five seconds.",
-      );
-    } else {
-      Alert.alert("5-second test failed", r.error ?? "Unknown error");
-    }
   }, []);
 
   const openExactAlarmSettingsFromSettings = useCallback(async () => {
@@ -275,28 +249,6 @@ export function SettingsModal({ visible, onClose, colors }: SettingsModalProps) 
                 <Text style={[styles.menuRowIcon, { color: colors.subtext }]}>📊</Text>
                 <Text style={[styles.menuRowLabel, { color: colors.text }]}>
                   Show permission and schedule counts
-                </Text>
-                <Text style={[styles.menuRowChevron, { color: colors.subtext }]}>›</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.menuRow, { borderColor: colors.border }]}
-                onPress={runImmediateNotificationTest}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.menuRowIcon, { color: colors.subtext }]}>⚡</Text>
-                <Text style={[styles.menuRowLabel, { color: colors.text }]}>
-                  Fire instant test notification
-                </Text>
-                <Text style={[styles.menuRowChevron, { color: colors.subtext }]}>›</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.menuRow, { borderColor: colors.border }]}
-                onPress={runFiveSecondNotificationTest}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.menuRowIcon, { color: colors.subtext }]}>⏱️</Text>
-                <Text style={[styles.menuRowLabel, { color: colors.text }]}>
-                  Fire test in ~5 seconds
                 </Text>
                 <Text style={[styles.menuRowChevron, { color: colors.subtext }]}>›</Text>
               </TouchableOpacity>

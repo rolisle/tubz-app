@@ -20,6 +20,7 @@ import type {
   ProductCategory,
   RestockEntry,
   RestockMachineEntry,
+  RestockProductReplacement,
 } from '@/types';
 import { appendLog } from '@/utils/crash-log';
 import { uid } from '@/utils/id';
@@ -41,7 +42,7 @@ type Action =
   | { type: 'ADD_LOCATION'; payload: Location }
   | { type: 'UPDATE_LOCATION'; payload: Location }
   | { type: 'DELETE_LOCATION'; payload: { id: string } }
-  | { type: 'RESTOCK_LOCATION'; payload: { id: string; timestamp: string; machines: RestockMachineEntry[] } }
+  | { type: 'RESTOCK_LOCATION'; payload: { id: string; timestamp: string; machines: RestockMachineEntry[]; productReplacements?: RestockProductReplacement[] } }
   | { type: 'EDIT_RESTOCK_ENTRY'; payload: { locationId: string; index: number; entry: RestockEntry } }
   | { type: 'DELETE_RESTOCK_ENTRY'; payload: { locationId: string; index: number } }
   | { type: 'ADD_MACHINE'; payload: { locationId: string; machine: Machine } }
@@ -101,6 +102,9 @@ function reducer(state: AppState, action: Action): AppState {
       const entry: RestockEntry = {
         timestamp: action.payload.timestamp,
         machines: action.payload.machines,
+        ...(action.payload.productReplacements?.length
+          ? { productReplacements: action.payload.productReplacements }
+          : {}),
       };
       return {
         ...state,
@@ -245,7 +249,11 @@ export interface AppActionsValue {
   addLocation: (location: Omit<Location, 'id' | 'createdAt'>) => void;
   updateLocation: (location: Location) => void;
   deleteLocation: (id: string) => void;
-  restockLocation: (id: string, machines?: RestockMachineEntry[]) => void;
+  restockLocation: (
+    id: string,
+    machines?: RestockMachineEntry[],
+    productReplacements?: RestockProductReplacement[],
+  ) => void;
   editRestockEntry: (
     locationId: string,
     index: number,
@@ -388,10 +396,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
 
   const restockLocation = useCallback(
-    (id: string, machines: RestockMachineEntry[] = []) =>
+    (
+      id: string,
+      machines: RestockMachineEntry[] = [],
+      productReplacements?: RestockProductReplacement[],
+    ) =>
       dispatch({
         type: 'RESTOCK_LOCATION',
-        payload: { id, timestamp: new Date().toISOString(), machines },
+        payload: {
+          id,
+          timestamp: new Date().toISOString(),
+          machines,
+          ...(productReplacements?.length ? { productReplacements } : {}),
+        },
       }),
     [],
   );
