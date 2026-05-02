@@ -95,19 +95,26 @@ export const HistoryModal = memo(function HistoryModal({
                             >
                               {MACHINE_LABELS[me.machineType]}
                             </Text>
-                            {me.products.map((p) => {
+                            {me.products.map((p, pi) => {
                               const product = products.find(
                                 (pr) => pr.id === p.productId,
                               );
+                              const replaced = p.replacesProductId
+                                ? products.find((pr) => pr.id === p.replacesProductId)
+                                : null;
+                              const replBit = p.replacesProductId
+                                ? ` · replacing ${replaced?.name ?? p.replacesProductId}`
+                                : "";
                               return (
                                 <Text
-                                  key={p.productId}
+                                  key={`${me.machineId}-${pi}-${p.productId}`}
                                   style={[
                                     styles.historyProductLine,
                                     { color: colors.text },
                                   ]}
                                 >
                                   · {product?.name ?? p.productId} ×{p.qty}
+                                  {replBit}
                                 </Text>
                               );
                             })}

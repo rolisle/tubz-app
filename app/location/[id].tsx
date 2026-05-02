@@ -31,9 +31,14 @@ import type {
   MachineType,
   RestockEntry,
   RestockMachineEntry,
+<<<<<<< Updated upstream
+=======
+  RestockSessionReplacementLine,
+>>>>>>> Stashed changes
   WeekDay,
 } from "@/types";
 import { confirm, confirmDelete } from "@/utils/confirm";
+import { uid } from "@/utils/id";
 import {
   getOpenStatus,
   parseTimeInput,
@@ -103,7 +108,21 @@ export default function LocationDetailScreen() {
   const [showMenu, setShowMenu] = useState(false);
   const [showOpeningHours, setShowOpeningHours] = useState(false);
   const [showRestockSession, setShowRestockSession] = useState(false);
+<<<<<<< Updated upstream
   // restockQtys: machineId → productId → quantity being restocked
+=======
+  /** Draft machines while restock modal is open — cancel discards; Done persists to location. */
+  const [restockSessionMachines, setRestockSessionMachines] = useState<
+    Machine[] | null
+  >(null);
+  const [primarySlotCounts, setPrimarySlotCounts] = useState<
+    Record<string, Record<string, number>>
+  >({});
+  const [replacementLines, setReplacementLines] = useState<
+    Record<string, RestockSessionReplacementLine[]>
+  >({});
+  // restockQtys: machineId → productId → quantity (primary rows only)
+>>>>>>> Stashed changes
   const [restockQtys, setRestockQtys] = useState<
     Record<string, Record<string, number>>
   >({});
@@ -117,9 +136,9 @@ export default function LocationDetailScreen() {
     entry: RestockEntry;
   } | null>(null);
   const [editEntryDate, setEditEntryDate] = useState<Date>(new Date());
-  const [editEntryQtys, setEditEntryQtys] = useState<
-    Record<string, Record<string, number>>
-  >({});
+  const [editDraftMachines, setEditDraftMachines] = useState<
+    RestockMachineEntry[]
+  >([]);
   const [showEditEntryDatePicker, setShowEditEntryDatePicker] = useState(false);
 
   // Opening hours — local time-input state so users can type freely
@@ -263,12 +282,123 @@ export default function LocationDetailScreen() {
     [location?.openingHours],
   );
 
+<<<<<<< Updated upstream
+=======
+  const replaceProductInRestockSession = useCallback(
+    (machineId: string, oldProductId: string, newProductId: string) => {
+      if (oldProductId === newProductId) return;
+      setRestockSessionMachines((session) => {
+        if (!session) return session;
+        const machine = session.find((m) => m.id === machineId);
+        if (!machine) return session;
+        const slotIndex = machine.slots.findIndex((s) => s === oldProductId);
+        if (slotIndex < 0) return session;
+
+        const newSlots = [...machine.slots];
+        newSlots[slotIndex] = newProductId;
+        const newStockCounts = { ...machine.stockCounts };
+        if (!newSlots.some((s) => s === oldProductId)) {
+          delete newStockCounts[oldProductId];
+        }
+        const updatedMachine = {
+          ...machine,
+          slots: newSlots,
+          stockCounts: newStockCounts,
+        };
+        const nextSession = session.map((m) =>
+          m.id === machineId ? updatedMachine : m,
+        );
+
+        const capacityPerSlot = machine.type === "toy" ? 12 : 9;
+        const oldSlotsAfter = newSlots.filter((s) => s === oldProductId).length;
+        const maxOldAfter = oldSlotsAfter * capacityPerSlot;
+
+        queueMicrotask(() => {
+          setPrimarySlotCounts((prev) => {
+            const pm = { ...(prev[machineId] ?? {}) };
+            const c = pm[oldProductId] ?? 0;
+            if (c <= 1) delete pm[oldProductId];
+            else pm[oldProductId] = c - 1;
+            return { ...prev, [machineId]: pm };
+          });
+          setReplacementLines((prev) => ({
+            ...prev,
+            [machineId]: [
+              ...(prev[machineId] ?? []),
+              {
+                id: uid(),
+                productId: newProductId,
+                replacesProductId: oldProductId,
+                qty: capacityPerSlot,
+                done: false,
+              },
+            ],
+          }));
+          setRestockQtys((prev) => {
+            const mq = { ...(prev[machineId] ?? {}) };
+            const oldQ = mq[oldProductId] ?? 0;
+            if (oldSlotsAfter === 0) {
+              delete mq[oldProductId];
+            } else {
+              mq[oldProductId] = Math.min(maxOldAfter, oldQ);
+            }
+            return { ...prev, [machineId]: mq };
+          });
+          setRestockDone((prev) => {
+            const md = { ...(prev[machineId] ?? {}) };
+            if (oldSlotsAfter === 0) {
+              delete md[oldProductId];
+            } else {
+              md[oldProductId] = false;
+            }
+            return { ...prev, [machineId]: md };
+          });
+        });
+
+        return nextSession;
+      });
+    },
+    [],
+  );
+
+  const closeRestockSession = useCallback(() => {
+    setShowRestockSession(false);
+    setRestockSessionMachines(null);
+    setPrimarySlotCounts({});
+    setReplacementLines({});
+  }, []);
+
+>>>>>>> Stashed changes
   const historyListData = useMemo(
     () =>
       [...(location?.restockHistory ?? [])]
         .map((e, i) => ({ entry: e, originalIndex: i }))
         .reverse(),
     [location?.restockHistory],
+  );
+
+  const replaceProductInHistoryEdit = useCallback(
+    (machineId: string, oldProductId: string, newProductId: string) => {
+      if (oldProductId === newProductId) return;
+      setEditDraftMachines((prev) =>
+        prev.map((me) => {
+          if (me.machineId !== machineId) return me;
+          const cap = me.machineType === "toy" ? 12 : 9;
+          return {
+            ...me,
+            products: [
+              ...me.products,
+              {
+                productId: newProductId,
+                qty: cap,
+                replacesProductId: oldProductId,
+              },
+            ],
+          };
+        }),
+      );
+    },
+    [],
   );
 
   if (!location) {
@@ -301,23 +431,33 @@ export default function LocationDetailScreen() {
   const openRestockSession = () => {
     const qtys: Record<string, Record<string, number>> = {};
     const done: Record<string, Record<string, boolean>> = {};
+    const primary: Record<string, Record<string, number>> = {};
     location.machines.forEach((m) => {
       qtys[m.id] = {};
       done[m.id] = {};
-      const productIds = Array.from(
-        new Set(m.slots.filter(Boolean) as string[]),
-      );
-      productIds.forEach((pid) => {
+      primary[m.id] = {};
+      for (const id of m.slots) {
+        if (!id) continue;
+        primary[m.id][id] = (primary[m.id][id] ?? 0) + 1;
+      }
+      Object.keys(primary[m.id]).forEach((pid) => {
         qtys[m.id][pid] = 0;
         done[m.id][pid] = false;
       });
     });
+<<<<<<< Updated upstream
+=======
+    setPrimarySlotCounts(primary);
+    setReplacementLines({});
+    setRestockSessionMachines(cloneMachinesForRestockSession(location.machines));
+>>>>>>> Stashed changes
     setRestockQtys(qtys);
     setRestockDone(done);
     setShowRestockSession(true);
   };
 
   const completeRestockSession = () => {
+<<<<<<< Updated upstream
     const machineEntries: RestockMachineEntry[] = location.machines
       .map((m) => ({
         machineId: m.id,
@@ -328,41 +468,80 @@ export default function LocationDetailScreen() {
       }))
       .filter((me) => me.products.length > 0);
     restockLocation(location.id, machineEntries);
+=======
+    if (!restockSessionMachines) return;
+    const machineEntries: RestockMachineEntry[] = restockSessionMachines
+      .map((m) => {
+        const products: RestockMachineEntry["products"] = [];
+        const pmap = primarySlotCounts[m.id] ?? {};
+        for (const [productId, slots] of Object.entries(pmap)) {
+          if ((slots ?? 0) <= 0) continue;
+          const qty = restockQtys[m.id]?.[productId] ?? 0;
+          if (qty > 0) products.push({ productId, qty });
+        }
+        for (const line of replacementLines[m.id] ?? []) {
+          if (line.qty > 0) {
+            products.push({
+              productId: line.productId,
+              qty: line.qty,
+              replacesProductId: line.replacesProductId,
+            });
+          }
+        }
+        return {
+          machineId: m.id,
+          machineType: m.type,
+          products,
+        };
+      })
+      .filter((me) => me.products.length > 0);
+    updateLocation({ ...location, machines: restockSessionMachines });
+    if (machineEntries.length > 0) {
+      restockLocation(location.id, machineEntries, undefined);
+    }
+    setRestockSessionMachines(null);
+    setPrimarySlotCounts({});
+    setReplacementLines({});
+>>>>>>> Stashed changes
     setShowRestockSession(false);
   };
 
   const openEditEntry = (originalIndex: number) => {
     const entry = location.restockHistory![originalIndex];
-    const qtys: Record<string, Record<string, number>> = {};
-    entry.machines.forEach((me) => {
-      qtys[me.machineId] = {};
-      me.products.forEach((p) => {
-        qtys[me.machineId][p.productId] = p.qty;
-      });
-    });
     setEditingEntry({ index: originalIndex, entry });
     setEditEntryDate(new Date(entry.timestamp));
-    setEditEntryQtys(qtys);
+    setEditDraftMachines(
+      entry.machines.map((me) => ({
+        ...me,
+        products: me.products.map((p) => ({ ...p })),
+      })),
+    );
   };
 
   const saveEditEntry = () => {
     if (!editingEntry) return;
+    const hasLineReplacements = editDraftMachines.some((me) =>
+      me.products.some((p) => p.replacesProductId),
+    );
     const updated: RestockEntry = {
       timestamp: editEntryDate.toISOString(),
-      machines: editingEntry.entry.machines
+      machines: editDraftMachines
         .map((me) => ({
           ...me,
-          products: me.products
-            .map((p) => ({
-              ...p,
-              qty: editEntryQtys[me.machineId]?.[p.productId] ?? p.qty,
-            }))
-            .filter((p) => p.qty > 0),
+          products: me.products.filter((p) => p.qty > 0),
         }))
         .filter((me) => me.products.length > 0),
+<<<<<<< Updated upstream
+=======
+      ...(!hasLineReplacements &&
+      (editingEntry.entry.productReplacements?.length ?? 0) > 0
+        ? { productReplacements: editingEntry.entry.productReplacements }
+        : {}),
+>>>>>>> Stashed changes
     };
     editRestockEntry(location.id, editingEntry.index, updated);
     setEditingEntry(null);
+    setEditDraftMachines([]);
     setShowHistory(true);
   };
 
@@ -370,7 +549,10 @@ export default function LocationDetailScreen() {
     const ok = await confirmDelete("entry", "This cannot be undone.");
     if (!ok) return;
     deleteRestockEntry(location.id, originalIndex);
-    if (editingEntry?.index === originalIndex) setEditingEntry(null);
+    if (editingEntry?.index === originalIndex) {
+      setEditingEntry(null);
+      setEditDraftMachines([]);
+    }
     setShowHistory(true);
   };
 
@@ -733,36 +915,53 @@ export default function LocationDetailScreen() {
           editingEntry={editingEntry}
           onClose={() => {
             setEditingEntry(null);
+            setEditDraftMachines([]);
             setShowHistory(true);
           }}
           onSave={saveEditEntry}
           onDelete={handleDeleteEntry}
           editEntryDate={editEntryDate}
           onDateChange={setEditEntryDate}
-          editEntryQtys={editEntryQtys}
-          onChangeQty={(machineId, productId, delta) => {
-            setEditEntryQtys((prev) => {
-              const current =
-                prev[machineId]?.[productId] ??
-                editingEntry?.entry.machines
-                  .find((m) => m.machineId === machineId)
-                  ?.products.find((p) => p.productId === productId)?.qty ??
-                0;
-              const max =
-                editingEntry?.entry.machines.find(
-                  (m) => m.machineId === machineId,
-                )?.machineType === "toy"
-                  ? 12
-                  : 9;
-              return {
-                ...prev,
-                [machineId]: {
-                  ...prev[machineId],
-                  [productId]: Math.min(max, Math.max(0, current + delta)),
-                },
-              };
-            });
+          draftMachines={editDraftMachines}
+          onChangeLineQty={(machineId: string, lineIndex: number, delta: number) => {
+            setEditDraftMachines((prev) =>
+              prev.map((me) => {
+                if (me.machineId !== machineId) return me;
+                const layout = location.machines.find(
+                  (m) => m.id === machineId,
+                );
+                const cap = me.machineType === "toy" ? 12 : 9;
+                const slotCounts = new Map<string, number>();
+                if (layout) {
+                  for (const id of layout.slots) {
+                    if (id) slotCounts.set(id, (slotCounts.get(id) ?? 0) + 1);
+                  }
+                }
+                const products = me.products.map((p, i) => {
+                  if (i !== lineIndex) return p;
+                  let maxQty: number;
+                  if (p.replacesProductId) {
+                    maxQty = cap;
+                  } else {
+                    const onLayout = slotCounts.get(p.productId) ?? 0;
+                    const virtualSlots =
+                      onLayout > 0
+                        ? onLayout
+                        : Math.max(1, Math.ceil(p.qty / cap) || 1);
+                    maxQty = virtualSlots * cap;
+                  }
+                  return {
+                    ...p,
+                    qty: Math.min(maxQty, Math.max(0, p.qty + delta)),
+                  };
+                });
+                return { ...me, products };
+              }),
+            );
           }}
+          layoutMachines={location.machines}
+          legacyProductReplacements={editingEntry?.entry.productReplacements}
+          onReplaceProduct={replaceProductInHistoryEdit}
           showDatePicker={showEditEntryDatePicker}
           onShowDatePicker={setShowEditEntryDatePicker}
           machineColors={MACHINE_COLORS}
@@ -787,14 +986,23 @@ export default function LocationDetailScreen() {
             sweet: settings.sweetColor,
             toy: settings.toyColor,
           }}
+          primarySlotCounts={primarySlotCounts}
+          replacementLines={replacementLines}
           restockQtys={restockQtys}
           restockDone={restockDone}
           onChangeQty={(machineId, productId, delta) => {
             setRestockQtys((prev) => {
+<<<<<<< Updated upstream
               const machine = location.machines.find((m) => m.id === machineId);
               const slotCount = machine?.slots.filter((s) => s === productId).length ?? 1;
+=======
+              const machine = (restockSessionMachines ?? location.machines).find(
+                (m) => m.id === machineId,
+              );
+>>>>>>> Stashed changes
               const capacityPerSlot = machine?.type === "toy" ? 12 : 9;
-              const max = slotCount * capacityPerSlot;
+              const slotCount = primarySlotCounts[machineId]?.[productId] ?? 0;
+              const max = Math.max(1, slotCount) * capacityPerSlot;
               const current = prev[machineId]?.[productId] ?? 0;
               return {
                 ...prev,
@@ -816,10 +1024,17 @@ export default function LocationDetailScreen() {
           }}
           onSnapQty={(machineId, productId) => {
             setRestockQtys((prev) => {
+<<<<<<< Updated upstream
               const machine = location.machines.find((m) => m.id === machineId);
               const slotCount = machine?.slots.filter((s) => s === productId).length ?? 1;
+=======
+              const machine = (restockSessionMachines ?? location.machines).find(
+                (m) => m.id === machineId,
+              );
+>>>>>>> Stashed changes
               const capacityPerSlot = machine?.type === "toy" ? 12 : 9;
-              const max = slotCount * capacityPerSlot;
+              const slotCount = primarySlotCounts[machineId]?.[productId] ?? 0;
+              const max = Math.max(1, slotCount) * capacityPerSlot;
               const current = prev[machineId]?.[productId] ?? 0;
               const next = current < max ? max : 0;
               return {
@@ -831,6 +1046,52 @@ export default function LocationDetailScreen() {
               };
             });
           }}
+<<<<<<< Updated upstream
+=======
+          onChangeReplacementQty={(machineId, lineId, delta) => {
+            setReplacementLines((prev) => {
+              const lines = [...(prev[machineId] ?? [])];
+              const idx = lines.findIndex((l) => l.id === lineId);
+              if (idx < 0) return prev;
+              const machine = (restockSessionMachines ?? location.machines).find(
+                (m) => m.id === machineId,
+              );
+              const cap = machine?.type === "toy" ? 12 : 9;
+              const current = lines[idx].qty;
+              lines[idx] = {
+                ...lines[idx],
+                qty: Math.min(cap, Math.max(0, current + delta)),
+              };
+              return { ...prev, [machineId]: lines };
+            });
+          }}
+          onToggleReplacementDone={(machineId, lineId) => {
+            setReplacementLines((prev) => ({
+              ...prev,
+              [machineId]: (prev[machineId] ?? []).map((l) =>
+                l.id === lineId ? { ...l, done: !l.done } : l,
+              ),
+            }));
+          }}
+          onSnapReplacementQty={(machineId, lineId) => {
+            setReplacementLines((prev) => {
+              const lines = [...(prev[machineId] ?? [])];
+              const idx = lines.findIndex((l) => l.id === lineId);
+              if (idx < 0) return prev;
+              const machine = (restockSessionMachines ?? location.machines).find(
+                (m) => m.id === machineId,
+              );
+              const cap = machine?.type === "toy" ? 12 : 9;
+              const current = lines[idx].qty;
+              lines[idx] = {
+                ...lines[idx],
+                qty: current < cap ? cap : 0,
+              };
+              return { ...prev, [machineId]: lines };
+            });
+          }}
+          onReplaceProduct={replaceProductInRestockSession}
+>>>>>>> Stashed changes
           accent={accent}
           colors={colors}
         />

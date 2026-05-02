@@ -423,13 +423,29 @@ export default function StockScreen() {
 
     for (const loc of state.locations) {
       for (const entry of loc.restockHistory ?? []) {
+<<<<<<< Updated upstream
         const seenSweet = new Set<string>();
         const seenToy = new Set<string>();
+=======
+        type Contrib = { mt: MachineType; productId: string; qty: number };
+        const byKey = new Map<string, Contrib>();
+
+        const add = (mt: MachineType, productId: string, q: number) => {
+          if (q === 0) return;
+          const k = `${mt}_${productId}`;
+          const cur = byKey.get(k) ?? { mt, productId, qty: 0 };
+          cur.qty += q;
+          byKey.set(k, cur);
+        };
+
+        let hasLineReplacementMarkers = false;
+>>>>>>> Stashed changes
         for (const machine of entry.machines) {
           const map = machine.machineType === "sweet" ? sweet : toy;
           const seen = machine.machineType === "sweet" ? seenSweet : seenToy;
           for (const p of machine.products) {
             if (p.qty <= 0) continue;
+<<<<<<< Updated upstream
             const cur = map.get(p.productId) ?? { total: 0, sessionCount: 0 };
             cur.total += p.qty;
             if (!seen.has(p.productId)) {
@@ -439,6 +455,46 @@ export default function StockScreen() {
             map.set(p.productId, cur);
           }
         }
+=======
+            if (p.replacesProductId) {
+              hasLineReplacementMarkers = true;
+              continue;
+            }
+            add(machine.machineType, p.productId, p.qty);
+          }
+        }
+
+        // Legacy entries: product rows only; swaps in productReplacements — same adjustment as before.
+        if (
+          !hasLineReplacementMarkers &&
+          (entry.productReplacements?.length ?? 0) > 0
+        ) {
+          for (const r of entry.productReplacements ?? []) {
+            const me = entry.machines.find((m) => m.machineId === r.machineId);
+            const mt =
+              me?.machineType ??
+              loc.machines.find((m) => m.id === r.machineId)?.type;
+            if (!mt) continue;
+            const qtyOld =
+              me?.products.find((p) => p.productId === r.replacedProductId)?.qty ??
+              0;
+            const qtyNew =
+              me?.products.find((p) => p.productId === r.replacedWithProductId)
+                ?.qty ?? 0;
+            add(mt, r.replacedProductId, -qtyOld + r.missingQtyRecorded);
+            add(mt, r.replacedWithProductId, -qtyNew);
+          }
+        }
+
+        for (const c of byKey.values()) {
+          if (c.qty <= 0) continue;
+          const map = c.mt === "sweet" ? sweet : toy;
+          const cur = map.get(c.productId) ?? { total: 0, sessionCount: 0 };
+          cur.total += c.qty;
+          cur.sessionCount += 1;
+          map.set(c.productId, cur);
+        }
+>>>>>>> Stashed changes
       }
     }
 
