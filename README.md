@@ -2,21 +2,7 @@
 
 A stock and restock management app for Tubz vending machines, built with [Expo](https://expo.dev) and React Native. Runs on iOS, Android, and web.
 
-**Release history:** see [CHANGELOG.md](CHANGELOG.md) (kept in step with `app.json` `expo.version` and `android.versionCode`).
-
-### Recent updates (1.0.6)
-
-- **Stock → Overview:** **Top selling Sweets / Toys** from restock history (top 5 + expand to all); labels clearly separate from your **Sweets / Toys** inventory sections; whole overview scrolls as one list
-- **Location restock session:** **Done** checkbox per line; **double-tap** product (image + name) to snap between **full** capacity (per slot rules) and **zero**
-- **Machine slot picker:** search + **A–Z** product list
-- **Opening hours:** **mobile time picker** for times; web keeps typed entry
-- **Settings** (app + location menu): **faster fade** animations
-- **Removed:** standalone **Edit date** for last restocked on the location screen (date still updates via restock / history)
-
-### Earlier (1.0.5 and before)
-
-- **Restock notifications:** short restock windows still get a reliable local notification on the **due date**; longer windows keep the 7-day-ahead reminder when possible
-- **Dashboard test menu (🧪):** temporary QA panel for sample notifications (remove when no longer needed)
+**Release history:** see [CHANGELOG.md](CHANGELOG.md).
 
 ## Features
 
@@ -26,7 +12,7 @@ A stock and restock management app for Tubz vending machines, built with [Expo](
 - **Upcoming Restocks** — locations with a restock period set, sorted by soonest due date; never-restocked locations shown at the bottom
 - **Recent Restocks** — up to 8 locations sorted by most recently restocked
 - Settings icon (⚙️) opens the theme settings modal
-- **Test menu** (🧪) — temporary developer control next to the settings icon. Opens a small panel to trigger sample restock notifications (e.g. a notification in a few seconds, or one scheduled for late today) so you can verify push behaviour on a device. Remove this entry point when you no longer need it
+- **Test menu** (🧪) — temporary developer control next to the settings icon. Opens a panel to trigger **sample local** restock notifications and (on **iOS/Android builds only**) an optional **Expo push** test that talks to Expo’s push API. On **web**, the Expo push section is a stub and does not load `expo-notifications`. Remove this entry point when you no longer need it
 - Tap any restock card to navigate directly to that location
 
 ### Locations
@@ -39,7 +25,7 @@ A stock and restock management app for Tubz vending machines, built with [Expo](
 - Tap the address line inside a location to open it in Google Maps
 - **Open/Closed status badge** on each location card and inside the location detail, powered by configurable opening hours
 - Track when each location was last restocked (updates when you restock or edit history) with full restock history
-- Set a **restock period** (1–12 weeks) per location; new locations default to 4 weeks
+- Set a **restock period** (1–12 weeks) per location; new locations default to 4 weeks. The **1 week** option is a **“remind me in one week from now”** control (see changelog 1.0.7); other values use **last restocked** (or **created** if never restocked) + N weeks for due date
 - Location detail uses a ⚙️ menu (top right) with options: Edit address, Edit opening hours, Restock history, Delete
 
 ### Opening Hours
@@ -82,7 +68,7 @@ A stock and restock management app for Tubz vending machines, built with [Expo](
 ### Stock
 
 - General inventory tracker — separate from machine slots
-- **Overview** also shows **Top selling Sweets / Toys** (from location restock history), top 5 each with optional expand to all ranked products
+- **Overview** also shows **Top selling Sweets / Toys** (from location restock history), top 5 each with optional expand to all ranked products; **product swaps** in a session credit only the **old** SKU’s **missing-at-swap** amount so replacing a tube does not count as selling the new SKU (see 1.0.8 in [CHANGELOG](CHANGELOG.md))
 - Sections for Sweets and Toys; add any product from the catalog (searchable picker)
 - Three stock levels per product: **Full**, **½ Box**, **Empty**
 - Full and ½ Box each have their own counter (track multiple boxes)
@@ -103,8 +89,9 @@ A stock and restock management app for Tubz vending machines, built with [Expo](
 ### Notifications
 
 - Local push notifications for locations with a restock period set
-- **7-day lead time:** when the due date is more than 7 days away, the notification is scheduled for one week *before* that due date (so you get a heads-up a week in advance)
-- **Short restock periods (e.g. 1 week):** there is no day left for a “7 days before” reminder, so the notification is scheduled for the **due date** itself instead. That keeps one-week (and other tight) cycles reliable; previously an “almost immediate” trigger could be cancelled on the next data save
+- **7-day lead time:** when the due date is more than 7 days away, the notification is scheduled for one week _before_ that due date (so you get a heads-up a week in advance)
+- **1 week with “Remind me” pill:** when you use the anchored **1 week** option, the due date is **one week from when you selected it** (unless you restock or clear the period); the notification still prefers a **7-day heads-up** when that date is in the future, otherwise it fires on **due date**.
+- **Short periods without that anchor (e.g. legacy 1 week):** if there is no day left for a “7 days before” reminder, the notification is scheduled for the **due date** itself so it is not cancelled by the next reschedule
 - If the 7-day warning window is already in the past but the due date is still in the future, the notification is scheduled for the **due date** (not a few seconds from now), so it is not lost when the app reschedules after each change
 - Permissions requested on first launch (iOS/Android only; no-op on web)
 - Notifications are automatically rescheduled when restock periods or last-restocked dates change
@@ -191,12 +178,12 @@ assets/
 
 ## Data Persistence
 
-| Data                          | AsyncStorage key     |
-| ----------------------------- | -------------------- |
-| Locations, machines, products | `@tubz:appState`     |
-| Restock planner               | `@tubz_restock_v1`   |
-| Stock inventory               | `@tubz_stock_v2`     |
-| Theme / accent settings       | `@tubz_settings_v1`  |
-| Crash log                     | `@tubz:crashLog`     |
+| Data                          | AsyncStorage key    |
+| ----------------------------- | ------------------- |
+| Locations, machines, products | `@tubz:appState`    |
+| Restock planner               | `@tubz_restock_v1`  |
+| Stock inventory               | `@tubz_stock_v2`    |
+| Theme / accent settings       | `@tubz_settings_v1` |
+| Crash log                     | `@tubz:crashLog`    |
 
 No external database or login is required. All data is stored locally on the device.

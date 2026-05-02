@@ -14,6 +14,22 @@ export type ChangelogRelease = {
 
 export const CHANGELOG_IN_APP: ChangelogRelease[] = [
   {
+    version: "1.0.7",
+    date: "2026-05-01",
+    androidVersionCode: 7,
+    added: [
+      "Location → Restock every: the 1-week option is “Remind me · in 1 week” and anchors the next due date to one week from when you tap; when selected it shows “1 week · due”. Tapping again refreshes that countdown. Restock now clears the anchor so the next cycle uses last restocked + period.",
+      "Dashboard → Upcoming restocks: 1-week anchored reminders appear with a due date even if the location has never been restocked.",
+    ],
+    fixed: [
+      "Web / static export: test menu no longer loads expo-notifications in the browser (Expo push lab is native-only), avoiding localStorage errors during static rendering.",
+      "Android release builds: more reliable local scheduling without @react-native-firebase/app; google-services pipeline for push; ProGuard keeps expo.modules classes for notifications.",
+    ],
+    changed: [
+      "Export / import: optional restockPeriodAnchorAt on locations is validated when present.",
+    ],
+  },
+  {
     version: "1.0.6",
     date: "2026-04-30",
     androidVersionCode: 6,
@@ -31,7 +47,6 @@ export const CHANGELOG_IN_APP: ChangelogRelease[] = [
     changed: [
       "Location: removed the standalone Edit date control for “last restocked”; the date still updates when you complete a restock or edit history.",
       "Settings modals (app ⚙️ and location gear menu): slightly faster fade open/close.",
-      "Location → Restock every: the 1-week option reads “Remind me · in 1 week” and sets due one week from when you tap it; when selected it shows “1 week · due”. Tapping it again refreshes that one-week countdown. A normal restock clears that reminder anchor so the next cycle follows last restocked + period.",
     ],
   },
   {

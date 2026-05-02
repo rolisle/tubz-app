@@ -12,6 +12,35 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [1.0.8] - 2026-05-02
+
+**Android `versionCode`:** 8
+
+### Fixed
+
+- **Stock → Overview → Top selling:** when a **location restock** **changes product** in a slot (old SKU → new SKU), rankings now count only the **missing quantity recorded at swap** toward the **old** product. The **new** product’s restock line on that session (often a full tube after auto-fill) no longer adds to top sellers, because that reflects **replacing** the slot, not incremental sales volume.
+
+---
+
+## [1.0.7] - 2026-05-01
+
+**Android `versionCode`:** 7
+
+### Added
+
+- **Location → Restock every:** the **1 week** option is labelled **“Remind me” / “in 1 week”** before selection and **“1 week” / “due”** when active. Choosing it stores an on-device **reminder anchor** so the due date is **one week from when you tap**, not only from the last restock or creation date. Tapping again while selected refreshes that one-week countdown. **Restock now** clears the anchor so the next cycle follows **last restocked + period** like other intervals; **Clear** or choosing **2–12 weeks** clears the anchor. **Upcoming restocks** on the dashboard **include** these reminders even when the location has never been restocked.
+
+### Fixed
+
+- **Web / static export:** the dashboard test menu no longer imports **`expo-notifications`** on web (Expo push lab is **native-only**), avoiding **`localStorage.getItem`** errors during `expo export` and static rendering.
+- **Android release builds:** local restock scheduling is more reliable without `@react-native-firebase/app`; Firebase for device push uses the bundled **`google-services.json`** pipeline, and **ProGuard** keep rules preserve Expo notification-related classes under `expo.modules`.
+
+### Changed
+
+- **Export / import:** optional field **`restockPeriodAnchorAt`** on locations is validated on import when present.
+
+---
+
 ## [1.0.6] - 2026-04-30
 
 **Android `versionCode`:** 6

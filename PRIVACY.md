@@ -1,7 +1,7 @@
 # Tubz — Privacy Policy
 
 **Effective date:** 15 April 2026
-**Last updated:** 24 April 2026
+**Last updated:** 2 May 2026
 
 This Privacy Policy describes how the Tubz mobile application ("Tubz", "the
 app", "we", "our", or "us") handles information when you use it. By using the
@@ -19,9 +19,10 @@ If you have any questions, contact us at **[YOUR CONTACT EMAIL]**.
   **not** collect, sell, or share your personal information.
 - We do **not** use analytics, advertising, tracking SDKs, or crash
   reporting services.
-- The only network calls the app can make are (1) opening Google Maps when
-  you tap a location address and (2) delivering updates from the app store
-  or Expo servers as part of normal app distribution.
+- The routine network use is (1) opening Google Maps when you tap a
+  location address, (2) app store / Expo update checks, and (3) **only if
+  you use it** — the optional **Expo push** test in the dashboard test menu
+  (see [§6](#6-third-party-services)).
 
 ---
 
@@ -47,12 +48,17 @@ You may enter information into the app which is stored **only on your
 device**, inside the operating system's sandboxed storage (Android
 AsyncStorage / app-private storage):
 
-- **Locations** — site name, address, city, postcode, opening hours, notes.
+- **Locations** — site name, address, city, postcode, opening hours, notes,
+  and optionally a **one-week reminder anchor** (timestamp) when you use that
+  restock option — stored only for due-date calculation on the device.
 - **Machines** — machine type and product layout per location.
 - **Products** — product names, emojis, categories, and optional images
   you choose from your photo library.
 - **Restock history** — dates, product lists, and quantities for each
-  restock session.
+  restock session; if you **change product** in a machine slot during a
+  session, the app may also store which SKU was replaced, which SKU took
+  its place, and how many units were missing at the time of the swap —
+  still only on your device (and in exports you create).
 - **Stock levels** — current fullness state per product.
 - **App settings** — theme, accent colour, and notification preferences.
 
@@ -79,25 +85,31 @@ app's private storage on your device and is not uploaded anywhere.
 ### Notifications (`POST_NOTIFICATIONS`)
 
 Used to deliver **local** reminder notifications for upcoming restock
-dates at locations you have configured. Notifications are scheduled and
-delivered entirely on-device by the Android operating system; no push
-service is used and no notification content leaves your device.
+dates at locations you have configured. Restock reminders are scheduled and
+delivered on-device; their **content** is not sent to us. (A separate,
+**optional** developer/QA control can request an **Expo push token** and
+trigger a **test** notification via Expo’s servers — see [§6](#6-third-party-services).)
 
-### Exact alarms (`SCHEDULE_EXACT_ALARM`)
+### Exact alarms (`SCHEDULE_EXACT_ALARM`, `USE_EXACT_ALARM`)
 
-Used to schedule restock reminder notifications at a precise date and time
-(e.g. one week before a location's restock is due). Android 12 and above
-require this permission for apps to set exact-time alarms. The permission
-is used solely to deliver local, on-device reminders; no data leaves your
-device as a result.
+Used to schedule restock reminder notifications at a precise date and
+time (for example the configured reminder date for a location). Android 12
+and above may require special handling for exact-time alarms. These
+permissions are used **only** for local, on-device restock reminders; no
+schedule data is sent to us as a result of granting them.
 
 ### Internet (`INTERNET`)
 
 Standard permission required by React Native / Expo apps. Tubz uses the
-network only to:
+network for:
 
-- Open Google Maps in your browser or Maps app when you tap an address.
-- Receive standard OS-level app store and Expo updates.
+- Opening Google Maps in your browser or Maps app when you tap an address.
+- Standard OS-level app store and Expo update checks.
+- **Optional:** if you use the dashboard **test menu → Expo push** flow on
+  a **device build**, the app contacts **Expo** (and on Android may use
+  **Google Firebase Cloud Messaging** as configured in the app) to obtain a
+  push token and to **send a test notification** you request. That path is
+  not used for ordinary restock reminders.
 
 ---
 
@@ -120,7 +132,7 @@ the destination you send it to (email provider, cloud storage, etc.).
 ## 6. Third-Party Services
 
 Tubz does **not** integrate any third-party analytics, advertising, or
-user-tracking SDKs. The only external endpoints the app may contact are:
+user-tracking SDKs. The external endpoints the app may contact include:
 
 - **maps.google.com** — opened in your external browser or Google Maps
   app when you tap a location's address. This is a link-out, not a
@@ -129,6 +141,12 @@ user-tracking SDKs. The only external endpoints the app may contact are:
 - **Expo update servers / Google Play** — standard app distribution and
   update checks. These are handled by the OS and Expo's SDK and are
   subject to their respective privacy policies.
+- **exp.host (Expo push API)** — **only** if you open the dashboard **test
+  menu** and use the **Expo push** test on a supported device build. The
+  app sends your **Expo push token** (not your Tubz inventory data) to
+  Expo’s service so a **single test notification** can be delivered.
+  **Google (FCM)** may be involved on Android for that token/delivery path,
+  as with typical Expo-managed apps using Firebase configuration.
 
 We have no control over, and accept no responsibility for, the privacy
 practices of these third parties.
