@@ -18,7 +18,7 @@ import { Colors } from "@/constants/theme";
 import { useApp } from "@/context/app-context";
 import { primaryColor, useSettings } from "@/context/settings-context";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-import type { Product } from "@/types";
+import type { MachineType, Product } from "@/types";
 import {
   EMPTY_STATE,
   LEVELS,
@@ -423,21 +423,49 @@ export default function StockScreen() {
 
     for (const loc of state.locations) {
       for (const entry of loc.restockHistory ?? []) {
-        const seenSweet = new Set<string>();
-        const seenToy = new Set<string>();
+        type Contrib = { mt: MachineType; productId: string; qty: number };
+        const byKey = new Map<string, Contrib>();
+
+        const add = (mt: MachineType, productId: string, q: number) => {
+          if (q === 0) return;
+          const k = `${mt}_${productId}`;
+          const cur = byKey.get(k) ?? { mt, productId, qty: 0 };
+          cur.qty += q;
+          byKey.set(k, cur);
+        };
+
         for (const machine of entry.machines) {
-          const map = machine.machineType === "sweet" ? sweet : toy;
-          const seen = machine.machineType === "sweet" ? seenSweet : seenToy;
           for (const p of machine.products) {
             if (p.qty <= 0) continue;
-            const cur = map.get(p.productId) ?? { total: 0, sessionCount: 0 };
-            cur.total += p.qty;
-            if (!seen.has(p.productId)) {
-              cur.sessionCount += 1;
-              seen.add(p.productId);
-            }
-            map.set(p.productId, cur);
+            add(machine.machineType, p.productId, p.qty);
           }
+        }
+
+        // Product swap: credit only missing-at-swap on the old SKU; drop new-SKU
+        // restock line (full tube is stock replacement, not incremental sales).
+        for (const r of entry.productReplacements ?? []) {
+          const me = entry.machines.find((m) => m.machineId === r.machineId);
+          const mt =
+            me?.machineType ??
+            loc.machines.find((m) => m.id === r.machineId)?.type;
+          if (!mt) continue;
+          const qtyOld =
+            me?.products.find((p) => p.productId === r.replacedProductId)?.qty ??
+            0;
+          const qtyNew =
+            me?.products.find((p) => p.productId === r.replacedWithProductId)
+              ?.qty ?? 0;
+          add(mt, r.replacedProductId, -qtyOld + r.missingQtyRecorded);
+          add(mt, r.replacedWithProductId, -qtyNew);
+        }
+
+        for (const c of byKey.values()) {
+          if (c.qty <= 0) continue;
+          const map = c.mt === "sweet" ? sweet : toy;
+          const cur = map.get(c.productId) ?? { total: 0, sessionCount: 0 };
+          cur.total += c.qty;
+          cur.sessionCount += 1;
+          map.set(c.productId, cur);
         }
       }
     }
