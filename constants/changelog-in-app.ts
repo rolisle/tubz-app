@@ -14,6 +14,29 @@ export type ChangelogRelease = {
 
 export const CHANGELOG_IN_APP: ChangelogRelease[] = [
   {
+    version: "1.0.9",
+    date: "2026-05-11",
+    androidVersionCode: 9,
+    added: [
+      "Settings → Stock levels: set max units per column for sweet (default 9) and toy (default 12). Used for restock caps, location restock sessions, and history — not the nine columns in the slot grid.",
+    ],
+    changed: [
+      "Location → Restock session → Change product: original columns and planogram stay until you tap Done; track missing stock on the old SKU during the session, then slots update when you finish.",
+    ],
+    fixed: [
+      "Add location: optional Google Maps link saves reliably when creating a location.",
+      "Safer handling when restock history data is missing or unusual; avoids crashes on location/stock/history screens.",
+    ],
+  },
+  {
+    version: "1.0.8",
+    date: "2026-05-02",
+    androidVersionCode: 8,
+    fixed: [
+      "Stock → Overview → Top selling: when a location restock changes product in a slot, only the missing quantity at swap counts toward the old product. The new product’s replacement line no longer inflates top sellers.",
+    ],
+  },
+  {
     version: "1.0.7",
     date: "2026-05-01",
     androidVersionCode: 7,

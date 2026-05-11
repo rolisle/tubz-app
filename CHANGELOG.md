@@ -12,6 +12,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [1.0.9] - 2026-05-11
+
+**Android `versionCode`:** 9
+
+### Added
+
+- **Settings → Stock levels:** configure **max units per column** separately for **sweet** (default **9**) and **toy** (default **12**). These caps apply to the standalone Restock tab, **location restock sessions**, history editing limits, and planogram sync — not to the number of physical columns in the machine grid (still nine slots).
+
+### Changed
+
+- **Location → Restock session → Change product:** the planogram and **primary** slot counts no longer update mid-session. The **original** product rows keep the full column count until you tap **Done**, so you can track **missing** stock for the old SKU; one column moves to the new product when the session completes (for each replacement line with quantity > 0).
+
+### Fixed
+
+- **Add location:** optional **Google Maps** link now persists correctly when creating a new location.
+- **Restock history:** normalisation and guards when `restockHistory` is missing or old-shaped data appears, avoiding crashes on location/stock/history screens.
+
+---
+
 ## [1.0.8] - 2026-05-02
 
 **Android `versionCode`:** 8

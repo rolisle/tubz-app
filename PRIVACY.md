@@ -1,7 +1,7 @@
 # Tubz — Privacy Policy
 
 **Effective date:** 15 April 2026
-**Last updated:** 2 May 2026
+**Last updated:** 11 May 2026
 
 This Privacy Policy describes how the Tubz mobile application ("Tubz", "the
 app", "we", "our", or "us") handles information when you use it. By using the
@@ -48,7 +48,8 @@ You may enter information into the app which is stored **only on your
 device**, inside the operating system's sandboxed storage (Android
 AsyncStorage / app-private storage):
 
-- **Locations** — site name, address, city, postcode, opening hours, notes,
+- **Locations** — site name, address, city, postcode, optional **Google Maps**
+  share link (URL) for quick navigation, opening hours, notes,
   and optionally a **one-week reminder anchor** (timestamp) when you use that
   restock option — stored only for due-date calculation on the device.
 - **Machines** — machine type and product layout per location.
@@ -56,11 +57,14 @@ AsyncStorage / app-private storage):
   you choose from your photo library.
 - **Restock history** — dates, product lists, and quantities for each
   restock session; if you **change product** in a machine slot during a
-  session, the app may also store which SKU was replaced, which SKU took
-  its place, and how many units were missing at the time of the swap —
+  location restock session, the app stores which SKU was replaced, which SKU took
+  its place, and quantities; the on-screen **planogram** for that session
+  updates when you **complete** the session (**Done**), not on every swap —
   still only on your device (and in exports you create).
 - **Stock levels** — current fullness state per product.
-- **App settings** — theme, accent colour, and notification preferences.
+- **App settings** — theme, accent colour, sweet/toy machine colours,
+  your chosen **max units per column** per machine type for restock caps
+  (numbers used only for on-device quantity limits), and notification-related behaviour.
 
 This data is not transmitted to us or to any third party. Uninstalling the
 app deletes it.
@@ -135,7 +139,7 @@ Tubz does **not** integrate any third-party analytics, advertising, or
 user-tracking SDKs. The external endpoints the app may contact include:
 
 - **maps.google.com**, **maps.app.goo.gl**, and similar Google Maps URLs — opened in your external browser or Google Maps
-  app when you tap a location's address or 🔎, or when you have saved a Maps share link for that location. This is a link-out, not a
+  app when you tap a location's address or 🔎, or when you have saved a **Maps link** for that location (the URL is stored only on your device). This is a link-out, not a
   background request. Google's privacy practices apply once you leave
   the app.
 - **Expo update servers / Google Play** — standard app distribution and

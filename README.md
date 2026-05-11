@@ -19,7 +19,7 @@ A stock and restock management app for Tubz vending machines, built with [Expo](
 ### Locations
 
 - Add and manage vending machine locations with full UK address (street, city, postcode)
-- Optional **Google Maps link** per location (e.g. `maps.app.goo.gl` share URL). 🔎 and the address line on the location screen open **this link when set**, otherwise they search by address in Google Maps
+- Optional **Google Maps link** per location (e.g. `maps.app.goo.gl` share URL). Saved when adding or editing a location. 🔎 and the address line on the location screen open **this link when set**, otherwise they search by address in Google Maps
 - UK postcode format validation on both add and edit
 - Search locations across all address fields
 - View locations as a flat alphabetical list or grouped by city
@@ -29,6 +29,7 @@ A stock and restock management app for Tubz vending machines, built with [Expo](
 - Track when each location was last restocked (updates when you restock or edit history) with full restock history
 - Set a **restock period** (1–12 weeks) per location; new locations default to 4 weeks. The **1 week** option is a **“remind me in one week from now”** control (see changelog 1.0.7); other values use **last restocked** (or **created** if never restocked) + N weeks for due date
 - Location detail uses a ⚙️ menu (top right) with options: Edit address, Edit opening hours, Restock history, Delete
+- **Restock session** (from the location): **Change product** adds a replacement row; the live planogram and primary slot counts stay as today until you tap **Done**, so you can finish counting missing stock on the old SKU (see [CHANGELOG](CHANGELOG.md) 1.0.9)
 
 ### Opening Hours
 
@@ -40,7 +41,7 @@ A stock and restock management app for Tubz vending machines, built with [Expo](
 ### Machines
 
 - Add unlimited sweet 🍬 or toy 🪀 machines per location
-- Each sweet machine holds up to 9 slots; each toy machine holds up to 12
+- Each machine has a **9-column** slot grid in the UI (layout); **how many units fit in one column** for restock math and caps comes from **Settings → Stock levels** (defaults: **9** sweets, **12** toys per column — see [CHANGELOG](CHANGELOG.md) 1.0.9)
 - Grid view and list view toggle per machine
 - Slot counter shows filled/total (e.g. `6/9`, turns red when full)
 - Products in the slot picker are filtered by machine type (sweets only / toys only)
@@ -60,7 +61,7 @@ A stock and restock management app for Tubz vending machines, built with [Expo](
 - Standalone restock planner — not tied to any location
 - Add sweet and toy machines to a restock list (defaults to one of each on first launch)
 - Pick products per machine (filtered by type, searchable)
-- Set quantities per product (max 9 for sweet, max 12 for toy); new items start at 0
+- Set quantities per product (capped by **Settings → Stock levels** for that machine type); new items start at 0
 - Decrement to 0 removes the item; the minus button is disabled at 0
 - Add the same product multiple times (each is a separate independent slot)
 - Mark items as done (greyed out with strikethrough, controls hidden) and unmark them
@@ -85,6 +86,7 @@ A stock and restock management app for Tubz vending machines, built with [Expo](
 - Accent / Tab colour (affects buttons, active tab, highlights)
 - Sweet Machine colour
 - Toy Machine colour
+- **Stock levels** — max units per column for sweet and toy machines (defaults 9 and 12); drives restock quantity limits and history/session caps site-wide
 - Supports solid colours and 3-stop gradients, with preset swatches
 - Live preview of machine chip colours in the settings modal
 
@@ -167,7 +169,7 @@ constants/
 
 context/
   app-context.tsx      # Global state, reducer, AsyncStorage persistence
-  settings-context.tsx # Theme settings (accent, sweet, toy colours)
+  settings-context.tsx # Theme settings (accent, sweet/toy colours, per-type stock caps)
 
 utils/
   notifications.ts         # Web stub — no-op for SSR/web
@@ -185,7 +187,7 @@ assets/
 | Locations, machines, products | `@tubz:appState`    |
 | Restock planner               | `@tubz_restock_v1`  |
 | Stock inventory               | `@tubz_stock_v2`    |
-| Theme / accent settings       | `@tubz_settings_v1` |
+| Theme / accent / stock caps     | `@tubz_settings_v1` |
 | Crash log                     | `@tubz:crashLog`    |
 
 No external database or login is required. All data is stored locally on the device.
