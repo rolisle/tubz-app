@@ -8,8 +8,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { DatePickerModal } from "@/components/ui/date-picker-modal";
 import { RestockProductRow } from "@/components/restock-product-row";
+import { DatePickerModal } from "@/components/ui/date-picker-modal";
 import { FsModalNavbar } from "@/components/ui/fs-modal-navbar";
 import { GradView } from "@/components/ui/grad-view";
 import { ProductPickerModal } from "@/components/ui/product-picker-modal";
@@ -23,10 +23,12 @@ import type {
   MachineType,
   Product,
   ProductCategory,
+  RestockEntry,
   RestockMachineEntry,
   RestockProductReplacement,
-  RestockEntry,
 } from "@/types";
+import type { StockLevelSettings } from "@/utils/slot-capacity";
+import { slotCapacityForMachineType } from "@/utils/slot-capacity";
 
 export interface HistoryEntryEditorModalProps {
   editingEntry: { index: number; entry: RestockEntry } | null;
@@ -45,6 +47,7 @@ export interface HistoryEntryEditorModalProps {
   onShowDatePicker: (visible: boolean) => void;
   machineColors: Record<MachineType, string>;
   machineColorSettings: { sweet: AppColor; toy: AppColor };
+  stockLevels: StockLevelSettings;
   products: Product[];
   accent: string;
   colors: (typeof Colors)["light"];
@@ -84,6 +87,7 @@ export function HistoryEntryEditorModal({
   onShowDatePicker,
   machineColors,
   machineColorSettings,
+  stockLevels,
   products,
   accent,
   colors,
@@ -140,7 +144,8 @@ export function HistoryEntryEditorModal({
 
   /** Original-slot SKUs that already have at least one "new stock" line replacing them. */
   const addReplPrimaryIdsAlreadyReplaced = useMemo(() => {
-    if (!addReplFlow || addReplFlow.step !== "replaced") return new Set<string>();
+    if (!addReplFlow || addReplFlow.step !== "replaced")
+      return new Set<string>();
     const me = draftMachines.find((m) => m.machineId === addReplFlow.machineId);
     const blocked = new Set<string>();
     for (const p of me?.products ?? []) {
@@ -160,7 +165,8 @@ export function HistoryEntryEditorModal({
   }, [addReplFlow, products]);
 
   const draftHasReplacementLines = useMemo(
-    () => draftMachines.some((m) => m.products.some((p) => p.replacesProductId)),
+    () =>
+      draftMachines.some((m) => m.products.some((p) => p.replacesProductId)),
     [draftMachines],
   );
 
@@ -180,7 +186,9 @@ export function HistoryEntryEditorModal({
       onRequestClose={onClose}
       animation="fade"
     >
-      <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
+      <SafeAreaView
+        style={[styles.safe, { backgroundColor: colors.background }]}
+      >
         <FsModalNavbar
           title="Edit Entry"
           subtitle={editingEntry ? `#${editingEntry.index + 1}` : undefined}
@@ -199,11 +207,16 @@ export function HistoryEntryEditorModal({
 
         <ScrollView contentContainerStyle={styles.content}>
           <TouchableOpacity
-            style={[styles.dateRow, { backgroundColor: colors.card, borderColor: colors.border }]}
+            style={[
+              styles.dateRow,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
             onPress={() => onShowDatePicker(true)}
           >
             <View style={{ flex: 1 }}>
-              <Text style={[styles.dateLabel, { color: colors.subtext }]}>Date</Text>
+              <Text style={[styles.dateLabel, { color: colors.subtext }]}>
+                Date
+              </Text>
               <Text style={[styles.dateValue, { color: colors.text }]}>
                 {editEntryDate.toLocaleDateString("en-GB", {
                   weekday: "long",
@@ -213,17 +226,12 @@ export function HistoryEntryEditorModal({
                 })}
               </Text>
             </View>
-            <Text style={[styles.chevron, { color: colors.subtext, fontSize: 22 }]}>›</Text>
+            <Text
+              style={[styles.chevron, { color: colors.subtext, fontSize: 22 }]}
+            >
+              ›
+            </Text>
           </TouchableOpacity>
-
-          <Text style={[styles.editTip, { color: colors.subtext }]}>
-            <Text style={{ fontWeight: "600", color: colors.text }}>Add new stock (swapped slot)</Text>
-            {` picks which original SKU was removed from a column, then the new SKU (one column, same as live restock). `}
-            <Text style={{ fontWeight: "600", color: colors.text }}>Change product</Text>
-            {` on original slots updates that row and any "new stock" lines that were replacing that SKU. On `}
-            <Text style={{ fontWeight: "600", color: colors.text }}>New stock in swapped slots</Text>
-            {`, it keeps the same "replacing" label and only changes the new SKU.`}
-          </Text>
 
           {showLegacySwaps ? (
             <View
@@ -235,12 +243,16 @@ export function HistoryEntryEditorModal({
                 },
               ]}
             >
-              <Text style={[styles.replaceSectionTitle, { color: colors.text }]}>
+              <Text
+                style={[styles.replaceSectionTitle, { color: colors.text }]}
+              >
                 Product swaps (legacy format)
               </Text>
               {(legacyProductReplacements ?? []).map((r, ri) => {
                 const from = products.find((p) => p.id === r.replacedProductId);
-                const to = products.find((p) => p.id === r.replacedWithProductId);
+                const to = products.find(
+                  (p) => p.id === r.replacedWithProductId,
+                );
                 return (
                   <Text
                     key={`${r.machineId}-${ri}-${r.replacedProductId}-${r.replacedWithProductId}`}
@@ -255,27 +267,34 @@ export function HistoryEntryEditorModal({
             </View>
           ) : null}
 
-          {editingEntry &&
-            draftMachines.length === 0 &&
-            !showLegacySwaps && (
-            <Text style={[styles.emptyNote, { color: colors.subtext, textAlign: "left", marginTop: 16 }]}>
+          {editingEntry && draftMachines.length === 0 && !showLegacySwaps && (
+            <Text
+              style={[
+                styles.emptyNote,
+                { color: colors.subtext, textAlign: "left", marginTop: 16 },
+              ]}
+            >
               No product data recorded for this session.
             </Text>
           )}
-          {editingEntry &&
-            draftMachines.length === 0 &&
-            showLegacySwaps && (
-            <Text style={[styles.emptyNote, { color: colors.subtext, textAlign: "left", marginTop: 8 }]}>
+          {editingEntry && draftMachines.length === 0 && showLegacySwaps && (
+            <Text
+              style={[
+                styles.emptyNote,
+                { color: colors.subtext, textAlign: "left", marginTop: 8 },
+              ]}
+            >
               No quantities logged — only planogram swaps above.
             </Text>
           )}
 
           {draftMachines.map((me) => {
             const machineColorStr = machineColors[me.machineType];
-            const machineColorSetting = me.machineType === "sweet"
-              ? machineColorSettings.sweet
-              : machineColorSettings.toy;
-            const cap = me.machineType === "toy" ? 12 : 9;
+            const machineColorSetting =
+              me.machineType === "sweet"
+                ? machineColorSettings.sweet
+                : machineColorSettings.toy;
+            const cap = slotCapacityForMachineType(me.machineType, stockLevels);
             const layout = layoutMachines.find((m) => m.id === me.machineId);
             const slotCounts = new Map<string, number>();
             if (layout) {
@@ -302,14 +321,18 @@ export function HistoryEntryEditorModal({
                     colors={machineColorSetting}
                     style={[StyleSheet.absoluteFill, { opacity: 0.07 }]}
                   />
-                  <Text style={[styles.machineTitle, { color: machineColorStr }]}>
+                  <Text
+                    style={[styles.machineTitle, { color: machineColorStr }]}
+                  >
                     {MACHINE_LABELS[me.machineType]}
                   </Text>
                 </View>
 
                 <View style={styles.machineBody}>
                   {me.products.length === 0 ? (
-                    <Text style={[styles.emptyMachine, { color: colors.subtext }]}>
+                    <Text
+                      style={[styles.emptyMachine, { color: colors.subtext }]}
+                    >
                       No lines for this machine.
                     </Text>
                   ) : (
@@ -323,7 +346,9 @@ export function HistoryEntryEditorModal({
                       const showNewHeader =
                         isRepl && (lineIndex === 0 || !prevRepl);
 
-                      const product = products.find((pr) => pr.id === p.productId);
+                      const product = products.find(
+                        (pr) => pr.id === p.productId,
+                      );
                       let max: number;
                       if (isRepl) {
                         max = cap;
@@ -347,17 +372,29 @@ export function HistoryEntryEditorModal({
                           key={`${me.machineId}-${lineIndex}-${p.productId}-${p.replacesProductId ?? "p"}`}
                         >
                           {showOriginalHeader ? (
-                            <Text style={[styles.sectionHint, { color: colors.subtext }]}>
+                            <Text
+                              style={[
+                                styles.sectionHint,
+                                { color: colors.subtext },
+                              ]}
+                            >
                               Original slots
                             </Text>
                           ) : null}
                           {showNewHeader ? (
                             <View
                               style={
-                                lineIndex > 0 ? styles.replBlock : styles.replBlockFirst
+                                lineIndex > 0
+                                  ? styles.replBlock
+                                  : styles.replBlockFirst
                               }
                             >
-                              <Text style={[styles.sectionHint, { color: colors.subtext }]}>
+                              <Text
+                                style={[
+                                  styles.sectionHint,
+                                  { color: colors.subtext },
+                                ]}
+                              >
                                 New stock in swapped slots
                               </Text>
                             </View>
@@ -385,7 +422,8 @@ export function HistoryEntryEditorModal({
                                       kind: "primary",
                                       machineId: me.machineId,
                                       lineIndex,
-                                      category: me.machineType as ProductCategory,
+                                      category:
+                                        me.machineType as ProductCategory,
                                     });
                                   }
                                 : onChangeReplacementLineProduct
@@ -395,7 +433,8 @@ export function HistoryEntryEditorModal({
                                         kind: "replacement",
                                         machineId: me.machineId,
                                         lineIndex,
-                                        category: me.machineType as ProductCategory,
+                                        category:
+                                          me.machineType as ProductCategory,
                                       });
                                     }
                                   : undefined
@@ -425,7 +464,10 @@ export function HistoryEntryEditorModal({
                     }}
                   >
                     <Text
-                      style={[styles.addLineBtnText, { color: machineColorStr }]}
+                      style={[
+                        styles.addLineBtnText,
+                        { color: machineColorStr },
+                      ]}
                     >
                       + Add new stock (swapped slot)
                     </Text>
@@ -506,7 +548,9 @@ export function HistoryEntryEditorModal({
                 {product.id ===
                 draftMachines.find((m) => m.machineId === replaceFor.machineId)
                   ?.products[replaceFor.lineIndex]?.productId ? (
-                  <Text style={[styles.pickerCurrent, { color: rowColors.subtext }]}>
+                  <Text
+                    style={[styles.pickerCurrent, { color: rowColors.subtext }]}
+                  >
                     Current
                   </Text>
                 ) : null}
@@ -533,12 +577,18 @@ export function HistoryEntryEditorModal({
                   >
                     <ProductThumb product={product} size={36} />
                     <Text
-                      style={[styles.pickerRowName, { color: rowColors.subtext }]}
+                      style={[
+                        styles.pickerRowName,
+                        { color: rowColors.subtext },
+                      ]}
                     >
                       {product.name}
                     </Text>
                     <Text
-                      style={[styles.pickerRowBlockedHint, { color: rowColors.subtext }]}
+                      style={[
+                        styles.pickerRowBlockedHint,
+                        { color: rowColors.subtext },
+                      ]}
                     >
                       Already replacing
                     </Text>
@@ -561,7 +611,9 @@ export function HistoryEntryEditorModal({
                   }}
                 >
                   <ProductThumb product={product} size={36} />
-                  <Text style={[styles.pickerRowName, { color: rowColors.text }]}>
+                  <Text
+                    style={[styles.pickerRowName, { color: rowColors.text }]}
+                  >
                     {product.name}
                   </Text>
                 </TouchableOpacity>
@@ -610,7 +662,10 @@ export function HistoryEntryEditorModal({
         <DatePickerModal
           visible={showDatePicker}
           value={editEntryDate}
-          onConfirm={(d) => { onDateChange(d); onShowDatePicker(false); }}
+          onConfirm={(d) => {
+            onDateChange(d);
+            onShowDatePicker(false);
+          }}
           onCancel={() => onShowDatePicker(false)}
         />
       </SafeAreaView>
@@ -652,7 +707,12 @@ const styles = StyleSheet.create({
     padding: 14,
     gap: 8,
   },
-  replaceSectionTitle: { fontSize: 12, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5 },
+  replaceSectionTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
   replaceLine: { fontSize: 13, lineHeight: 18, fontStyle: "italic" },
   emptyNote: { fontSize: 14, lineHeight: 20, maxWidth: 280 },
   machineCard: {
@@ -690,7 +750,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
-  dateLabel: { fontSize: 11, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 2 },
+  dateLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+    marginBottom: 2,
+  },
   dateValue: { fontSize: 16, fontWeight: "600" },
   chevron: { fontSize: 20, fontWeight: "300" },
   deleteBtn: {

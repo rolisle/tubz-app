@@ -10,8 +10,6 @@ import { type AppColor, primaryColor } from "@/context/settings-context";
 import type { MachineType, Product, ProductCategory } from "@/types";
 import { uid } from "@/utils/id";
 
-export const MAX_QTY: Record<MachineType, number> = { sweet: 9, toy: 12 };
-
 export interface RestockItem {
   id: string;
   productId: string;
@@ -31,6 +29,8 @@ export interface MachineCardProps {
   colors: (typeof Colors)["light"];
   accent: string;
   machineColor: AppColor;
+  /** Max units per column for this machine type (from Settings). */
+  capacityPerSlot: number;
   onChange: (updated: RestockMachine) => void;
   onRemove: () => void;
 }
@@ -41,12 +41,13 @@ export const MachineCard = memo(function MachineCard({
   colors,
   accent,
   machineColor,
+  capacityPerSlot,
   onChange,
   onRemove,
 }: MachineCardProps) {
   const machineColorPrimary = primaryColor(machineColor);
   const [showPicker, setShowPicker] = useState(false);
-  const max = MAX_QTY[machine.type];
+  const max = capacityPerSlot;
 
   const productMap = useMemo(() => {
     const map = new Map<string, Product>();

@@ -17,6 +17,7 @@ import { GradView } from '@/components/ui/grad-view';
 import { Colors } from '@/constants/theme';
 import { useApp } from '@/context/app-context';
 import { primaryColor, useSettings } from '@/context/settings-context';
+import { slotCapacityForMachineType } from '@/utils/slot-capacity';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import type { MachineType } from '@/types';
 import { confirm } from '@/utils/confirm';
@@ -190,6 +191,10 @@ export default function RestockScreen() {
               colors={colors}
               accent={accent}
               machineColor={machine.type === 'sweet' ? sweetColor : toyColor}
+              capacityPerSlot={slotCapacityForMachineType(machine.type, {
+                sweetStockLevel: settings.sweetStockLevel,
+                toyStockLevel: settings.toyStockLevel,
+              })}
               onChange={updateMachine}
               onRemove={() => removeMachine(machine.id)}
             />

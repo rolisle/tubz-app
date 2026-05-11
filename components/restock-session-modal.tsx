@@ -24,6 +24,8 @@ import type {
   ProductCategory,
   RestockSessionReplacementLine,
 } from "@/types";
+import type { StockLevelSettings } from "@/utils/slot-capacity";
+import { slotCapacityForMachineType } from "@/utils/slot-capacity";
 
 export interface RestockSessionModalProps {
   visible: boolean;
@@ -34,6 +36,7 @@ export interface RestockSessionModalProps {
   products: Product[];
   machineColors: Record<MachineType, string>;
   machineColorSettings: { sweet: AppColor; toy: AppColor };
+  stockLevels: StockLevelSettings;
   /** Slot counts for primary restock rows (decrements when a slot is moved to “replacement” lines). */
   primarySlotCounts: Record<string, Record<string, number>>;
   replacementLines: Record<string, RestockSessionReplacementLine[]>;
@@ -67,6 +70,7 @@ export function RestockSessionModal({
   products,
   machineColors,
   machineColorSettings,
+  stockLevels,
   primarySlotCounts,
   replacementLines,
   restockQtys,
@@ -131,11 +135,9 @@ export function RestockSessionModal({
                 <Text style={{ fontWeight: "600", color: colors.text }}>
                   Change product
                 </Text>{" "}
-                moves one slot planogram to a new catalog item: you keep
-                restocking the original product on the rows above; the new
-                product appears below with a “Replacing …” label (top-selling
-                counts that as stock for the old line only). Layout updates when
-                you tap Done.
+                adds a “new stock in swapped slots” row; original columns stay in
+                the top section so you can track missing stock for the old SKU
+                until you tap Done (then the planogram updates).
               </Text>
               {machines.map((machine) => {
                 const primaryMap = primarySlotCounts[machine.id] ?? {};
@@ -148,7 +150,10 @@ export function RestockSessionModal({
                   machine.type === "sweet"
                     ? machineColorSettings.sweet
                     : machineColorSettings.toy;
-                const capacityPerSlot = machine.type === "toy" ? 12 : 9;
+                const capacityPerSlot = slotCapacityForMachineType(
+                  machine.type,
+                  stockLevels,
+                );
                 const primaryTotal = primaryIds.reduce(
                   (s, pid) => s + (restockQtys[machine.id]?.[pid] ?? 0),
                   0,

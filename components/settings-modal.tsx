@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -21,7 +22,6 @@ import { useApp } from "@/context/app-context";
 import {
   ACCENT_PRESETS,
   type AppColor,
-  type AppSettings,
   colorEquals,
   primaryColor,
   SWEET_PRESETS,
@@ -34,6 +34,11 @@ import {
   getNotificationDiagnostics,
   openAndroidExactAlarmSettings,
 } from "@/utils/notifications";
+import {
+  clampStockLevel,
+  DEFAULT_SWEET_STOCK_LEVEL,
+  DEFAULT_TOY_STOCK_LEVEL,
+} from "@/utils/slot-capacity";
 
 /* ─── SwatchRow ──────────────────────────────────────────────── */
 
@@ -41,7 +46,7 @@ interface SwatchRowProps {
   label: string;
   presets: { label: string; value: AppColor }[];
   current: AppColor;
-  settingKey: keyof AppSettings;
+  settingKey: "accentColor" | "sweetColor" | "toyColor";
   colors: (typeof Colors)["light"];
 }
 
@@ -89,6 +94,105 @@ const SwatchRow = memo(function SwatchRow({
   );
 });
 
+function parseLevelInput(s: string): number | null {
+  const t = s.trim();
+  if (t === "") return null;
+  const n = Number.parseInt(t.replace(/\D/g, ""), 10);
+  if (!Number.isFinite(n)) return null;
+  return n;
+}
+
+const StockLevelSection = memo(function StockLevelSection({
+  visible,
+  colors,
+}: {
+  visible: boolean;
+  colors: (typeof Colors)["light"];
+}) {
+  const { settings, setSetting } = useSettings();
+  const [sweetText, setSweetText] = useState(
+    String(settings.sweetStockLevel),
+  );
+  const [toyText, setToyText] = useState(String(settings.toyStockLevel));
+
+  useEffect(() => {
+    if (!visible) return;
+    setSweetText(String(settings.sweetStockLevel));
+    setToyText(String(settings.toyStockLevel));
+  }, [visible, settings.sweetStockLevel, settings.toyStockLevel]);
+
+  const commitSweet = useCallback(() => {
+    const n = parseLevelInput(sweetText);
+    const v = clampStockLevel(
+      n ?? DEFAULT_SWEET_STOCK_LEVEL,
+      DEFAULT_SWEET_STOCK_LEVEL,
+    );
+    setSetting("sweetStockLevel", v);
+    setSweetText(String(v));
+  }, [sweetText, setSetting]);
+
+  const commitToy = useCallback(() => {
+    const n = parseLevelInput(toyText);
+    const v = clampStockLevel(
+      n ?? DEFAULT_TOY_STOCK_LEVEL,
+      DEFAULT_TOY_STOCK_LEVEL,
+    );
+    setSetting("toyStockLevel", v);
+    setToyText(String(v));
+  }, [toyText, setSetting]);
+
+  return (
+    <View style={styles.stockSection}>
+      <Text style={[styles.stockHint, { color: colors.subtext }]}>
+        Per-column cap when restocking and in history (planogram columns are
+        unchanged).
+      </Text>
+      <View style={styles.stockRow}>
+        <Text style={[styles.stockLabel, { color: colors.text }]}>
+          🍬 Sweet max per column
+        </Text>
+        <TextInput
+          style={[
+            styles.stockInput,
+            {
+              color: colors.text,
+              borderColor: colors.border,
+              backgroundColor: colors.card,
+            },
+          ]}
+          keyboardType="number-pad"
+          returnKeyType="done"
+          value={sweetText}
+          onChangeText={setSweetText}
+          onBlur={commitSweet}
+          onSubmitEditing={commitSweet}
+        />
+      </View>
+      <View style={styles.stockRow}>
+        <Text style={[styles.stockLabel, { color: colors.text }]}>
+          🪀 Toy max per column
+        </Text>
+        <TextInput
+          style={[
+            styles.stockInput,
+            {
+              color: colors.text,
+              borderColor: colors.border,
+              backgroundColor: colors.card,
+            },
+          ]}
+          keyboardType="number-pad"
+          returnKeyType="done"
+          value={toyText}
+          onChangeText={setToyText}
+          onBlur={commitToy}
+          onSubmitEditing={commitToy}
+        />
+      </View>
+    </View>
+  );
+});
+
 /* ─── SettingsModal ──────────────────────────────────────────── */
 
 export interface SettingsModalProps {
@@ -131,7 +235,7 @@ export function SettingsModal({ visible, onClose, colors }: SettingsModalProps) 
 
   const sections: {
     label: string;
-    key: keyof AppSettings;
+    key: "accentColor" | "sweetColor" | "toyColor";
     presets: { label: string; value: AppColor }[];
   }[] = [
     { label: "Accent / Tab Colour", key: "accentColor", presets: ACCENT_PRESETS },
@@ -177,6 +281,10 @@ export function SettingsModal({ visible, onClose, colors }: SettingsModalProps) 
                   colors={colors}
                 />
               ))}
+              <Text style={[styles.sectionLabel, { color: colors.text, marginTop: 20 }]}>
+                Stock levels
+              </Text>
+              <StockLevelSection visible={visible} colors={colors} />
 
               {/* Live preview */}
               <View style={[styles.previewRow, { borderTopColor: colors.border }]}>
@@ -418,5 +526,25 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     marginBottom: 6,
     marginTop: -2,
+  },
+  stockSection: { paddingHorizontal: 20, marginBottom: 8 },
+  stockHint: { fontSize: 12, lineHeight: 17, marginBottom: 12 },
+  stockRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    marginBottom: 12,
+  },
+  stockLabel: { flex: 1, fontSize: 15, fontWeight: "500" },
+  stockInput: {
+    width: 64,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    fontSize: 17,
+    fontWeight: "600",
+    textAlign: "center",
   },
 });

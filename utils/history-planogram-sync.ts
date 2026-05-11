@@ -6,10 +6,6 @@ import type {
   RestockProduct,
 } from "@/types";
 
-function capForMachineType(type: MachineType): number {
-  return type === "toy" ? 12 : 9;
-}
-
 function replacementLines(
   me: RestockMachineEntry | undefined,
 ): RestockProduct[] {
@@ -25,6 +21,7 @@ export function applyReplacementNewStockProductEdits(
   machines: Machine[],
   oldEntry: RestockEntry,
   newMachineEntries: RestockMachineEntry[],
+  slotCapacity: (type: MachineType) => number,
 ): { machines: Machine[]; changed: boolean } {
   let changed = false;
   const result = machines.map((m) => ({
@@ -41,7 +38,7 @@ export function applyReplacementNewStockProductEdits(
     const newR = replacementLines(newMe);
     if (newR.length === 0) continue;
 
-    const cap = capForMachineType(machine.type);
+    const cap = slotCapacity(machine.type);
     const usedOld = new Set<number>();
 
     for (const nline of newR) {
@@ -134,6 +131,7 @@ export function applyAddedReplacementLinesToMachines(
   machines: Machine[],
   oldEntry: RestockEntry,
   newMachineEntries: RestockMachineEntry[],
+  slotCapacity: (type: MachineType) => number,
 ): { machines: Machine[]; changed: boolean } {
   let changed = false;
   const result = machines.map((m) => ({
@@ -147,7 +145,7 @@ export function applyAddedReplacementLinesToMachines(
     if (!machine) continue;
     const oldMe = oldEntry.machines.find((x) => x.machineId === newMe.machineId);
     const added = findAddedReplacementLines(oldMe, newMe);
-    const cap = capForMachineType(machine.type);
+    const cap = slotCapacity(machine.type);
 
     for (const line of added) {
       const fromId = line.replacesProductId!;
