@@ -12,7 +12,7 @@ import { primaryColor, useSettings } from "@/context/settings-context";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import type { Location } from "@/types";
 import { OpenStatusBadge } from "@/components/ui/open-status-badge";
-import { openLocationInMaps } from "@/utils/maps";
+import { openLocationInMaps, locationHasMapsOrAddress } from "@/utils/maps";
 import { getOpenStatus } from "@/utils/opening-hours";
 
 interface LocationCardProps {
@@ -57,7 +57,12 @@ export function LocationCard({ location, onPress }: LocationCardProps) {
     return counts;
   }, [location.machines]);
 
-  const hasAddress = !!(location.address || location.postcode);
+  const hasAddressLine = !!(
+    location.address?.trim() ||
+    location.city?.trim() ||
+    location.postcode?.trim()
+  );
+  const canOpenMaps = locationHasMapsOrAddress(location);
 
   return (
     <TouchableOpacity
@@ -73,7 +78,7 @@ export function LocationCard({ location, onPress }: LocationCardProps) {
           <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
             {location.name}
           </Text>
-          {hasAddress ? (
+          {hasAddressLine ? (
             <Text
               style={[styles.address, { color: colors.subtext }]}
               numberOfLines={1}
@@ -82,6 +87,13 @@ export function LocationCard({ location, onPress }: LocationCardProps) {
                 .filter(Boolean)
                 .join(", ")}
             </Text>
+          ) : location.mapsUrl?.trim() ? (
+            <Text
+              style={[styles.address, { color: colors.subtext }]}
+              numberOfLines={1}
+            >
+              Google Maps link
+            </Text>
           ) : null}
           {openStatus && <OpenStatusBadge status={openStatus} />}
           <Text style={[styles.restock, { color: colors.subtext }]}>
@@ -89,7 +101,7 @@ export function LocationCard({ location, onPress }: LocationCardProps) {
           </Text>
         </View>
 
-        {hasAddress && (
+        {canOpenMaps && (
           <TouchableOpacity
             onPress={() => openLocationInMaps(location)}
             hitSlop={8}

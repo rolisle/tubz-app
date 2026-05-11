@@ -435,8 +435,8 @@ export default function StockScreen() {
         };
 
         let hasLineReplacementMarkers = false;
-        for (const machine of entry.machines) {
-          for (const p of machine.products) {
+        for (const machine of entry.machines ?? []) {
+          for (const p of machine.products ?? []) {
             if (p.qty <= 0) continue;
             if (p.replacesProductId) {
               hasLineReplacementMarkers = true;
@@ -451,7 +451,9 @@ export default function StockScreen() {
           (entry.productReplacements?.length ?? 0) > 0
         ) {
           for (const r of entry.productReplacements ?? []) {
-            const me = entry.machines.find((m) => m.machineId === r.machineId);
+            const me = (entry.machines ?? []).find(
+              (m) => m.machineId === r.machineId,
+            );
             const mt =
               me?.machineType ??
               loc.machines.find((m) => m.id === r.machineId)?.type;

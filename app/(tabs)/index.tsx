@@ -17,6 +17,7 @@ import { Colors } from "@/constants/theme";
 import { useApp } from "@/context/app-context";
 import { primaryColor, useSettings } from "@/context/settings-context";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { locationHasMapsOrAddress, openLocationInMaps } from "@/utils/maps";
 
 function todayLabel() {
   return new Date().toLocaleDateString("en-GB", {
@@ -281,6 +282,21 @@ export default function DashboardScreen() {
                         Every {loc.restockPeriodWeeks}w
                       </Text>
                     </View>
+                    {locationHasMapsOrAddress(loc) ? (
+                      <TouchableOpacity
+                        onPress={() => openLocationInMaps(loc)}
+                        hitSlop={8}
+                        style={[
+                          styles.mapBtnDash,
+                          {
+                            backgroundColor: colors.background,
+                            borderColor: colors.border,
+                          },
+                        ]}
+                      >
+                        <Text style={styles.mapIconDash}>🔎</Text>
+                      </TouchableOpacity>
+                    ) : null}
                   </View>
                 </TouchableOpacity>
               );
@@ -335,6 +351,21 @@ export default function DashboardScreen() {
                     >
                       {dateStr}
                     </Text>
+                    {locationHasMapsOrAddress(loc) ? (
+                      <TouchableOpacity
+                        onPress={() => openLocationInMaps(loc)}
+                        hitSlop={8}
+                        style={[
+                          styles.mapBtnDash,
+                          {
+                            backgroundColor: colors.background,
+                            borderColor: colors.border,
+                          },
+                        ]}
+                      >
+                        <Text style={styles.mapIconDash}>🔎</Text>
+                      </TouchableOpacity>
+                    ) : null}
                   </View>
                 </TouchableOpacity>
               );
@@ -442,6 +473,17 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   recentDate: { fontSize: 12, paddingHorizontal: 12 },
+  mapBtnDash: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+    flexShrink: 0,
+  },
+  mapIconDash: { fontSize: 18 },
   // Empty state
   empty: {
     marginTop: 40,

@@ -35,6 +35,7 @@ import type {
   WeekDay,
 } from "@/types";
 import { confirm, confirmDelete } from "@/utils/confirm";
+import { mapsUrlFieldError, normalizeMapsUrlForStorage } from "@/utils/maps";
 import { uid } from "@/utils/id";
 import {
   getOpenStatus,
@@ -102,6 +103,7 @@ export default function LocationDetailScreen() {
     address: location?.address ?? "",
     city: location?.city ?? "",
     postcode: location?.postcode ?? "",
+    mapsUrl: location?.mapsUrl ?? "",
   });
   const [notes, setNotes] = useState(location?.notes ?? "");
   const [focusedField, setFocusedField] = useState<string | null>(null);
@@ -167,6 +169,7 @@ export default function LocationDetailScreen() {
       address: location.address ?? "",
       city: location.city ?? "",
       postcode: location.postcode ?? "",
+      mapsUrl: location.mapsUrl ?? "",
     });
     setNotes(location.notes ?? "");
     const inputs = {} as Record<WeekDay, { open: string; close: string }>;
@@ -186,6 +189,7 @@ export default function LocationDetailScreen() {
       address: location.address ?? "",
       city: location.city ?? "",
       postcode: location.postcode ?? "",
+      mapsUrl: location.mapsUrl ?? "",
     });
     setEditErrors({});
     setShowEditModal(true);
@@ -202,6 +206,8 @@ export default function LocationDetailScreen() {
     } else if (!UK_POSTCODE.test(editForm.postcode.trim())) {
       errs.postcode = "Enter a valid UK postcode.";
     }
+    const mapsErr = mapsUrlFieldError(editForm.mapsUrl);
+    if (mapsErr) errs.mapsUrl = mapsErr;
     if (Object.keys(errs).length) {
       setEditErrors(errs);
       return;
@@ -212,6 +218,7 @@ export default function LocationDetailScreen() {
       address: editForm.address.trim(),
       city: editForm.city.trim(),
       postcode: editForm.postcode.trim().toUpperCase(),
+      mapsUrl: normalizeMapsUrlForStorage(editForm.mapsUrl),
     });
     setShowEditModal(false);
   };
@@ -533,11 +540,13 @@ export default function LocationDetailScreen() {
   };
 
   const openEditEntry = (originalIndex: number) => {
-    const entry = location.restockHistory![originalIndex];
+    if (!location) return;
+    const entry = (location.restockHistory ?? [])[originalIndex];
+    if (!entry) return;
     setEditingEntry({ index: originalIndex, entry });
     setEditEntryDate(new Date(entry.timestamp));
     setEditDraftMachines(
-      entry.machines.map((me) => ({
+      (entry.machines ?? []).map((me) => ({
         ...me,
         products: me.products.map((p) => ({ ...p })),
       })),

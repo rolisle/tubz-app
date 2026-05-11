@@ -58,8 +58,8 @@ export const HistoryModal = memo(function HistoryModal({
           }
           contentContainerStyle={styles.historyList}
           renderItem={({ item: { entry, originalIndex }, index }) => {
-            const hasProducts = entry.machines?.some(
-              (m) => m.products.length > 0,
+            const hasProducts = (entry.machines ?? []).some(
+              (m) => (m.products?.length ?? 0) > 0,
             );
             const hasReplacements =
               (entry.productReplacements?.length ?? 0) > 0;
@@ -85,9 +85,9 @@ export const HistoryModal = memo(function HistoryModal({
                     })}
                   </Text>
                   {hasProducts &&
-                    entry.machines.map(
+                    (entry.machines ?? []).map(
                       (me) =>
-                        me.products.length > 0 && (
+                        (me.products?.length ?? 0) > 0 && (
                           <View key={me.machineId} style={{ marginTop: 4 }}>
                             <Text
                               style={[
@@ -97,7 +97,7 @@ export const HistoryModal = memo(function HistoryModal({
                             >
                               {MACHINE_LABELS[me.machineType]}
                             </Text>
-                            {me.products.map((p, pi) => {
+                            {(me.products ?? []).map((p, pi) => {
                               const product = products.find(
                                 (pr) => pr.id === p.productId,
                               );

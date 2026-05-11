@@ -40,6 +40,13 @@ function validateLocation(l: unknown, i: number): Location {
     throw new Error(`locations[${i}].lastRestockedAt must be string or null.`);
   }
   if (
+    l.mapsUrl !== undefined &&
+    l.mapsUrl !== null &&
+    typeof l.mapsUrl !== "string"
+  ) {
+    throw new Error(`locations[${i}].mapsUrl must be a string when present.`);
+  }
+  if (
     l.restockPeriodAnchorAt !== undefined &&
     typeof l.restockPeriodAnchorAt !== "string"
   ) {

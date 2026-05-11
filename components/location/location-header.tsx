@@ -4,7 +4,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { OpenStatusBadge } from "@/components/ui/open-status-badge";
 import { Colors } from "@/constants/theme";
 import type { Location } from "@/types";
-import { openLocationInMaps } from "@/utils/maps";
+import { locationHasMapsOrAddress, openLocationInMaps } from "@/utils/maps";
 import type { OpenStatus } from "@/utils/opening-hours";
 
 export interface LocationHeaderProps {
@@ -18,7 +18,12 @@ export const LocationHeader = memo(function LocationHeader({
   openStatus,
   colors,
 }: LocationHeaderProps) {
-  const hasAddress = !!(location.address || location.city || location.postcode);
+  const hasAddressLine = !!(
+    location.address?.trim() ||
+    location.city?.trim() ||
+    location.postcode?.trim()
+  );
+  const canOpenMaps = locationHasMapsOrAddress(location);
   return (
     <View style={styles.locationHeader}>
       <Text
@@ -27,7 +32,7 @@ export const LocationHeader = memo(function LocationHeader({
       >
         {location.name}
       </Text>
-      {hasAddress ? (
+      {canOpenMaps ? (
         <TouchableOpacity
           onPress={() => openLocationInMaps(location)}
           activeOpacity={0.6}
@@ -36,9 +41,11 @@ export const LocationHeader = memo(function LocationHeader({
             style={[styles.addressLine, { color: colors.subtext }]}
             numberOfLines={1}
           >
-            {[location.address, location.city, location.postcode]
-              .filter(Boolean)
-              .join(" · ")}
+            {hasAddressLine
+              ? [location.address, location.city, location.postcode]
+                  .filter(Boolean)
+                  .join(" · ")
+              : "Open in Google Maps"}
           </Text>
         </TouchableOpacity>
       ) : (

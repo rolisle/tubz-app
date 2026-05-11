@@ -24,6 +24,7 @@ import type {
 } from '@/types';
 import { appendLog } from '@/utils/crash-log';
 import { uid } from '@/utils/id';
+import { normalizeMapsUrlForStorage } from '@/utils/maps';
 import { rescheduleAllNotifications } from '@/utils/notifications';
 
 const STORAGE_KEY = '@tubz:appState';
@@ -66,8 +67,10 @@ type Action =
 // Reducer helpers
 // ---------------------------------------------------------------------------
 
-function latestTimestamp(history: RestockEntry[]): string | null {
-  if (history.length === 0) return null;
+function latestTimestamp(
+  history: RestockEntry[] | null | undefined,
+): string | null {
+  if (!history?.length) return null;
   let max = history[0].timestamp;
   let maxMs = new Date(max).getTime();
   for (let i = 1; i < history.length; i++) {
@@ -88,17 +91,39 @@ function latestTimestamp(history: RestockEntry[]): string | null {
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case 'LOAD_STATE':
-      return action.payload;
+      return {
+        ...action.payload,
+        locations: action.payload.locations.map((l) => ({
+          ...l,
+          restockHistory: Array.isArray(l.restockHistory)
+            ? l.restockHistory
+            : [],
+        })),
+      };
 
-    case 'ADD_LOCATION':
-      return { ...state, locations: [...state.locations, action.payload] };
+    case 'ADD_LOCATION': {
+      const loc: Location = {
+        ...action.payload,
+        restockHistory: Array.isArray(action.payload.restockHistory)
+          ? action.payload.restockHistory
+          : [],
+      };
+      return { ...state, locations: [...state.locations, loc] };
+    }
 
     case 'UPDATE_LOCATION':
       return {
         ...state,
-        locations: state.locations.map((l) =>
-          l.id === action.payload.id ? action.payload : l,
-        ),
+        locations: state.locations.map((l) => {
+          if (l.id !== action.payload.id) return l;
+          const next = action.payload;
+          return {
+            ...next,
+            restockHistory: Array.isArray(next.restockHistory)
+              ? next.restockHistory
+              : l.restockHistory ?? [],
+          };
+        }),
       };
 
     case 'DELETE_LOCATION':
@@ -386,11 +411,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const addLocation = useCallback(
     (data: Omit<Location, 'id' | 'createdAt'>) => {
+      const { mapsUrl: mapsUrlRaw, ...rest } = data;
+      const mapsStored = normalizeMapsUrlForStorage(
+        mapsUrlRaw != null ? String(mapsUrlRaw) : '',
+      );
       const location: Location = {
         restockPeriodWeeks: 4,
-        ...data,
+        ...rest,
         id: uid(),
         createdAt: new Date().toISOString(),
+        restockHistory: [],
+        ...(mapsStored ? { mapsUrl: mapsStored } : {}),
       };
       dispatch({ type: 'ADD_LOCATION', payload: location });
     },

@@ -14,15 +14,17 @@ A stock and restock management app for Tubz vending machines, built with [Expo](
 - Settings icon (⚙️) opens the theme settings modal
 - **Test menu** (🧪) — temporary developer control next to the settings icon. Opens a panel to trigger **sample local** restock notifications and (on **iOS/Android builds only**) an optional **Expo push** test that talks to Expo’s push API. On **web**, the Expo push section is a stub and does not load `expo-notifications`. Remove this entry point when you no longer need it
 - Tap any restock card to navigate directly to that location
+- 🔎 on **Upcoming** / **Recent** restock cards opens Google Maps when the location has a maps link or address
 
 ### Locations
 
 - Add and manage vending machine locations with full UK address (street, city, postcode)
+- Optional **Google Maps link** per location (e.g. `maps.app.goo.gl` share URL). 🔎 and the address line on the location screen open **this link when set**, otherwise they search by address in Google Maps
 - UK postcode format validation on both add and edit
 - Search locations across all address fields
 - View locations as a flat alphabetical list or grouped by city
-- Tap the 🔎 icon on any location card to open the address in Google Maps
-- Tap the address line inside a location to open it in Google Maps
+- Tap the 🔎 icon on any location card to open Maps (link or address search)
+- Tap the address line inside a location to open Maps (link or address search)
 - **Open/Closed status badge** on each location card and inside the location detail, powered by configurable opening hours
 - Track when each location was last restocked (updates when you restock or edit history) with full restock history
 - Set a **restock period** (1–12 weeks) per location; new locations default to 4 weeks. The **1 week** option is a **“remind me in one week from now”** control (see changelog 1.0.7); other values use **last restocked** (or **created** if never restocked) + N weeks for due date

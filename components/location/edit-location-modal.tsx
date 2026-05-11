@@ -19,6 +19,7 @@ export interface EditLocationForm {
   address: string;
   city: string;
   postcode: string;
+  mapsUrl: string;
 }
 
 export interface EditLocationModalProps {
@@ -198,6 +199,45 @@ export const EditLocationModal = memo(function EditLocationModal({
                 ) : null}
               </View>
             </View>
+
+            <Text style={[styles.editFieldLabel, { color: colors.subtext }]}>
+              Google Maps link
+            </Text>
+            <Text style={[styles.editFieldHint, { color: colors.subtext }]}>
+              Optional. Paste a share link (e.g. maps.app.goo.gl). Opens in Maps
+              instead of searching the address.
+            </Text>
+            <TextInput
+              style={[
+                styles.editField,
+                {
+                  color: colors.text,
+                  borderColor: errors.mapsUrl
+                    ? "#ef4444"
+                    : focusedField === "eMapsUrl"
+                      ? accent
+                      : colors.border,
+                  backgroundColor: colors.background,
+                },
+              ]}
+              value={form.mapsUrl}
+              onChangeText={(v) => {
+                onChangeForm({ mapsUrl: v });
+                onClearError("mapsUrl");
+              }}
+              onFocus={() => setFocusedField("eMapsUrl")}
+              onBlur={() => setFocusedField(null)}
+              placeholder="https://maps.app.goo.gl/…"
+              placeholderTextColor={colors.subtext}
+              selectionColor={`${accent}44`}
+              cursorColor={accent}
+              returnKeyType="done"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            {errors.mapsUrl ? (
+              <Text style={styles.editFieldError}>{errors.mapsUrl}</Text>
+            ) : null}
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -220,6 +260,12 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.4,
     marginTop: 8,
+  },
+  editFieldHint: {
+    fontSize: 12,
+    lineHeight: 17,
+    marginBottom: 4,
+    marginTop: -2,
   },
   editField: {
     borderWidth: 1,

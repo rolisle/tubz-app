@@ -27,6 +27,9 @@ import {
 } from "@/context/settings-context";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import type { Location } from "@/types";
+import {
+  mapsUrlFieldError,
+} from "@/utils/maps";
 
 /* ─── Tab bar ───────────────────────────────────────────────────── */
 
@@ -91,6 +94,7 @@ function AddLocationModal({ visible, onClose, colors }: AddLocationModalProps) {
   const [address, setAddress] = useState("");
   const [city, setCity] = useState("");
   const [postcode, setPostcode] = useState("");
+  const [mapsUrl, setMapsUrl] = useState("");
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
   const UK_POSTCODE = /^[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2}$/i;
@@ -109,6 +113,7 @@ function AddLocationModal({ visible, onClose, colors }: AddLocationModalProps) {
     setAddress("");
     setCity("");
     setPostcode("");
+    setMapsUrl("");
     setSubmitted(false);
     onClose();
   };
@@ -116,14 +121,15 @@ function AddLocationModal({ visible, onClose, colors }: AddLocationModalProps) {
   const handleAdd = () => {
     setSubmitted(true);
     if (!isValid) return;
+    if (mapsUrlFieldError(mapsUrl)) return;
     addLocation({
       name: name.trim(),
       address: address.trim(),
       city: city.trim(),
       postcode: postcode.trim().toUpperCase(),
+      mapsUrl,
       lastRestockedAt: null,
       machines: [],
-      notes: undefined,
     });
     handleClose();
   };
@@ -246,6 +252,36 @@ function AddLocationModal({ visible, onClose, colors }: AddLocationModalProps) {
                 )}
               </View>
             </View>
+
+            <Text style={[styles.fieldLabel, { color: colors.subtext }]}>
+              Google Maps link
+            </Text>
+            <Text style={[styles.fieldHint, { color: colors.subtext }]}>
+              Optional. Paste a share link (e.g. maps.app.goo.gl) to open in Maps
+              instead of searching the address.
+            </Text>
+            <TextInput
+              style={inputStyle(
+                mapsUrl,
+                "mapsUrl",
+                !!(submitted && mapsUrlFieldError(mapsUrl)),
+              )}
+              placeholder="https://maps.app.goo.gl/…"
+              placeholderTextColor={colors.subtext}
+              value={mapsUrl}
+              onChangeText={setMapsUrl}
+              onFocus={() => setFocusedField("mapsUrl")}
+              onBlur={() => setFocusedField(null)}
+              selectionColor={`${accent}44`}
+              cursorColor={accent}
+              returnKeyType="done"
+              onSubmitEditing={handleAdd}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            {submitted && mapsUrlFieldError(mapsUrl) ? (
+              <Text style={styles.errorText}>{mapsUrlFieldError(mapsUrl)}</Text>
+            ) : null}
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -511,6 +547,12 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginTop: 8,
     marginBottom: 4,
+  },
+  fieldHint: {
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: -2,
+    marginBottom: 6,
   },
   input: {
     borderWidth: 1,

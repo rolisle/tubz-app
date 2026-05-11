@@ -134,8 +134,8 @@ the destination you send it to (email provider, cloud storage, etc.).
 Tubz does **not** integrate any third-party analytics, advertising, or
 user-tracking SDKs. The external endpoints the app may contact include:
 
-- **maps.google.com** — opened in your external browser or Google Maps
-  app when you tap a location's address. This is a link-out, not a
+- **maps.google.com**, **maps.app.goo.gl**, and similar Google Maps URLs — opened in your external browser or Google Maps
+  app when you tap a location's address or 🔎, or when you have saved a Maps share link for that location. This is a link-out, not a
   background request. Google's privacy practices apply once you leave
   the app.
 - **Expo update servers / Google Play** — standard app distribution and

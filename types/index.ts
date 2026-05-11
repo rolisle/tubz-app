@@ -55,11 +55,8 @@ export interface RestockMachineEntry {
 /** Logged when a slot’s product is changed during a restock session (before Done). */
 export interface RestockProductReplacement {
   machineId: string;
-  /** Product removed from one slot (missing/restock qty below was what you had entered for it). */
   replacedProductId: string;
-  /** Product now in that slot. */
   replacedWithProductId: string;
-  /** Missing/restock quantity recorded for replacedProductId at the moment of the swap. */
   missingQtyRecorded: number;
 }
 
@@ -76,6 +73,7 @@ export interface Location {
   address?: string;
   city?: string;
   postcode?: string;
+  mapsUrl?: string;
   notes?: string;
   lastRestockedAt: string | null;
   /** Array of restock sessions; older format (string[]) is migrated on load */
