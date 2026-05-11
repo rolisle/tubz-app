@@ -49,7 +49,9 @@ function ReleaseBlock({
       </Text>
       <Text style={[styles.releaseMeta, { color: colors.subtext }]}>{meta}</Text>
 
-      <Subsection title="Added" items={release.added} colors={colors} />
+      {release.added && release.added.length > 0 ? (
+        <Subsection title="Added" items={release.added} colors={colors} />
+      ) : null}
       {release.fixed?.length ? (
         <Subsection title="Fixed" items={release.fixed} colors={colors} />
       ) : null}

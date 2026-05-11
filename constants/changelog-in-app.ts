@@ -7,7 +7,7 @@ export type ChangelogRelease = {
   version: string;
   date: string;
   androidVersionCode?: number;
-  added: string[];
+  added?: string[];
   fixed?: string[];
   changed?: string[];
 };
