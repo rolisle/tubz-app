@@ -12,7 +12,7 @@ A stock and restock management app for Tubz vending machines, built with [Expo](
 - **Upcoming Restocks** — locations with a restock period set, sorted by soonest due date; never-restocked locations shown at the bottom
 - **Recent Restocks** — up to 8 locations sorted by most recently restocked
 - Settings icon (⚙️) opens the theme settings modal
-- **Test menu** (🧪) — temporary developer control next to the settings icon. Opens a panel to trigger **sample local** restock notifications and (on **iOS/Android builds only**) an optional **Expo push** test that talks to Expo’s push API. On **web**, the Expo push section is a stub and does not load `expo-notifications`. Remove this entry point when you no longer need it
+- **Test menu** (🧪) — temporary developer control next to the settings icon. Includes **notification diagnostics** (permission and schedule counts on native), **Android exact-alarm settings**, sample **local** restock tests, and (on **iOS/Android builds only**) an optional **Expo push** test that talks to Expo’s push API. On **web**, notification tests show “not available” and the Expo push section is a stub (does not load `expo-notifications`). Remove this entry point when you no longer need it
 - Tap any restock card to navigate directly to that location
 - 🔎 on **Upcoming** / **Recent** restock cards opens Google Maps when the location has a maps link or address
 

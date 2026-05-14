@@ -37,10 +37,6 @@ import {
   type DataTransferMeta,
 } from "@/utils/data-transfer-meta";
 import {
-  getNotificationDiagnostics,
-  openAndroidExactAlarmSettings,
-} from "@/utils/notifications";
-import {
   clampStockLevel,
   DEFAULT_SWEET_STOCK_LEVEL,
   DEFAULT_TOY_STOCK_LEVEL,
@@ -223,28 +219,6 @@ export function SettingsModal({ visible, onClose, colors }: SettingsModalProps) 
     if (!visible) setPanel("main");
   }, [visible]);
 
-  const showNotificationDiagnostics = useCallback(async () => {
-    if (Platform.OS === "web") {
-      Alert.alert("Notifications", "Not available in the browser build.");
-      return;
-    }
-    const d = await getNotificationDiagnostics();
-    if (!d) return;
-    Alert.alert(
-      "Notification diagnostics",
-      [
-        `Alerts allowed: ${d.permitted ? "Yes" : "No"}`,
-        `System status: ${d.status}`,
-        `Scheduled jobs (all): ${d.scheduledTotal}`,
-        `Restock reminders (restock-*): ${d.restockScheduled}`,
-      ].join("\n"),
-    );
-  }, []);
-
-  const openExactAlarmSettingsFromSettings = useCallback(async () => {
-    await openAndroidExactAlarmSettings();
-  }, []);
-
   const sections: {
     label: string;
     key: "accentColor" | "sweetColor" | "toyColor";
@@ -354,37 +328,6 @@ export function SettingsModal({ visible, onClose, colors }: SettingsModalProps) 
                 </Text>
                 <Text style={[styles.menuRowChevron, { color: colors.subtext }]}>›</Text>
               </TouchableOpacity>
-
-              <Text style={[styles.sectionLabel, { color: colors.text, marginTop: 20 }]}>
-                Notifications
-              </Text>
-              <Text style={[styles.notifSectionHint, { color: colors.subtext }]}>
-                Simple checks on this device (not related to data export).
-              </Text>
-              <TouchableOpacity
-                style={[styles.menuRow, { borderColor: colors.border }]}
-                onPress={showNotificationDiagnostics}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.menuRowIcon, { color: colors.subtext }]}>📊</Text>
-                <Text style={[styles.menuRowLabel, { color: colors.text }]}>
-                  Show permission and schedule counts
-                </Text>
-                <Text style={[styles.menuRowChevron, { color: colors.subtext }]}>›</Text>
-              </TouchableOpacity>
-              {Platform.OS === "android" && (
-                <TouchableOpacity
-                  style={[styles.menuRow, { borderColor: colors.border }]}
-                  onPress={openExactAlarmSettingsFromSettings}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.menuRowIcon, { color: colors.subtext }]}>🔔</Text>
-                  <Text style={[styles.menuRowLabel, { color: colors.text }]}>
-                    Android: alarms and reminders access
-                  </Text>
-                  <Text style={[styles.menuRowChevron, { color: colors.subtext }]}>›</Text>
-                </TouchableOpacity>
-              )}
 
               {/* Data transfer */}
               <Text style={[styles.sectionLabel, { color: colors.text, marginTop: 20 }]}>
@@ -552,13 +495,6 @@ const styles = StyleSheet.create({
   menuRowIcon: { fontSize: 18, marginRight: 12 },
   menuRowLabel: { flex: 1, fontSize: 16, fontWeight: "500" },
   menuRowChevron: { fontSize: 22, fontWeight: "300" },
-  notifSectionHint: {
-    paddingHorizontal: 20,
-    fontSize: 12,
-    lineHeight: 17,
-    marginBottom: 6,
-    marginTop: -2,
-  },
   stockSection: { paddingHorizontal: 20, marginBottom: 8 },
   stockHint: { fontSize: 12, lineHeight: 17, marginBottom: 12 },
   stockRow: {

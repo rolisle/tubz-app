@@ -9,6 +9,7 @@ import { SlideModal } from "@/components/ui/slide-modal";
 import { Colors } from "@/constants/theme";
 import { type CrashEntry, clearLogs, getLogs } from "@/utils/crash-log";
 import {
+  getNotificationDiagnostics,
   openAndroidExactAlarmSettings,
   presentImmediateLocalNotification,
   scheduleShortDelayNotificationTest,
@@ -46,6 +47,27 @@ export const TestMenuModal = memo(function TestMenuModal({
       "Enable Alarms & reminders (or similar) for Tubz app, then try the test notification again. Rebuild the app if you installed before this update.",
     );
   }, [onAlert, onClose]);
+
+  const showNotificationDiagnostics = useCallback(async () => {
+    if (Platform.OS === "web") {
+      onAlert("Notifications", "Not available in the browser build.");
+      return;
+    }
+    const d = await getNotificationDiagnostics();
+    if (!d) {
+      onAlert("Notification diagnostics", "Could not read notification status.");
+      return;
+    }
+    onAlert(
+      "Notification diagnostics",
+      [
+        `Alerts allowed: ${d.permitted ? "Yes" : "No"}`,
+        `System status: ${d.status}`,
+        `Scheduled jobs (all): ${d.scheduledTotal}`,
+        `Restock reminders (restock-*): ${d.restockScheduled}`,
+      ].join("\n"),
+    );
+  }, [onAlert]);
 
   const runImmediateNotificationTest = useCallback(async () => {
     if (Platform.OS === "web") {
@@ -144,6 +166,25 @@ export const TestMenuModal = memo(function TestMenuModal({
             <Text style={[styles.section, { color: colors.subtext }]}>
               NOTIFICATIONS
             </Text>
+            <TouchableOpacity
+              style={[
+                styles.item,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+              onPress={showNotificationDiagnostics}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.icon}>📊</Text>
+              <View style={styles.text}>
+                <Text style={[styles.label, { color: colors.text }]}>
+                  Permission and schedule counts
+                </Text>
+                <Text style={[styles.sub, { color: colors.subtext }]}>
+                  Read-only: alerts allowed, system status, scheduled jobs, and
+                  restock-* reminders on this device.
+                </Text>
+              </View>
+            </TouchableOpacity>
             {Platform.OS === "android" && (
               <TouchableOpacity
                 style={[
