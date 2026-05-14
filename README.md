@@ -187,6 +187,7 @@ assets/
 | Locations, machines, products | `@tubz:appState`    |
 | Restock planner               | `@tubz_restock_v1`  |
 | Stock inventory               | `@tubz_stock_v2`    |
+| Export / import timestamps     | `@tubz_data_transfer_meta_v1` |
 | Theme / accent / stock caps     | `@tubz_settings_v1` |
 | Crash log                     | `@tubz:crashLog`    |
 

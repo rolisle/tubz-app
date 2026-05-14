@@ -31,6 +31,12 @@ import {
 import { confirm } from "@/utils/confirm";
 import { exportData, importData } from "@/utils/data-transfer";
 import {
+  formatDataTransferStamp,
+  loadDataTransferMeta,
+  patchDataTransferMeta,
+  type DataTransferMeta,
+} from "@/utils/data-transfer-meta";
+import {
   getNotificationDiagnostics,
   openAndroidExactAlarmSettings,
 } from "@/utils/notifications";
@@ -205,7 +211,13 @@ export function SettingsModal({ visible, onClose, colors }: SettingsModalProps) 
   const { settings } = useSettings();
   const { state, replaceState } = useApp();
   const [panel, setPanel] = useState<"main" | "changelog">("main");
+  const [dataTransferMeta, setDataTransferMeta] = useState<DataTransferMeta>({});
   const appVersion = Constants.expoConfig?.version ?? "—";
+
+  useEffect(() => {
+    if (!visible) return;
+    loadDataTransferMeta().then(setDataTransferMeta);
+  }, [visible]);
 
   useEffect(() => {
     if (!visible) setPanel("main");
@@ -384,6 +396,9 @@ export function SettingsModal({ visible, onClose, colors }: SettingsModalProps) 
                   onPress={async () => {
                     try {
                       await exportData(state);
+                      const ts = new Date().toISOString();
+                      await patchDataTransferMeta({ lastExportAt: ts });
+                      setDataTransferMeta((prev) => ({ ...prev, lastExportAt: ts }));
                     } catch (e: unknown) {
                       const msg = e instanceof Error ? e.message : String(e);
                       if (Platform.OS === "web") {
@@ -415,6 +430,9 @@ export function SettingsModal({ visible, onClose, colors }: SettingsModalProps) 
                           locations: payload.locations,
                           products: payload.products,
                         });
+                        const ts = new Date().toISOString();
+                        await patchDataTransferMeta({ lastImportAt: ts });
+                        setDataTransferMeta((prev) => ({ ...prev, lastImportAt: ts }));
                         onClose();
                       }
                     } catch (e: unknown) {
@@ -432,6 +450,14 @@ export function SettingsModal({ visible, onClose, colors }: SettingsModalProps) 
                     ⬇ Import data
                   </Text>
                 </TouchableOpacity>
+              </View>
+              <View style={styles.dataMetaWrap}>
+                <Text style={[styles.dataMetaLabel, { color: colors.subtext }]}>
+                  Last export: {formatDataTransferStamp(dataTransferMeta.lastExportAt)}
+                </Text>
+                <Text style={[styles.dataMetaLabel, { color: colors.subtext }]}>
+                  Last import: {formatDataTransferStamp(dataTransferMeta.lastImportAt)}
+                </Text>
               </View>
             </ScrollView>
           </>
@@ -510,6 +536,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   dataBtnText: { fontSize: 14, fontWeight: "600" },
+  dataMetaWrap: {
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    gap: 4,
+  },
+  dataMetaLabel: { fontSize: 12, lineHeight: 17 },
   menuRow: {
     flexDirection: "row",
     alignItems: "center",
