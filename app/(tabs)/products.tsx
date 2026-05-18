@@ -23,6 +23,7 @@ import { FsModalNavbar } from "@/components/ui/fs-modal-navbar";
 import { GradView } from "@/components/ui/grad-view";
 import { SlideModal } from "@/components/ui/slide-modal";
 import { PRODUCT_IMAGES } from "@/constants/product-images";
+import { SS } from "@/constants/shared-styles";
 import { Colors } from "@/constants/theme";
 import { useApp, useAppActions } from "@/context/app-context";
 import { primaryColor, useSettings } from "@/context/settings-context";
@@ -197,7 +198,7 @@ function ProductFormModal({
       onRequestClose={onClose}
     >
       <SafeAreaView
-        style={[styles.fsModalSafe, { backgroundColor: colors.background }]}
+        style={[SS.fsModalSafe, { backgroundColor: colors.background }]}
       >
         <KeyboardAvoidingView
           style={{ flex: 1 }}
@@ -212,11 +213,11 @@ function ProductFormModal({
           />
 
           <ScrollView
-            contentContainerStyle={styles.fsModalContent}
+            contentContainerStyle={SS.fsModalContent}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            <Text style={[styles.fieldLabel, { color: colors.subtext }]}>
+            <Text style={[SS.formFieldLabel, { color: colors.subtext }]}>
               Category
             </Text>
             <View style={styles.categoryRow}>
@@ -244,12 +245,12 @@ function ProductFormModal({
               ))}
             </View>
 
-            <Text style={[styles.fieldLabel, { color: colors.subtext }]}>
+            <Text style={[SS.formFieldLabel, { color: colors.subtext }]}>
               Name <Text style={{ color: colors.danger }}>*</Text>
             </Text>
             <TextInput
               style={[
-                styles.input,
+                SS.formInput,
                 {
                   color: colors.text,
                   borderColor: nameFocused ? accent : colors.border,
@@ -268,7 +269,7 @@ function ProductFormModal({
               returnKeyType="next"
             />
 
-            <Text style={[styles.fieldLabel, { color: colors.subtext }]}>
+            <Text style={[SS.formFieldLabel, { color: colors.subtext }]}>
               Image (optional)
             </Text>
             <View style={styles.imagePickerRow}>
@@ -530,7 +531,7 @@ export default function ProductsScreen() {
     ({ section }: { section: { title: string } }) => (
       <Text
         style={[
-          styles.sectionHeader,
+          SS.sectionHeader,
           { color: colors.subtext, backgroundColor: colors.background },
         ]}
       >
@@ -542,33 +543,33 @@ export default function ProductsScreen() {
 
   return (
     <SafeAreaView
-      style={[styles.safe, { backgroundColor: colors.background }]}
+      style={[SS.flex1, { backgroundColor: colors.background }]}
       edges={["top"]}
     >
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.text }]}>Products</Text>
+      <View style={SS.screenHeader}>
+        <View>
+          <Text style={[SS.screenTitle, { color: colors.text }]}>Products</Text>
+          <Text style={[SS.screenSubtitle, { color: colors.subtext }]}>
+            {state.products.length === 0
+              ? "No products yet"
+              : `${state.products.length} product${state.products.length !== 1 ? "s" : ""} in catalog`}
+          </Text>
+        </View>
         <TouchableOpacity
-          style={[
-            styles.headerAddBtn,
-            { borderColor: accent, backgroundColor: colors.card },
-          ]}
+          style={[SS.headerBtn, { borderColor: accent, backgroundColor: colors.card }]}
           onPress={() => setShowAdd(true)}
         >
-          <Text style={[styles.headerAddBtnText, { color: accent }]}>
-            + Add
-          </Text>
+          <Text style={[SS.headerBtnText, { color: accent }]}>+ Add</Text>
         </TouchableOpacity>
       </View>
-
-      <Text style={[styles.subtitle, { color: colors.subtext }]}>
-        {state.products.length} products in catalog
-      </Text>
 
       {/* Search */}
       <View
         style={[
-          styles.searchWrap,
+          SS.searchWrap,
           {
+            marginHorizontal: 20,
+            marginBottom: 4,
             borderColor: searchFocused ? accent : colors.border,
             backgroundColor: colors.card,
           },
@@ -576,7 +577,7 @@ export default function ProductsScreen() {
       >
         <Text style={{ color: colors.subtext, fontSize: 16 }}>🔍</Text>
         <TextInput
-          style={[styles.searchInput, { color: colors.text }]}
+          style={[SS.searchInput, { color: colors.text }]}
           placeholder="Search products…"
           placeholderTextColor={colors.subtext}
           value={search}
@@ -688,16 +689,16 @@ export default function ProductsScreen() {
           data={gridData}
           keyExtractor={(p) => p.id}
           numColumns={3}
-          contentContainerStyle={styles.gridList}
+          contentContainerStyle={SS.listContent}
           columnWrapperStyle={styles.gridRow}
           renderItem={renderGridItem}
           ListEmptyComponent={
-            <View style={styles.emptyWrap}>
-              <Text style={styles.emptyEmoji}>📦</Text>
-              <Text style={[styles.emptyTitle, { color: colors.text }]}>
+            <View style={SS.emptyWrap}>
+              <Text style={SS.emptyIcon}>📦</Text>
+              <Text style={[SS.emptyTitle, { color: colors.text }]}>
                 No products found
               </Text>
-              <Text style={[styles.emptyNote, { color: colors.subtext }]}>
+              <Text style={[SS.emptyNote, { color: colors.subtext }]}>
                 {state.products.length === 0
                   ? "Tap + to add products to your catalog."
                   : "Try a different search or filter."}
@@ -709,17 +710,17 @@ export default function ProductsScreen() {
         <SectionList
           sections={sections}
           keyExtractor={(p) => p.id}
-          contentContainerStyle={styles.list}
+          contentContainerStyle={SS.listContent}
           stickySectionHeadersEnabled={false}
           renderSectionHeader={renderSectionHeader}
           renderItem={renderListItem}
           ListEmptyComponent={
-            <View style={styles.emptyWrap}>
-              <Text style={styles.emptyEmoji}>📦</Text>
-              <Text style={[styles.emptyTitle, { color: colors.text }]}>
+            <View style={SS.emptyWrap}>
+              <Text style={SS.emptyIcon}>📦</Text>
+              <Text style={[SS.emptyTitle, { color: colors.text }]}>
                 No products found
               </Text>
-              <Text style={[styles.emptyNote, { color: colors.subtext }]}>
+              <Text style={[SS.emptyNote, { color: colors.subtext }]}>
                 {state.products.length === 0
                   ? "Tap + to add products to your catalog."
                   : "Try a different search or filter."}
@@ -745,48 +746,6 @@ export default function ProductsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingTop: 4,
-    paddingBottom: 4,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "800",
-    letterSpacing: -0.5,
-  },
-  headerAddBtn: {
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-  },
-  headerAddBtnText: { fontSize: 13, fontWeight: "600" },
-  subtitle: {
-    paddingHorizontal: 20,
-    fontSize: 13,
-    marginBottom: 10,
-  },
-  searchWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginHorizontal: 20,
-    marginBottom: 4,
-    borderRadius: 10,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    gap: 8,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 15,
-    padding: 0,
-  },
   filterRow: {
     flexDirection: "row",
     paddingHorizontal: 20,
@@ -803,17 +762,6 @@ const styles = StyleSheet.create({
   filterTabText: {
     fontSize: 13,
     fontWeight: "600",
-  },
-  list: {
-    paddingHorizontal: 20,
-    paddingBottom: 40,
-  },
-  sectionHeader: {
-    fontSize: 13,
-    fontWeight: "700",
-    letterSpacing: 0.3,
-    paddingVertical: 8,
-    marginTop: 4,
   },
   row: {
     flexDirection: "row",
@@ -871,7 +819,6 @@ const styles = StyleSheet.create({
   },
   toggleIcon: { fontSize: 15, lineHeight: 15, includeFontPadding: false },
   toggleLabel: { fontSize: 12, fontWeight: "600" },
-  gridList: { paddingHorizontal: 20, paddingBottom: 40 },
   gridRow: { gap: 10, marginBottom: 10 },
   gridCard: {
     flex: 1,
@@ -887,15 +834,6 @@ const styles = StyleSheet.create({
   rowName: { flex: 1, fontSize: 15, fontWeight: "500" },
   deleteBtn: { padding: 4 },
   deleteIcon: { fontSize: 17, color: "#ef4444" },
-  emptyWrap: {
-    alignItems: "center",
-    paddingTop: 60,
-    gap: 6,
-  },
-  emptyEmoji: { fontSize: 36, marginBottom: 4 },
-  emptyTitle: { fontSize: 17, fontWeight: "700" },
-  emptyNote: { fontSize: 14, textAlign: "center", lineHeight: 20 },
-  // Image zoom
   zoomOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.85)",
@@ -911,13 +849,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#fff",
   },
-  // Full-screen modal
-  fsModalSafe: { flex: 1 },
-  fsModalContent: {
-    padding: 20,
-    gap: 4,
-    paddingBottom: 40,
-  },
   formDeleteBtn: {
     marginTop: 24,
     borderWidth: 1,
@@ -926,14 +857,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   formDeleteText: { fontSize: 15, fontWeight: "600" },
-  fieldLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    marginTop: 8,
-    marginBottom: 4,
-  },
   categoryRow: {
     flexDirection: "row",
     gap: 8,
@@ -949,13 +872,5 @@ const styles = StyleSheet.create({
   categoryBtnText: {
     fontSize: 12,
     fontWeight: "600",
-  },
-  input: {
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    fontSize: 16,
-    marginBottom: 4,
   },
 });

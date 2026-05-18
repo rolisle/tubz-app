@@ -15,7 +15,7 @@ const DOUBLE_TAP_MS = 300;
 
 export interface RestockProductRowProps {
   productId: string;
-  product: Pick<Product, "name" | "emoji" | "localImageUri" | "id"> | undefined;
+  product: Pick<Product, "name" | "id" | "localImageUri"> | undefined;
   qty: number;
   max: number;
   machineType: MachineType;
@@ -116,7 +116,7 @@ export function RestockProductRow({
           <Image source={imgSrc} style={styles.thumb} resizeMode="cover" />
         ) : (
           <Text style={styles.thumbEmoji}>
-            {product?.emoji ?? (machineType === "sweet" ? "🍬" : "🪀")}
+            {machineType === "sweet" ? "🍬" : "🪀"}
           </Text>
         )}
         <View style={styles.info}>

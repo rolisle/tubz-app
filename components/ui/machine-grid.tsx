@@ -377,7 +377,7 @@ export function MachineGrid({ machine, products, onUpdate, readonly }: MachineGr
                       : PRODUCT_IMAGES[product.id];
                     return src
                       ? <Image source={src} style={styles.slotImage} resizeMode="contain" />
-                      : <Text style={styles.slotEmoji}>{product.emoji ?? '📦'}</Text>;
+                      : <Text style={styles.slotEmoji}>{'📦'}</Text>;
                   })()
                 ) : (
                   <View style={styles.slotEmpty}>

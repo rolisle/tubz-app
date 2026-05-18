@@ -83,12 +83,15 @@ export const TOY_PRESETS: { label: string; value: AppColor }[] = [
 
 /* ─── Types ───────────────────────────────────────────────────── */
 
+export type DataExportFormat = "json" | "csv";
+
 export interface AppSettings {
   accentColor: AppColor;
   sweetColor: AppColor;
   toyColor: AppColor;
   sweetStockLevel: number;
   toyStockLevel: number;
+  dataExportFormat: DataExportFormat;
 }
 
 const DEFAULTS: AppSettings = {
@@ -97,6 +100,7 @@ const DEFAULTS: AppSettings = {
   toyColor: ["#60a5fa"],
   sweetStockLevel: DEFAULT_SWEET_STOCK_LEVEL,
   toyStockLevel: DEFAULT_TOY_STOCK_LEVEL,
+  dataExportFormat: "json",
 };
 
 function migrateColor(raw: unknown, fallback: AppColor): AppColor {
@@ -136,6 +140,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
               parsed.toyStockLevel,
               DEFAULTS.toyStockLevel,
             ),
+            dataExportFormat:
+              parsed.dataExportFormat === "csv" ? "csv" : "json",
           });
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);

@@ -1,9 +1,7 @@
 import Constants from "expo-constants";
 import { LinearGradient } from "expo-linear-gradient";
-import { memo, useCallback, useEffect, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import {
-  Alert,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -21,12 +19,12 @@ import { Colors } from "@/constants/theme";
 import { useApp } from "@/context/app-context";
 import {
   ACCENT_PRESETS,
-  type AppColor,
   colorEquals,
   primaryColor,
   SWEET_PRESETS,
   TOY_PRESETS,
   useSettings,
+  type AppColor,
 } from "@/context/settings-context";
 import { confirm } from "@/utils/confirm";
 import { exportData, importData } from "@/utils/data-transfer";
@@ -112,9 +110,7 @@ const StockLevelSection = memo(function StockLevelSection({
   colors: (typeof Colors)["light"];
 }) {
   const { settings, setSetting } = useSettings();
-  const [sweetText, setSweetText] = useState(
-    String(settings.sweetStockLevel),
-  );
+  const [sweetText, setSweetText] = useState(String(settings.sweetStockLevel));
   const [toyText, setToyText] = useState(String(settings.toyStockLevel));
 
   useEffect(() => {
@@ -203,12 +199,43 @@ export interface SettingsModalProps {
   colors: (typeof Colors)["light"];
 }
 
-export function SettingsModal({ visible, onClose, colors }: SettingsModalProps) {
-  const { settings } = useSettings();
+type TransferStatus =
+  | { kind: "idle" }
+  | { kind: "busy"; text: string }
+  | { kind: "ok"; text: string }
+  | { kind: "err"; text: string };
+
+export function SettingsModal({
+  visible,
+  onClose,
+  colors,
+}: SettingsModalProps) {
+  const { settings, setSetting } = useSettings();
   const { state, replaceState } = useApp();
   const [panel, setPanel] = useState<"main" | "changelog">("main");
-  const [dataTransferMeta, setDataTransferMeta] = useState<DataTransferMeta>({});
+  const [dataTransferMeta, setDataTransferMeta] = useState<DataTransferMeta>(
+    {},
+  );
+  const [transferStatus, setTransferStatus] = useState<TransferStatus>({
+    kind: "idle",
+  });
+  const clearStatusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const appVersion = Constants.expoConfig?.version ?? "—";
+
+  const setOkStatus = useCallback((text: string) => {
+    if (clearStatusTimer.current) clearTimeout(clearStatusTimer.current);
+    setTransferStatus({ kind: "ok", text });
+    clearStatusTimer.current = setTimeout(
+      () => setTransferStatus({ kind: "idle" }),
+      3500,
+    );
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (clearStatusTimer.current) clearTimeout(clearStatusTimer.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (!visible) return;
@@ -224,8 +251,16 @@ export function SettingsModal({ visible, onClose, colors }: SettingsModalProps) 
     key: "accentColor" | "sweetColor" | "toyColor";
     presets: { label: string; value: AppColor }[];
   }[] = [
-    { label: "Accent / Tab Colour", key: "accentColor", presets: ACCENT_PRESETS },
-    { label: "Sweet Machine Colour", key: "sweetColor", presets: SWEET_PRESETS },
+    {
+      label: "Accent / Tab Colour",
+      key: "accentColor",
+      presets: ACCENT_PRESETS,
+    },
+    {
+      label: "Sweet Machine Colour",
+      key: "sweetColor",
+      presets: SWEET_PRESETS,
+    },
     { label: "Toy Machine Colour", key: "toyColor", presets: TOY_PRESETS },
   ];
 
@@ -240,12 +275,16 @@ export function SettingsModal({ visible, onClose, colors }: SettingsModalProps) 
       enterDuration={160}
       exitDuration={120}
     >
-      <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
+      <SafeAreaView
+        style={[styles.safe, { backgroundColor: colors.background }]}
+      >
         {panel === "main" ? (
           <>
             <FsModalNavbar
               title="⚙️ Settings"
-              subtitle={appVersion !== "—" ? `Version ${appVersion}` : undefined}
+              subtitle={
+                appVersion !== "—" ? `Version ${appVersion}` : undefined
+              }
               colors={colors}
               accent={primaryColor(settings.accentColor)}
               right={{ label: "Done", tone: "muted", onPress: onClose }}
@@ -255,7 +294,34 @@ export function SettingsModal({ visible, onClose, colors }: SettingsModalProps) 
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.scrollContent}
             >
-              <Text style={[styles.sectionLabel, { color: colors.text }]}>Theme</Text>
+              <Text
+                style={[
+                  styles.sectionLabel,
+                  { color: colors.text, marginTop: 20 },
+                ]}
+              >
+                About
+              </Text>
+              <TouchableOpacity
+                style={[styles.menuRow, { borderColor: colors.border }]}
+                onPress={() => setPanel("changelog")}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.menuRowIcon, { color: colors.subtext }]}>
+                  📋
+                </Text>
+                <Text style={[styles.menuRowLabel, { color: colors.text }]}>
+                  What’s new
+                </Text>
+                <Text
+                  style={[styles.menuRowChevron, { color: colors.subtext }]}
+                >
+                  ›
+                </Text>
+              </TouchableOpacity>
+              <Text style={[styles.sectionLabel, { color: colors.text }]}>
+                Theme
+              </Text>
 
               {sections.map((s) => (
                 <SwatchRow
@@ -267,13 +333,20 @@ export function SettingsModal({ visible, onClose, colors }: SettingsModalProps) 
                   colors={colors}
                 />
               ))}
-              <Text style={[styles.sectionLabel, { color: colors.text, marginTop: 20 }]}>
+              <Text
+                style={[
+                  styles.sectionLabel,
+                  { color: colors.text, marginTop: 20 },
+                ]}
+              >
                 Stock levels
               </Text>
               <StockLevelSection visible={visible} colors={colors} />
 
               {/* Live preview */}
-              <View style={[styles.previewRow, { borderTopColor: colors.border }]}>
+              <View
+                style={[styles.previewRow, { borderTopColor: colors.border }]}
+              >
                 <View
                   style={[
                     styles.previewChip,
@@ -285,10 +358,16 @@ export function SettingsModal({ visible, onClose, colors }: SettingsModalProps) 
                 >
                   <GradView
                     colors={settings.sweetColor}
-                    style={[StyleSheet.absoluteFill, { borderRadius: 10, opacity: 0.12 }]}
+                    style={[
+                      StyleSheet.absoluteFill,
+                      { borderRadius: 10, opacity: 0.12 },
+                    ]}
                   />
                   <Text
-                    style={[styles.previewChipText, { color: primaryColor(settings.sweetColor) }]}
+                    style={[
+                      styles.previewChipText,
+                      { color: primaryColor(settings.sweetColor) },
+                    ]}
                   >
                     🍬 Sweet Machine
                   </Text>
@@ -304,62 +383,101 @@ export function SettingsModal({ visible, onClose, colors }: SettingsModalProps) 
                 >
                   <GradView
                     colors={settings.toyColor}
-                    style={[StyleSheet.absoluteFill, { borderRadius: 10, opacity: 0.12 }]}
+                    style={[
+                      StyleSheet.absoluteFill,
+                      { borderRadius: 10, opacity: 0.12 },
+                    ]}
                   />
                   <Text
-                    style={[styles.previewChipText, { color: primaryColor(settings.toyColor) }]}
+                    style={[
+                      styles.previewChipText,
+                      { color: primaryColor(settings.toyColor) },
+                    ]}
                   >
                     🪀 Toy Machine
                   </Text>
                 </View>
               </View>
 
-              <Text style={[styles.sectionLabel, { color: colors.text, marginTop: 20 }]}>
-                About
-              </Text>
-              <TouchableOpacity
-                style={[styles.menuRow, { borderColor: colors.border }]}
-                onPress={() => setPanel("changelog")}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.menuRowIcon, { color: colors.subtext }]}>📋</Text>
-                <Text style={[styles.menuRowLabel, { color: colors.text }]}>
-                  What’s new
-                </Text>
-                <Text style={[styles.menuRowChevron, { color: colors.subtext }]}>›</Text>
-              </TouchableOpacity>
-
               {/* Data transfer */}
-              <Text style={[styles.sectionLabel, { color: colors.text, marginTop: 20 }]}>
+              <Text style={[styles.sectionLabel, { color: colors.text }]}>
                 Data
               </Text>
+              <View style={styles.dataFormatWrap}>
+                <View style={styles.dataFormatChips}>
+                  {(["json", "csv"] as const).map((fmt) => {
+                    const active = settings.dataExportFormat === fmt;
+                    const accentCol = primaryColor(settings.accentColor);
+                    return (
+                      <TouchableOpacity
+                        key={fmt}
+                        onPress={() => setSetting("dataExportFormat", fmt)}
+                        activeOpacity={0.75}
+                        style={[
+                          styles.dataFormatChip,
+                          {
+                            borderColor: active ? accentCol : colors.border,
+                            backgroundColor: active
+                              ? accentCol + "18"
+                              : colors.card,
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.dataFormatChipText,
+                            { color: colors.text },
+                          ]}
+                        >
+                          {fmt === "json" ? ".json" : ".csv"}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
               <View style={[styles.dataRow, { borderTopColor: colors.border }]}>
                 <TouchableOpacity
-                  style={[styles.dataBtn, { backgroundColor: colors.border }]}
+                  disabled={transferStatus.kind === "busy"}
+                  style={[
+                    styles.dataBtn,
+                    { backgroundColor: colors.border },
+                    transferStatus.kind === "busy" && styles.dataBtnDisabled,
+                  ]}
                   onPress={async () => {
+                    setTransferStatus({ kind: "busy", text: "Exporting…" });
                     try {
-                      await exportData(state);
+                      await exportData(state, settings.dataExportFormat);
                       const ts = new Date().toISOString();
                       await patchDataTransferMeta({ lastExportAt: ts });
-                      setDataTransferMeta((prev) => ({ ...prev, lastExportAt: ts }));
+                      setDataTransferMeta((prev) => ({
+                        ...prev,
+                        lastExportAt: ts,
+                      }));
+                      setOkStatus("Export saved ✓");
                     } catch (e: unknown) {
                       const msg = e instanceof Error ? e.message : String(e);
-                      if (Platform.OS === "web") {
-                        window.alert("Export failed: " + msg);
-                      } else {
-                        Alert.alert("Export failed", msg);
-                      }
+                      setTransferStatus({ kind: "err", text: msg });
                     }
                   }}
                 >
                   <Text style={[styles.dataBtnText, { color: colors.text }]}>
-                    ⬆ Export data
+                    {transferStatus.kind === "busy" &&
+                    transferStatus.text === "Exporting…"
+                      ? "Exporting…"
+                      : "⬆ Export data"}
                   </Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[styles.dataBtn, { backgroundColor: colors.border }]}
+                  disabled={transferStatus.kind === "busy"}
+                  style={[
+                    styles.dataBtn,
+                    { backgroundColor: colors.border },
+                    transferStatus.kind === "busy" && styles.dataBtnDisabled,
+                  ]}
                   onPress={async () => {
+                    setTransferStatus({ kind: "busy", text: "Importing…" });
                     try {
                       const payload = await importData();
                       const confirmed = await confirm(
@@ -375,31 +493,61 @@ export function SettingsModal({ visible, onClose, colors }: SettingsModalProps) 
                         });
                         const ts = new Date().toISOString();
                         await patchDataTransferMeta({ lastImportAt: ts });
-                        setDataTransferMeta((prev) => ({ ...prev, lastImportAt: ts }));
-                        onClose();
+                        setDataTransferMeta((prev) => ({
+                          ...prev,
+                          lastImportAt: ts,
+                        }));
+                        setOkStatus("Imported ✓");
+                      } else {
+                        setTransferStatus({ kind: "idle" });
                       }
                     } catch (e: unknown) {
                       const msg = e instanceof Error ? e.message : String(e);
-                      if (msg === "Cancelled") return;
-                      if (Platform.OS === "web") {
-                        window.alert("Import failed: " + msg);
-                      } else {
-                        Alert.alert("Import failed", msg);
+                      if (msg === "Cancelled") {
+                        setTransferStatus({ kind: "idle" });
+                        return;
                       }
+                      setTransferStatus({ kind: "err", text: msg });
                     }
                   }}
                 >
                   <Text style={[styles.dataBtnText, { color: colors.text }]}>
-                    ⬇ Import data
+                    {transferStatus.kind === "busy" &&
+                    transferStatus.text === "Importing…"
+                      ? "Importing…"
+                      : "⬇ Import data"}
                   </Text>
                 </TouchableOpacity>
               </View>
+
+              {transferStatus.kind !== "idle" && (
+                <View style={styles.transferStatusRow}>
+                  <Text
+                    style={[
+                      styles.transferStatusText,
+                      transferStatus.kind === "err"
+                        ? { color: "#e05050" }
+                        : transferStatus.kind === "ok"
+                          ? { color: "#3a9e5f" }
+                          : { color: colors.subtext },
+                    ]}
+                    numberOfLines={2}
+                  >
+                    {transferStatus.kind === "err"
+                      ? `⚠ ${transferStatus.text}`
+                      : transferStatus.text}
+                  </Text>
+                </View>
+              )}
+
               <View style={styles.dataMetaWrap}>
                 <Text style={[styles.dataMetaLabel, { color: colors.subtext }]}>
-                  Last export: {formatDataTransferStamp(dataTransferMeta.lastExportAt)}
+                  Last export:{" "}
+                  {formatDataTransferStamp(dataTransferMeta.lastExportAt)}
                 </Text>
                 <Text style={[styles.dataMetaLabel, { color: colors.subtext }]}>
-                  Last import: {formatDataTransferStamp(dataTransferMeta.lastImportAt)}
+                  Last import:{" "}
+                  {formatDataTransferStamp(dataTransferMeta.lastImportAt)}
                 </Text>
               </View>
             </ScrollView>
@@ -433,7 +581,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     paddingHorizontal: 20,
     marginTop: 20,
-    marginBottom: 4,
+    marginBottom: 10,
     opacity: 0.5,
     textTransform: "uppercase",
     letterSpacing: 0.8,
@@ -479,12 +627,36 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   dataBtnText: { fontSize: 14, fontWeight: "600" },
+  dataBtnDisabled: { opacity: 0.45 },
+  transferStatusRow: {
+    paddingHorizontal: 20,
+    paddingTop: 6,
+    paddingBottom: 2,
+  },
+  transferStatusText: { fontSize: 13, lineHeight: 18 },
   dataMetaWrap: {
     paddingHorizontal: 20,
     paddingTop: 10,
     gap: 4,
   },
   dataMetaLabel: { fontSize: 12, lineHeight: 17 },
+  dataFormatWrap: {
+    paddingHorizontal: 20,
+    marginBottom: 12,
+  },
+  dataFormatHint: {
+    fontSize: 12,
+    lineHeight: 17,
+    marginBottom: 10,
+  },
+  dataFormatChips: { flexDirection: "row", gap: 10 },
+  dataFormatChip: {
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 10,
+    borderWidth: 1.5,
+  },
+  dataFormatChipText: { fontSize: 14, fontWeight: "700" },
   menuRow: {
     flexDirection: "row",
     alignItems: "center",

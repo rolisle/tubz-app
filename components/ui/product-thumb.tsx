@@ -5,19 +5,17 @@ import type { Product } from "@/types";
 interface ProductThumbProps {
   product: Product | null | undefined;
   size: number;
-  /** Fallback emoji when no product is provided. Defaults to 📦. */
+  /** Fallback text/emoji when no catalog image exists. Defaults to 📦. */
   fallback?: string;
 }
 
-/**
- * Renders a product thumbnail: local image, catalog image, or emoji fallback.
- */
+/** Renders a product thumbnail: local image, catalog image, or text fallback. */
 export function ProductThumb({ product, size, fallback }: ProductThumbProps) {
   const src = product?.localImageUri
     ? { uri: product.localImageUri }
     : product
-    ? PRODUCT_IMAGES[product.id]
-    : undefined;
+      ? PRODUCT_IMAGES[product.id]
+      : undefined;
 
   if (src) {
     return (
@@ -39,7 +37,7 @@ export function ProductThumb({ product, size, fallback }: ProductThumbProps) {
         includeFontPadding: false,
       }}
     >
-      {product?.emoji ?? fallback ?? "📦"}
+      {fallback ?? "📦"}
     </Text>
   );
 }

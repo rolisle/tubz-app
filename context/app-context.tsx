@@ -307,12 +307,7 @@ export interface AppActionsValue {
     productId: string,
     delta: number,
   ) => void;
-  addProduct: (
-    name: string,
-    emoji?: string,
-    category?: ProductCategory,
-    localImageUri?: string,
-  ) => void;
+  addProduct: (name: string, category?: ProductCategory, localImageUri?: string) => void;
   updateProduct: (product: Product) => void;
   deleteProduct: (id: string) => void;
 }
@@ -515,18 +510,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
 
   const addProduct = useCallback(
-    (
-      name: string,
-      emoji?: string,
-      category?: ProductCategory,
-      localImageUri?: string,
-    ) => {
+    (name: string, category?: ProductCategory, localImageUri?: string) => {
       const product: Product = {
         id: uid(),
         name,
-        emoji,
         category,
-        localImageUri,
+        ...(localImageUri ? { localImageUri } : {}),
       };
       dispatch({ type: 'ADD_PRODUCT', payload: product });
     },

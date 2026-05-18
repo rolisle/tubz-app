@@ -120,12 +120,13 @@ network for:
 ## 5. Export, Import, and Sharing
 
 Tubz includes an **Export** feature which writes your locations, products,
-and restock history to a JSON file and hands it to your operating
+and restock history to a file (**JSON** or **Tubz CSV**, depending on your
+Settings choice) and hands it to your operating
 system's share sheet. From there, you decide where the file goes
 (e.g. email, cloud storage, another device). Tubz does not upload the
 file on your behalf.
 
-The **Import** feature reads a JSON file you pick from your device and
+The **Import** feature reads a **JSON** or **Tubz CSV** file you pick from your device and
 merges its contents into the app's local storage.
 
 Any data you share via export becomes subject to the privacy practices of

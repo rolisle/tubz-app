@@ -89,6 +89,7 @@ A stock and restock management app for Tubz vending machines, built with [Expo](
 - **Stock levels** — max units per column for sweet and toy machines (defaults 9 and 12); drives restock quantity limits and history/session caps site-wide
 - Supports solid colours and 3-stop gradients, with preset swatches
 - Live preview of machine chip colours in the settings modal
+- **Export / import data** — choose **`.json`** (default) or **`.csv`** for export. **Import** accepts both: classic JSON exports and **Tubz CSV** (products + locations tables; machines, opening hours, and restock history are JSON embedded in CSV cells). **Last export / import** times are shown under the buttons.
 
 ### Notifications
 
@@ -172,9 +173,10 @@ context/
   settings-context.tsx # Theme settings (accent, sweet/toy colours, per-type stock caps)
 
 utils/
-  notifications.ts         # Web stub — no-op for SSR/web
-  notifications.native.ts  # expo-notifications scheduling logic
-  opening-hours.ts         # Opening hours status calculation + time parsing
+  data-transfer.ts        # Export/import (native); JSON + Tubz CSV
+  data-transfer.web.ts    # Export/import (web)
+  data-transfer-csv.ts    # Tubz CSV serialisation + parse
+  data-transfer-meta.ts   # Last export/import timestamps
 
 assets/
   products/            # Downloaded product images from tubzbrands.co.uk
@@ -188,7 +190,7 @@ assets/
 | Restock planner               | `@tubz_restock_v1`  |
 | Stock inventory               | `@tubz_stock_v2`    |
 | Export / import timestamps     | `@tubz_data_transfer_meta_v1` |
-| Theme / accent / stock caps     | `@tubz_settings_v1` |
+| Theme, stock caps, export format | `@tubz_settings_v1` |
 | Crash log                     | `@tubz:crashLog`    |
 
 No external database or login is required. All data is stored locally on the device.

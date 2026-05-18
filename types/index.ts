@@ -15,7 +15,6 @@ export type OpeningHours = Partial<Record<WeekDay, DayHours>>;
 export interface Product {
   id: string;
   name: string;
-  emoji?: string;
   category?: ProductCategory;
   localImageUri?: string;
 }
