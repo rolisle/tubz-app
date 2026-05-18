@@ -14,6 +14,7 @@ import { SimpleRow } from "@/components/simple-row";
 import { StockPickerRow, StockRow } from "@/components/stock-row";
 import { ProductPickerModal } from "@/components/ui/product-picker-modal";
 import { PRODUCT_IMAGES } from "@/constants/product-images";
+import { SS } from "@/constants/shared-styles";
 import { Colors } from "@/constants/theme";
 import { useApp } from "@/context/app-context";
 import { primaryColor, useSettings } from "@/context/settings-context";
@@ -101,7 +102,7 @@ function renderTopSellerRow(
         {src ? (
           <Image source={src} style={topStyles.thumbImg} resizeMode="contain" />
         ) : (
-          <Text style={topStyles.thumbEmoji}>{product?.emoji ?? "📦"}</Text>
+          <Text style={topStyles.thumbEmoji}>{"📦"}</Text>
         )}
       </View>
       <View style={topStyles.info}>
@@ -459,8 +460,8 @@ export default function StockScreen() {
               loc.machines.find((m) => m.id === r.machineId)?.type;
             if (!mt) continue;
             const qtyOld =
-              me?.products.find((p) => p.productId === r.replacedProductId)?.qty ??
-              0;
+              me?.products.find((p) => p.productId === r.replacedProductId)
+                ?.qty ?? 0;
             const qtyNew =
               me?.products.find((p) => p.productId === r.replacedWithProductId)
                 ?.qty ?? 0;
@@ -586,14 +587,14 @@ export default function StockScreen() {
 
   return (
     <SafeAreaView
-      style={[styles.safe, { backgroundColor: colors.background }]}
+      style={[SS.flex1, { backgroundColor: colors.background }]}
       edges={["top"]}
     >
       {/* Header */}
-      <View style={styles.header}>
+      <View style={SS.screenHeader}>
         <View>
-          <Text style={[styles.title, { color: colors.text }]}>Stock</Text>
-          <Text style={[styles.subtitle, { color: colors.subtext }]}>
+          <Text style={[SS.screenTitle, { color: colors.text }]}>Stock</Text>
+          <Text style={[SS.screenSubtitle, { color: colors.subtext }]}>
             {totalItems === 0
               ? "No products tracked yet"
               : `${totalItems} product${totalItems !== 1 ? "s" : ""} tracked`}
@@ -603,11 +604,11 @@ export default function StockScreen() {
           onPress={() => setShowSort((v) => !v)}
           hitSlop={8}
           style={[
-            styles.addBtn,
+            SS.headerBtn,
             { borderColor: accent, backgroundColor: colors.card },
           ]}
         >
-          <Text style={[styles.addBtnText, { color: accent }]}>↕ Sort</Text>
+          <Text style={[SS.headerBtnText, { color: accent }]}>↕ Sort</Text>
         </TouchableOpacity>
       </View>
 
@@ -713,7 +714,7 @@ export default function StockScreen() {
           keyExtractor={(item) => item.productId}
           stickySectionHeadersEnabled={false}
           style={styles.listFill}
-          contentContainerStyle={styles.content}
+          contentContainerStyle={SS.screenContent}
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={overviewListHeader}
           renderSectionHeader={({ section }) => (
@@ -764,7 +765,7 @@ export default function StockScreen() {
             keyExtractor={(item) => item.productId}
             stickySectionHeadersEnabled={false}
             style={styles.listFill}
-            contentContainerStyle={styles.content}
+            contentContainerStyle={SS.screenContent}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             renderSectionHeader={({ section }) => (
@@ -775,11 +776,11 @@ export default function StockScreen() {
                 <TouchableOpacity
                   onPress={() => setPicker(section.key)}
                   style={[
-                    styles.addBtn,
+                    SS.headerBtn,
                     { borderColor: accent, backgroundColor: colors.card },
                   ]}
                 >
-                  <Text style={[styles.addBtnText, { color: accent }]}>
+                  <Text style={[SS.headerBtnText, { color: accent }]}>
                     + Add
                   </Text>
                 </TouchableOpacity>
@@ -834,18 +835,7 @@ export default function StockScreen() {
 /* ─── Styles ─────────────────────────────────────────────────── */
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
   listFill: { flex: 1 },
-  header: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingTop: 4,
-    paddingBottom: 8,
-  },
-  title: { fontSize: 28, fontWeight: "800", letterSpacing: -0.5 },
-  subtitle: { fontSize: 13, marginTop: 2 },
   sortPopover: {
     marginHorizontal: 20,
     marginBottom: 8,
@@ -897,7 +887,6 @@ const styles = StyleSheet.create({
   legendItem: { flexDirection: "row", alignItems: "center", gap: 6 },
   legendDot: { width: 8, height: 8, borderRadius: 4 },
   legendLabel: { fontSize: 12, fontWeight: "500" },
-  content: { paddingHorizontal: 20, paddingBottom: 60 },
   // Section
   sectionHeader: {
     flexDirection: "row",
@@ -907,13 +896,6 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   sectionTitle: { fontSize: 18, fontWeight: "700" },
-  addBtn: {
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-  },
-  addBtnText: { fontSize: 13, fontWeight: "600" },
   // Empty section
   emptySection: {
     borderWidth: 1,

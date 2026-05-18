@@ -14,7 +14,8 @@ import {
   type RestockMachine,
 } from '@/components/restock/machine-card';
 import { GradView } from '@/components/ui/grad-view';
-import { Colors } from '@/constants/theme';
+import { SS } from "@/constants/shared-styles";
+import { Colors } from "@/constants/theme";
 import { useApp } from '@/context/app-context';
 import { primaryColor, useSettings } from '@/context/settings-context';
 import { slotCapacityForMachineType } from '@/utils/slot-capacity';
@@ -99,21 +100,25 @@ export default function RestockScreen() {
 
   return (
     <SafeAreaView
-      style={[styles.safe, { backgroundColor: colors.background }]}
-      edges={['top']}
+      style={[SS.flex1, { backgroundColor: colors.background }]}
+      edges={["top"]}
     >
-      <View style={styles.header}>
+      <View style={SS.screenHeader}>
         <View>
-          <Text style={[styles.title, { color: colors.text }]}>Restock</Text>
-          <Text style={[styles.subtitle, { color: colors.subtext }]}>
+          <Text style={[SS.screenTitle, { color: colors.text }]}>Restock</Text>
+          <Text style={[SS.screenSubtitle, { color: colors.subtext }]}>
             {totalItems > 0
-              ? `${totalItems} item${totalItems !== 1 ? 's' : ''} planned`
-              : 'Plan your next restock run'}
+              ? `${totalItems} item${totalItems !== 1 ? "s" : ""} planned`
+              : "Plan your next restock run"}
           </Text>
         </View>
         {machines.length > 0 && (
-          <TouchableOpacity onPress={clearAll} hitSlop={8}>
-            <Text style={{ color: '#ef4444', fontSize: 13, fontWeight: '500' }}>
+          <TouchableOpacity
+            onPress={clearAll}
+            hitSlop={8}
+            style={[SS.headerBtn, { borderColor: colors.danger, backgroundColor: colors.card }]}
+          >
+            <Text style={[SS.headerBtnText, { color: colors.danger }]}>
               Clear all
             </Text>
           </TouchableOpacity>
@@ -122,7 +127,7 @@ export default function RestockScreen() {
 
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={SS.screenContent}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
@@ -172,12 +177,12 @@ export default function RestockScreen() {
         </View>
 
         {machines.length === 0 ? (
-          <View style={styles.emptyWrap}>
-            <Text style={styles.emptyEmoji}>📦</Text>
-            <Text style={[styles.emptyTitle, { color: colors.text }]}>
+          <View style={[SS.emptyWrap, { gap: 8 }]}>
+            <Text style={[SS.emptyIcon, { fontSize: 48 }]}>📦</Text>
+            <Text style={[SS.emptyTitle, { fontSize: 18, color: colors.text }]}>
               Nothing to restock yet
             </Text>
-            <Text style={[styles.emptyNote, { color: colors.subtext }]}>
+            <Text style={[SS.emptyNote, { maxWidth: 280, color: colors.subtext }]}>
               Add a sweet or toy machine above, then set how many of each product
               you need.
             </Text>
@@ -206,18 +211,6 @@ export default function RestockScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 4,
-    paddingBottom: 12,
-  },
-  title: { fontSize: 28, fontWeight: '800', letterSpacing: -0.5 },
-  subtitle: { fontSize: 13, marginTop: 2 },
-  content: { paddingHorizontal: 20, paddingBottom: 60 },
   addMachineRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
   addMachineBtn: {
     flex: 1,
@@ -233,8 +226,4 @@ const styles = StyleSheet.create({
   },
   addMachineEmoji: { fontSize: 18 },
   addMachineBtnText: { fontSize: 14, fontWeight: '600' },
-  emptyWrap: { alignItems: 'center', paddingTop: 60, gap: 8 },
-  emptyEmoji: { fontSize: 48, marginBottom: 4 },
-  emptyTitle: { fontSize: 18, fontWeight: '700' },
-  emptyNote: { fontSize: 14, textAlign: 'center', lineHeight: 20, maxWidth: 280 },
 });

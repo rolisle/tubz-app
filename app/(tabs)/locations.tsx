@@ -18,6 +18,7 @@ import { LocationCard } from "@/components/location-card";
 import { FsModalNavbar } from "@/components/ui/fs-modal-navbar";
 import { GradView } from "@/components/ui/grad-view";
 import { SlideModal } from "@/components/ui/slide-modal";
+import { SS } from "@/constants/shared-styles";
 import { Colors } from "@/constants/theme";
 import { useApp, useAppActions } from "@/context/app-context";
 import {
@@ -135,7 +136,7 @@ function AddLocationModal({ visible, onClose, colors }: AddLocationModalProps) {
   };
 
   const inputStyle = (value: string, field: string, invalid = false) => [
-    styles.input,
+    SS.formInput,
     {
       color: colors.text,
       backgroundColor: colors.background,
@@ -150,7 +151,7 @@ function AddLocationModal({ visible, onClose, colors }: AddLocationModalProps) {
 
   return (
     <SlideModal animation="fade" visible={visible} onRequestClose={handleClose}>
-      <SafeAreaView style={[styles.fsModalSafe, { backgroundColor: colors.background }]}>
+      <SafeAreaView style={[SS.fsModalSafe, { backgroundColor: colors.background }]}>
         <KeyboardAvoidingView
           style={{ flex: 1 }}
           behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -168,11 +169,11 @@ function AddLocationModal({ visible, onClose, colors }: AddLocationModalProps) {
           />
 
           <ScrollView
-            contentContainerStyle={styles.fsModalContent}
+            contentContainerStyle={SS.fsModalContent}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            <Text style={[styles.fieldLabel, { color: colors.subtext }]}>
+            <Text style={[SS.formFieldLabel, { color: colors.subtext }]}>
               Name <Text style={{ color: colors.danger }}>*</Text>
             </Text>
             <TextInput
@@ -192,7 +193,7 @@ function AddLocationModal({ visible, onClose, colors }: AddLocationModalProps) {
               <Text style={styles.errorText}>Name is required</Text>
             )}
 
-            <Text style={[styles.fieldLabel, { color: colors.subtext }]}>
+            <Text style={[SS.formFieldLabel, { color: colors.subtext }]}>
               Address <Text style={{ color: colors.danger }}>*</Text>
             </Text>
             <TextInput
@@ -253,7 +254,7 @@ function AddLocationModal({ visible, onClose, colors }: AddLocationModalProps) {
               </View>
             </View>
 
-            <Text style={[styles.fieldLabel, { color: colors.subtext }]}>
+            <Text style={[SS.formFieldLabel, { color: colors.subtext }]}>
               Google Maps link
             </Text>
             <Text style={[styles.fieldHint, { color: colors.subtext }]}>
@@ -335,12 +336,12 @@ export default function LocationsScreen() {
   }, [filtered]);
 
   const emptyComponent = (
-    <View style={styles.emptyWrap}>
-      <Text style={styles.emptyEmoji}>📍</Text>
-      <Text style={[styles.emptyTitle, { color: colors.text }]}>
+    <View style={SS.emptyWrap}>
+      <Text style={SS.emptyIcon}>📍</Text>
+      <Text style={[SS.emptyTitle, { color: colors.text }]}>
         {state.locations.length === 0 ? "No locations yet" : "No results"}
       </Text>
-      <Text style={[styles.emptyNote, { color: colors.subtext }]}>
+      <Text style={[SS.emptyNote, { color: colors.subtext }]}>
         {state.locations.length === 0
           ? "Tap + to add your first location."
           : "Try a different search or filter."}
@@ -351,8 +352,9 @@ export default function LocationsScreen() {
   const searchBar = (
     <View
       style={[
-        styles.searchWrap,
+        SS.searchWrap,
         {
+          marginBottom: 10,
           borderColor: searchFocused ? accent : colors.border,
           backgroundColor: colors.card,
         },
@@ -360,7 +362,7 @@ export default function LocationsScreen() {
     >
       <Text style={{ color: colors.subtext, fontSize: 16 }}>🔍</Text>
       <TextInput
-        style={[styles.searchInput, { color: colors.text }]}
+        style={[SS.searchInput, { color: colors.text }]}
         placeholder="Search locations…"
         placeholderTextColor={colors.subtext}
         value={search}
@@ -383,21 +385,23 @@ export default function LocationsScreen() {
 
   return (
     <SafeAreaView
-      style={[styles.safe, { backgroundColor: colors.background }]}
+      style={[SS.flex1, { backgroundColor: colors.background }]}
       edges={["top"]}
     >
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.text }]}>Locations</Text>
+      <View style={SS.screenHeader}>
+        <View>
+          <Text style={[SS.screenTitle, { color: colors.text }]}>Locations</Text>
+          <Text style={[SS.screenSubtitle, { color: colors.subtext }]}>
+            {state.locations.length === 0
+              ? "No locations yet"
+              : `${state.locations.length} location${state.locations.length !== 1 ? "s" : ""}`}
+          </Text>
+        </View>
         <TouchableOpacity
-          style={[
-            styles.headerAddBtn,
-            { borderColor: accent, backgroundColor: colors.card },
-          ]}
+          style={[SS.headerBtn, { borderColor: accent, backgroundColor: colors.card }]}
           onPress={() => setShowAdd(true)}
         >
-          <Text style={[styles.headerAddBtnText, { color: accent }]}>
-            + Add
-          </Text>
+          <Text style={[SS.headerBtnText, { color: accent }]}>+ Add</Text>
         </TouchableOpacity>
       </View>
 
@@ -405,7 +409,7 @@ export default function LocationsScreen() {
         <SectionList
           sections={cityGroups}
           keyExtractor={(l) => l.id}
-          contentContainerStyle={styles.list}
+          contentContainerStyle={SS.listContent}
           stickySectionHeadersEnabled={false}
           ListHeaderComponent={
             <>
@@ -439,7 +443,7 @@ export default function LocationsScreen() {
         <FlatList
           data={filtered}
           keyExtractor={(l) => l.id}
-          contentContainerStyle={styles.list}
+          contentContainerStyle={SS.listContent}
           ListHeaderComponent={
             <>
               {searchBar}
@@ -468,35 +472,6 @@ export default function LocationsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingTop: 4,
-    paddingBottom: 12,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "800",
-    letterSpacing: -0.5,
-  },
-  searchWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    gap: 8,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 15,
-    padding: 0,
-  },
   tabBar: {
     flexDirection: "row",
     borderRadius: 12,
@@ -522,45 +497,11 @@ const styles = StyleSheet.create({
   },
   cityTitle: { fontSize: 16, fontWeight: "700" },
   cityCount: { fontSize: 13 },
-  list: {
-    paddingHorizontal: 20,
-    paddingBottom: 40,
-  },
-  emptyWrap: {
-    alignItems: "center",
-    paddingTop: 60,
-    gap: 6,
-  },
-  emptyEmoji: { fontSize: 36, marginBottom: 4 },
-  emptyTitle: { fontSize: 17, fontWeight: "700" },
-  emptyNote: { fontSize: 14, textAlign: "center" },
-  // Full-screen modal
-  fsModalSafe: { flex: 1 },
-  fsModalContent: {
-    padding: 20,
-    gap: 4,
-  },
-  fieldLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    marginTop: 8,
-    marginBottom: 4,
-  },
   fieldHint: {
     fontSize: 12,
     lineHeight: 17,
     marginTop: -2,
     marginBottom: 6,
-  },
-  input: {
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    fontSize: 16,
-    marginBottom: 4,
   },
   inputRow: {
     flexDirection: "row",
@@ -569,11 +510,4 @@ const styles = StyleSheet.create({
   inputFlex: { flex: 1 },
   inputPostcode: { width: 120 },
   errorText: { fontSize: 11, color: "#ef4444", marginTop: 2, marginBottom: 4 },
-  headerAddBtn: {
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-  },
-  headerAddBtnText: { fontSize: 13, fontWeight: "600" },
 });

@@ -82,8 +82,6 @@ function ProductFormModal({
   const [category, setCategory] = useState<ProductCategory>("sweet");
   const [imageUri, setImageUri] = useState<string | null>(null);
 
-  // Populate fields whenever the modal becomes visible — replaces the old
-  // `Modal.onShow` hook now that we render via SlideModal.
   useEffect(() => {
     if (!visible) return;
     if (editProduct) {
@@ -100,13 +98,9 @@ function ProductFormModal({
 
   const pickFromLibrary = async () => {
     if (Platform.OS !== "web") {
-      const { status } =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== "granted") {
-        Alert.alert(
-          "Permission needed",
-          "Allow photo access to upload a product image.",
-        );
+        Alert.alert("Permission needed", "Allow photo access to upload a product image.");
         return;
       }
     }
@@ -122,10 +116,7 @@ function ProductFormModal({
   const takePhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== "granted") {
-      Alert.alert(
-        "Permission needed",
-        "Allow camera access to take a product photo.",
-      );
+      Alert.alert("Permission needed", "Allow camera access to take a product photo.");
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
@@ -137,11 +128,7 @@ function ProductFormModal({
   };
 
   const pickImage = () => {
-    // Web doesn't support launchCameraAsync; go straight to library.
-    if (Platform.OS === "web") {
-      pickFromLibrary();
-      return;
-    }
+    if (Platform.OS === "web") { pickFromLibrary(); return; }
     Alert.alert(
       "Product Image",
       "Choose a source",
@@ -172,22 +159,15 @@ function ProductFormModal({
       return;
     }
     if (isEdit && editProduct) {
-      updateProduct({
-        ...editProduct,
-        name: trimmed,
-        category,
-        localImageUri: imageUri ?? undefined,
-      });
+      updateProduct({ ...editProduct, name: trimmed, category, localImageUri: imageUri ?? undefined });
     } else {
-      addProduct(trimmed, undefined, category, imageUri ?? undefined);
+      addProduct(trimmed, category, imageUri ?? undefined);
     }
     onClose();
   };
 
-  // User-uploaded URI takes priority; fall back to the bundled asset for
-  // this product id. Extracted out of the JSX so the logic is readable.
   const uploadedSrc = imageUri ? { uri: imageUri } : null;
-  const bundledSrc = editProduct ? PRODUCT_IMAGES[editProduct.id] : null;
+  const bundledSrc = editProduct ? PRODUCT_IMAGES[editProduct.id] ?? null : null;
   const displaySrc = uploadedSrc ?? bundledSrc ?? null;
   const canClear = !!imageUri;
 
@@ -284,18 +264,9 @@ function ProductFormModal({
                 ]}
               >
                 {displaySrc ? (
-                  <Image
-                    source={displaySrc}
-                    style={styles.imagePreview}
-                    resizeMode="contain"
-                  />
+                  <Image source={displaySrc} style={styles.imagePreview} resizeMode="contain" />
                 ) : (
-                  <Text
-                    style={[
-                      styles.imagePickerPlaceholder,
-                      { color: colors.subtext },
-                    ]}
-                  >
+                  <Text style={[styles.imagePickerPlaceholder, { color: colors.subtext }]}>
                     {"📷  Tap to add photo"}
                   </Text>
                 )}
@@ -304,16 +275,9 @@ function ProductFormModal({
                 <TouchableOpacity
                   onPress={() => setImageUri(null)}
                   hitSlop={8}
-                  style={[
-                    styles.imageClear,
-                    { backgroundColor: colors.border },
-                  ]}
+                  style={[styles.imageClear, { backgroundColor: colors.border }]}
                 >
-                  <Text
-                    style={[styles.imageClearText, { color: colors.text }]}
-                  >
-                    ✕
-                  </Text>
+                  <Text style={[styles.imageClearText, { color: colors.text }]}>✕</Text>
                 </TouchableOpacity>
               )}
             </View>
