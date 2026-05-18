@@ -29,6 +29,7 @@ import { useColorScheme } from "@/hooks/use-color-scheme";
 import type {
   Machine,
   MachineType,
+  OpeningHours,
   RestockEntry,
   RestockMachineEntry,
   RestockSessionReplacementLine,
@@ -293,6 +294,31 @@ export default function LocationDetailScreen() {
       updateLocation({ ...location, openingHours: newHours });
     }
   };
+
+  const applyOpeningHoursToAllDays = useCallback(
+    (sourceDay: WeekDay) => {
+      if (!location?.openingHours?.[sourceDay]) return;
+      const open =
+        parseTimeInput(timeInputs[sourceDay].open) ??
+        location.openingHours[sourceDay]?.open ??
+        "09:00";
+      const close =
+        parseTimeInput(timeInputs[sourceDay].close) ??
+        location.openingHours[sourceDay]?.close ??
+        "17:00";
+      const newHours: OpeningHours = {};
+      WEEK_DAYS.forEach((d) => {
+        newHours[d] = { open, close };
+      });
+      const newInputs = {} as Record<WeekDay, { open: string; close: string }>;
+      WEEK_DAYS.forEach((d) => {
+        newInputs[d] = { open, close };
+      });
+      setTimeInputs(newInputs);
+      updateLocation({ ...location, openingHours: newHours });
+    },
+    [location, timeInputs, updateLocation],
+  );
 
   const handleMachineUpdate = useCallback(
     (machine: Machine) => updateMachine(location?.id ?? "", machine),
@@ -951,6 +977,7 @@ export default function LocationDetailScreen() {
           onToggleDay={toggleDay}
           onTimeBlur={handleTimeBlur}
           onTimeSave={handleTimeSave}
+          onApplyToAllDays={applyOpeningHoursToAllDays}
           colors={colors}
           accent={accent}
         />

@@ -16,7 +16,7 @@ import { SlideModal } from "@/components/ui/slide-modal";
 import { TimePickerModal } from "@/components/ui/time-picker-modal";
 import { Colors } from "@/constants/theme";
 import type { WeekDay } from "@/types";
-import { DAY_LABELS, WEEK_DAYS } from "@/utils/opening-hours";
+import { DAY_LABELS, WEEK_DAYS, parseTimeInput } from "@/utils/opening-hours";
 
 type TimeInputs = Record<WeekDay, { open: string; close: string }>;
 
@@ -33,6 +33,7 @@ export interface OpeningHoursModalProps {
   onToggleDay: (day: WeekDay, enabled: boolean) => void;
   onTimeBlur: (day: WeekDay, field: "open" | "close") => void;
   onTimeSave: (day: WeekDay, field: "open" | "close", value: string) => void;
+  onApplyToAllDays: (sourceDay: WeekDay) => void;
   colors: (typeof Colors)["light"];
   accent: string;
 }
@@ -48,6 +49,7 @@ export const OpeningHoursModal = memo(function OpeningHoursModal({
   onToggleDay,
   onTimeBlur,
   onTimeSave,
+  onApplyToAllDays,
   colors,
   accent,
 }: OpeningHoursModalProps) {
@@ -79,6 +81,9 @@ export const OpeningHoursModal = memo(function OpeningHoursModal({
         >
           {WEEK_DAYS.map((day) => {
             const isEnabled = !!openingHours?.[day];
+            const openOk = !!parseTimeInput(timeInputs[day].open);
+            const closeOk = !!parseTimeInput(timeInputs[day].close);
+            const canApplyToAll = isEnabled && openOk && closeOk;
             return (
               <View
                 key={day}
@@ -94,74 +99,89 @@ export const OpeningHoursModal = memo(function OpeningHoursModal({
                   thumbColor="#fff"
                 />
                 {isEnabled ? (
-                  <View style={styles.hoursTimes}>
-                    {(["open", "close"] as const).map((field, idx) => (
-                      <View key={field} style={styles.timeFieldWrap}>
-                        {idx === 1 && (
-                          <Text
-                            style={[
-                              styles.hoursDash,
-                              { color: colors.subtext },
-                            ]}
-                          >
-                            –
-                          </Text>
-                        )}
-                        {Platform.OS === "web" ? (
-                          <TextInput
-                            style={[
-                              styles.hoursTimeInput,
-                              {
-                                color: colors.text,
-                                borderColor:
-                                  focusedField === `${day}_${field}`
-                                    ? accent
-                                    : colors.border,
-                                backgroundColor: colors.background,
-                              },
-                            ]}
-                            value={timeInputs[day][field]}
-                            onChangeText={(v) =>
-                              onChangeTimeInput(day, field, v)
-                            }
-                            onFocus={() => setFocusedField(`${day}_${field}`)}
-                            onBlur={() => {
-                              setFocusedField(null);
-                              onTimeBlur(day, field);
-                            }}
-                            placeholder={field === "open" ? "09:00" : "17:00"}
-                            placeholderTextColor={colors.subtext}
-                            keyboardType="numbers-and-punctuation"
-                            maxLength={5}
-                            returnKeyType={field === "open" ? "next" : "done"}
-                            selectionColor={`${accent}44`}
-                            cursorColor={accent}
-                            autoCorrect={false}
-                          />
-                        ) : (
-                          <TouchableOpacity
-                            style={[
-                              styles.hoursTimeBtn,
-                              {
-                                borderColor: colors.border,
-                                backgroundColor: colors.card,
-                              },
-                            ]}
-                            onPress={() => setPickerTarget({ day, field })}
-                            activeOpacity={0.7}
-                          >
+                  <View style={styles.hoursEnabledRight}>
+                    <View style={styles.hoursTimes}>
+                      {(["open", "close"] as const).map((field, idx) => (
+                        <View key={field} style={styles.timeFieldWrap}>
+                          {idx === 1 && (
                             <Text
                               style={[
-                                styles.hoursTimeBtnText,
-                                { color: colors.text },
+                                styles.hoursDash,
+                                { color: colors.subtext },
                               ]}
                             >
-                              {timeInputs[day][field]}
+                              –
                             </Text>
-                          </TouchableOpacity>
-                        )}
-                      </View>
-                    ))}
+                          )}
+                          {Platform.OS === "web" ? (
+                            <TextInput
+                              style={[
+                                styles.hoursTimeInput,
+                                {
+                                  color: colors.text,
+                                  borderColor:
+                                    focusedField === `${day}_${field}`
+                                      ? accent
+                                      : colors.border,
+                                  backgroundColor: colors.background,
+                                },
+                              ]}
+                              value={timeInputs[day][field]}
+                              onChangeText={(v) =>
+                                onChangeTimeInput(day, field, v)
+                              }
+                              onFocus={() => setFocusedField(`${day}_${field}`)}
+                              onBlur={() => {
+                                setFocusedField(null);
+                                onTimeBlur(day, field);
+                              }}
+                              placeholder={field === "open" ? "09:00" : "17:00"}
+                              placeholderTextColor={colors.subtext}
+                              keyboardType="numbers-and-punctuation"
+                              maxLength={5}
+                              returnKeyType={field === "open" ? "next" : "done"}
+                              selectionColor={`${accent}44`}
+                              cursorColor={accent}
+                              autoCorrect={false}
+                            />
+                          ) : (
+                            <TouchableOpacity
+                              style={[
+                                styles.hoursTimeBtn,
+                                {
+                                  borderColor: colors.border,
+                                  backgroundColor: colors.card,
+                                },
+                              ]}
+                              onPress={() => setPickerTarget({ day, field })}
+                              activeOpacity={0.7}
+                            >
+                              <Text
+                                style={[
+                                  styles.hoursTimeBtnText,
+                                  { color: colors.text },
+                                ]}
+                              >
+                                {timeInputs[day][field]}
+                              </Text>
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                      ))}
+                    </View>
+                    {canApplyToAll ? (
+                      <TouchableOpacity
+                        onPress={() => onApplyToAllDays(day)}
+                        hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
+                      >
+                        <Text
+                          style={[styles.applyAllLabel, { color: accent }]}
+                          numberOfLines={2}
+                        >
+                          Apply to all
+                        </Text>
+                      </TouchableOpacity>
+                    ) : null}
                   </View>
                 ) : (
                   <Text style={[styles.hoursClosed, { color: colors.subtext }]}>
@@ -202,11 +222,19 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   hoursDay: { fontSize: 14, fontWeight: "600", width: 36 },
+  hoursEnabledRight: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    minWidth: 0,
+  },
   hoursTimes: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
+    minWidth: 0,
   },
   timeFieldWrap: {
     flexDirection: "row",
@@ -235,4 +263,10 @@ const styles = StyleSheet.create({
   },
   hoursDash: { fontSize: 14 },
   hoursClosed: { flex: 1, fontSize: 13, fontStyle: "italic" },
+  applyAllLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    maxWidth: 76,
+    textAlign: "right",
+  },
 });
