@@ -118,6 +118,8 @@ A stock and restock management app for Tubz vending machines, built with [Expo](
 
 ## Building an APK
 
+Place **`google-services.json`** at the project root (from [Firebase Console](https://console.firebase.google.com/) → Project settings → your Android app). This file is **not** in the repo; each developer and EAS must supply their own copy for Android builds with FCM.
+
 ```bash
 npm run build:apk
 ```
