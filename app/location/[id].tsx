@@ -1169,6 +1169,14 @@ export default function LocationDetailScreen() {
             });
           }}
           onReplaceProduct={replaceProductInRestockSession}
+          onChangeReplacementProduct={(machineId, lineId, newProductId) => {
+            setReplacementLines((prev) => ({
+              ...prev,
+              [machineId]: (prev[machineId] ?? []).map((l) =>
+                l.id === lineId ? { ...l, productId: newProductId } : l,
+              ),
+            }));
+          }}
           accent={accent}
           colors={colors}
         />

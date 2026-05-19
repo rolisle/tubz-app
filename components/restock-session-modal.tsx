@@ -57,6 +57,11 @@ export interface RestockSessionModalProps {
     oldProductId: string,
     newProductId: string,
   ) => void;
+  onChangeReplacementProduct: (
+    machineId: string,
+    lineId: string,
+    newProductId: string,
+  ) => void;
   accent: string;
   colors: (typeof Colors)["light"];
 }
@@ -82,6 +87,7 @@ export function RestockSessionModal({
   onToggleReplacementDone,
   onSnapReplacementQty,
   onReplaceProduct,
+  onChangeReplacementProduct,
   accent,
   colors,
 }: RestockSessionModalProps) {
@@ -89,6 +95,7 @@ export function RestockSessionModal({
     machineId: string;
     oldProductId: string;
     category: ProductCategory;
+    lineId?: string;
   } | null>(null);
 
   useEffect(() => {
@@ -135,9 +142,9 @@ export function RestockSessionModal({
                 <Text style={{ fontWeight: "600", color: colors.text }}>
                   Change product
                 </Text>{" "}
-                adds a “new stock in swapped slots” row; original columns stay in
-                the top section so you can track missing stock for the old SKU
-                until you tap Done (then the planogram updates).
+                adds a “new stock in swapped slots” row; original columns stay
+                in the top section so you can track missing stock for the old
+                SKU until you tap Done (then the planogram updates).
               </Text>
               {machines.map((machine) => {
                 const primaryMap = primarySlotCounts[machine.id] ?? {};
@@ -331,6 +338,15 @@ export function RestockSessionModal({
                                       )
                                     }
                                     replacingLabel={label}
+                                    onChangeProduct={() =>
+                                      setReplaceFor({
+                                        machineId: machine.id,
+                                        oldProductId: line.productId,
+                                        category:
+                                          machine.type as ProductCategory,
+                                        lineId: line.id,
+                                      })
+                                    }
                                   />
                                 );
                               })}
@@ -361,11 +377,19 @@ export function RestockSessionModal({
                 ]}
                 onPress={() => {
                   if (product.id !== replaceFor.oldProductId) {
-                    onReplaceProduct(
-                      replaceFor.machineId,
-                      replaceFor.oldProductId,
-                      product.id,
-                    );
+                    if (replaceFor.lineId) {
+                      onChangeReplacementProduct(
+                        replaceFor.machineId,
+                        replaceFor.lineId,
+                        product.id,
+                      );
+                    } else {
+                      onReplaceProduct(
+                        replaceFor.machineId,
+                        replaceFor.oldProductId,
+                        product.id,
+                      );
+                    }
                   }
                   setReplaceFor(null);
                 }}
@@ -375,7 +399,9 @@ export function RestockSessionModal({
                   {product.name}
                 </Text>
                 {product.id === replaceFor.oldProductId ? (
-                  <Text style={[styles.pickerCurrent, { color: rowColors.subtext }]}>
+                  <Text
+                    style={[styles.pickerCurrent, { color: rowColors.subtext }]}
+                  >
                     Current
                   </Text>
                 ) : null}
