@@ -12,6 +12,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [1.0.10] - 2026-05-19
+
+**Android `versionCode`:** 10
+
+### Added
+
+- **Location → Opening hours:** **Apply to all days** on any open day — copies that row’s open/close times to Mon–Sun and enables every day.
+- **Settings → Data:** **Last export** and **Last import** timestamps under the export/import buttons.
+- **Settings → Export format:** choose **JSON** (default) or **Tubz CSV**; import accepts both. CSV embeds machines, opening hours, and restock history as JSON in table cells.
+- **Location → Restock session:** **Change product** on **New stock in swapped slots** rows so you can pick a different replacement SKU without going back to the original product row.
+
+### Changed
+
+- **Dashboard → Test menu (🧪):** notification permission / schedule diagnostics moved here from main Settings (restock reminders unchanged).
+- **Products:** catalog and custom products use **name, category, and optional image** only — **emoji** removed from the product model and export files.
+- **Settings → Export / import:** status text below the buttons (exporting, success, errors); import errors no longer leave a stuck **Importing…** state on web; modal **stays open** after a successful import.
+- **Tab screens** (Stock, Locations, Restock, Products): shared header/title/subtitle/button layout via `constants/shared-styles.ts`; spacing aligned with the dashboard.
+
+### Fixed
+
+- **Dashboard → Settings → What’s new** no longer crashes when a release note section is empty.
+- **Import:** stricter validation (size limits, types, maps URL rules, nested machine/history checks); invalid files rejected instead of corrupting local data; device-only `localImageUri` values stripped on import.
+- **CSV import:** location rows with the full column set parse correctly again.
+
+---
+
 ## [1.0.9] - 2026-05-11
 
 **Android `versionCode`:** 9

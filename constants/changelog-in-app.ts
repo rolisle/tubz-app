@@ -14,6 +14,28 @@ export type ChangelogRelease = {
 
 export const CHANGELOG_IN_APP: ChangelogRelease[] = [
   {
+    version: "1.0.10",
+    date: "2026-05-19",
+    androidVersionCode: 10,
+    added: [
+      "Location → Opening hours: Apply to all days copies one day’s open/close times to Mon–Sun and enables every day.",
+      "Settings → Data: Last export and Last import timestamps under the export/import buttons.",
+      "Settings → Export format: JSON (default) or Tubz CSV; import accepts both.",
+      "Location → Restock session: Change product on New stock in swapped slots rows to redo the replacement SKU.",
+    ],
+    changed: [
+      "Dashboard → Test menu (🧪): notification diagnostics moved here from main Settings.",
+      "Products: name, category, and optional image only — emoji removed from the catalog and exports.",
+      "Settings → Export / import: status text below the buttons; modal stays open after a successful import.",
+      "Tab screens: consistent header layout and spacing aligned with the dashboard.",
+    ],
+    fixed: [
+      "Dashboard → Settings → What’s new no longer crashes when a release section is empty.",
+      "Import: stronger on-device validation; invalid files rejected instead of corrupting data.",
+      "Web import no longer stuck on Importing…; CSV location rows import correctly again.",
+    ],
+  },
+  {
     version: "1.0.9",
     date: "2026-05-11",
     androidVersionCode: 9,

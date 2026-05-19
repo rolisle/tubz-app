@@ -12,7 +12,7 @@ A stock and restock management app for Tubz vending machines, built with [Expo](
 - **Upcoming Restocks** — locations with a restock period set, sorted by soonest due date; never-restocked locations shown at the bottom
 - **Recent Restocks** — up to 8 locations sorted by most recently restocked
 - Settings icon (⚙️) opens the theme settings modal
-- **Test menu** (🧪) — temporary developer control next to the settings icon. Includes **notification diagnostics** (permission and schedule counts on native), **Android exact-alarm settings**, sample **local** restock tests, and (on **iOS/Android builds only**) an optional **Expo push** test that talks to Expo’s push API. On **web**, notification tests show “not available” and the Expo push section is a stub (does not load `expo-notifications`). Remove this entry point when you no longer need it
+- **Test menu** (🧪) — temporary developer control next to the settings icon. Includes **notification diagnostics** (permission and schedule counts on native; moved here from main Settings in 1.0.10), **Android exact-alarm settings**, sample **local** restock tests, and (on **iOS/Android builds only**) an optional **Expo push** test that talks to Expo’s push API. On **web**, notification tests show “not available” and the Expo push section is a stub (does not load `expo-notifications`). Remove this entry point when you no longer need it
 - Tap any restock card to navigate directly to that location
 - 🔎 on **Upcoming** / **Recent** restock cards opens Google Maps when the location has a maps link or address
 
@@ -29,12 +29,13 @@ A stock and restock management app for Tubz vending machines, built with [Expo](
 - Track when each location was last restocked (updates when you restock or edit history) with full restock history
 - Set a **restock period** (1–12 weeks) per location; new locations default to 4 weeks. The **1 week** option is a **“remind me in one week from now”** control (see changelog 1.0.7); other values use **last restocked** (or **created** if never restocked) + N weeks for due date
 - Location detail uses a ⚙️ menu (top right) with options: Edit address, Edit opening hours, Restock history, Delete
-- **Restock session** (from the location): **Change product** adds a replacement row; the live planogram and primary slot counts stay as today until you tap **Done**, so you can finish counting missing stock on the old SKU (see [CHANGELOG](CHANGELOG.md) 1.0.9)
+- **Restock session** (from the location): **Change product** on an **original** row adds a replacement line; **Change product** on a **new stock in swapped slots** row lets you redo the replacement SKU. The live planogram and primary slot counts stay as today until you tap **Done**, so you can finish counting missing stock on the old SKU (see [CHANGELOG](CHANGELOG.md) 1.0.9–1.0.10)
 
 ### Opening Hours
 
 - Set opening and closing times (24h `HH:MM`) per day, Mon–Sun, per location
 - Toggle each day on (open) or off (closed)
+- **Apply to all days** — after setting open/close on one day, copy those times to every weekday and enable all days
 - Status is calculated in real time: **Open · Closes 5PM**, **Closed · Opens Mon 9AM**, etc.
 - Displayed as a colour-coded pill on the location card and at the top of the location detail
 
@@ -51,7 +52,7 @@ A stock and restock management app for Tubz vending machines, built with [Expo](
 ### Products
 
 - Built-in catalog of 100+ Tubz products sourced from [tubzbrands.co.uk](https://www.tubzbrands.co.uk), with local images
-- Add or edit products: name, category, and optional uploaded image
+- Add or edit products: name, category, and optional uploaded image (no per-product emoji field)
 - Tap a product in the list to edit it; tap its image to zoom full-screen
 - No image defaults to a category icon (🍬 sweets, 🪀 toys)
 - Toggle between grid view and list view; products sorted alphabetically by category
@@ -89,7 +90,7 @@ A stock and restock management app for Tubz vending machines, built with [Expo](
 - **Stock levels** — max units per column for sweet and toy machines (defaults 9 and 12); drives restock quantity limits and history/session caps site-wide
 - Supports solid colours and 3-stop gradients, with preset swatches
 - Live preview of machine chip colours in the settings modal
-- **Export / import data** — choose **`.json`** (default) or **`.csv`** for export. **Import** accepts both: classic JSON exports and **Tubz CSV** (products + locations tables; machines, opening hours, and restock history are JSON embedded in CSV cells). **Last export / import** times are shown under the buttons.
+- **Export / import data** — choose **`.json`** (default) or **`.csv`** for export. **Import** accepts both: classic JSON exports and **Tubz CSV** (products + locations tables; machines, opening hours, and restock history are JSON embedded in CSV cells). **Last export / import** times are shown under the buttons; inline status text for export/import progress and errors (modal stays open after a successful import).
 
 ### Notifications
 
@@ -166,6 +167,7 @@ components/
 constants/
   default-products.ts  # Built-in product catalog (~100 products, alphabetical by ID)
   product-images.ts    # Local asset map (product ID → require())
+  shared-styles.ts     # Shared tab header, search, empty state, form field layout
   theme.ts             # Light/dark colour tokens
 
 context/

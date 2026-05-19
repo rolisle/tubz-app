@@ -1,7 +1,7 @@
 # Tubz — Privacy Policy
 
 **Effective date:** 15 April 2026
-**Last updated:** 11 May 2026
+**Last updated:** 19 May 2026
 
 This Privacy Policy describes how the Tubz mobile application ("Tubz", "the
 app", "we", "our", or "us") handles information when you use it. By using the
@@ -53,7 +53,7 @@ AsyncStorage / app-private storage):
   and optionally a **one-week reminder anchor** (timestamp) when you use that
   restock option — stored only for due-date calculation on the device.
 - **Machines** — machine type and product layout per location.
-- **Products** — product names, emojis, categories, and optional images
+- **Products** — product names, categories, and optional images
   you choose from your photo library.
 - **Restock history** — dates, product lists, and quantities for each
   restock session; if you **change product** in a machine slot during a
@@ -126,8 +126,9 @@ system's share sheet. From there, you decide where the file goes
 (e.g. email, cloud storage, another device). Tubz does not upload the
 file on your behalf.
 
-The **Import** feature reads a **JSON** or **Tubz CSV** file you pick from your device and
-merges its contents into the app's local storage.
+The **Import** feature reads a **JSON** or **Tubz CSV** file you pick from your device,
+validates structure and limits on-device, then merges valid contents into the app's local
+storage. Invalid files are rejected; they are not uploaded anywhere for checking.
 
 Any data you share via export becomes subject to the privacy practices of
 the destination you send it to (email provider, cloud storage, etc.).
